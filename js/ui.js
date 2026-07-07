@@ -1,0 +1,328 @@
+import { ITEMS, BOSS, SKILL_FIREBALL, TOWN_POS } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject } from './state.js';
+import { hasSave, loadSave, writeSave, clearSave } from './save.js';
+import { drawMap, tryMove, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
+import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards } from './battle.js';
+
+let state = null;
+let battle = null;
+let prevPos = null;
+
+const el = (id) => document.getElementById(id);
+
+const screens = {
+  title: el('screen-title'),
+  map: el('screen-map'),
+  battle: el('screen-battle'),
+  gameover: el('screen-gameover'),
+  victory: el('screen-victory'),
+};
+
+function showScreen(name) {
+  Object.values(screens).forEach((s) => s.classList.add('hidden'));
+  screens[name].classList.remove('hidden');
+}
+
+function showModal(id) { el(id).classList.remove('hidden'); }
+function hideModal(id) { el(id).classList.add('hidden'); }
+
+let toastTimer = null;
+function showToast(msg, ms = 1600) {
+  const toast = el('map-toast');
+  toast.textContent = msg;
+  toast.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.add('hidden'), ms);
+}
+
+function pct(cur, max) {
+  return Math.max(0, Math.min(100, Math.round((cur / max) * 100)));
+}
+
+// ---------- Map screen ----------
+let ctx = null;
+
+function initCanvas() {
+  const canvas = el('map-canvas');
+  canvas.width = MAP_COLS * TILE_SIZE;
+  canvas.height = MAP_ROWS * TILE_SIZE;
+  ctx = canvas.getContext('2d');
+}
+
+function redrawMap() {
+  drawMap(ctx, state);
+}
+
+function updateHud() {
+  const p = state.player;
+  el('hud-name').textContent = p.name;
+  el('hud-level').textContent = `Lv. ${p.level}`;
+  el('hud-gold').textContent = `${p.gold} G`;
+  el('hud-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
+  el('hud-hp-text').textContent = `${p.hp}/${p.maxHp}`;
+  el('hud-mp-fill').style.width = `${pct(p.mp, p.maxMp)}%`;
+  el('hud-mp-text').textContent = `${p.mp}/${p.maxMp}`;
+}
+
+function goToMap() {
+  updateHud();
+  redrawMap();
+  showScreen('map');
+}
+
+function autosave() {
+  writeSave(toSaveObject(state));
+}
+
+function handleMove(dir) {
+  const deltas = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+  const [dx, dy] = deltas[dir];
+  prevPos = { ...state.pos };
+  const result = tryMove(state, dx, dy);
+  redrawMap();
+
+  if (result === 'blocked') return;
+  if (result === 'moved') return;
+  if (result === 'town') {
+    autosave();
+    showModal('modal-town');
+    return;
+  }
+  if (result === 'boss') {
+    showModal('modal-boss');
+    return;
+  }
+  if (result === 'encounter') {
+    startBattle(pickRandomEnemy(), false);
+  }
+}
+
+// ---------- Battle screen ----------
+function renderBattle() {
+  const p = state.player;
+  el('enemy-name').textContent = battle.enemy.name;
+  el('enemy-hp-fill').style.width = `${pct(battle.enemy.hp, battle.enemy.maxHp)}%`;
+  el('battle-player-name').textContent = `${p.name} (Lv. ${p.level})`;
+  el('battle-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
+  el('battle-hp-text').textContent = `${p.hp}/${p.maxHp}`;
+  el('battle-mp-fill').style.width = `${pct(p.mp, p.maxMp)}%`;
+  el('battle-mp-text').textContent = `${p.mp}/${p.maxMp}`;
+  el('battle-log').innerHTML = battle.log.map((l) => `<div>${l}</div>`).join('');
+
+  el('btn-skill').disabled = p.mp < SKILL_FIREBALL.mpCost;
+
+  const menuMain = el('battle-menu-main');
+  const menuItems = el('battle-menu-items');
+  const continueBtn = el('btn-battle-continue');
+
+  if (battle.over) {
+    menuMain.classList.add('hidden');
+    menuItems.classList.add('hidden');
+    continueBtn.classList.remove('hidden');
+  } else {
+    continueBtn.classList.add('hidden');
+  }
+}
+
+function startBattle(enemyDef, isBoss) {
+  battle = createBattle(enemyDef);
+  battle.isBoss = isBoss;
+  el('battle-menu-main').classList.remove('hidden');
+  el('battle-menu-items').classList.add('hidden');
+  showScreen('battle');
+  renderBattle();
+}
+
+function resolveBattleEnd() {
+  const p = state.player;
+  if (battle.result === 'win') {
+    const rewards = grantRewards(state, battle.enemy);
+    let msg = `Won ${rewards.goldWon}G and ${rewards.xpWon} XP.`;
+    if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
+    showToast(msg, 2400);
+    if (battle.isBoss) {
+      state.flags.bossDefeated = true;
+      autosave();
+      showScreen('victory');
+      return;
+    }
+    autosave();
+    goToMap();
+  } else if (battle.result === 'lose') {
+    showScreen('gameover');
+  } else {
+    goToMap();
+  }
+}
+
+function respawnAfterDefeat() {
+  const p = state.player;
+  p.gold = Math.floor(p.gold * 0.8);
+  p.hp = p.maxHp;
+  p.mp = p.maxMp;
+  state.pos = { ...TOWN_POS };
+  // step off the town tile so re-entering fires the town event naturally later
+  state.pos.y += 1;
+  autosave();
+  goToMap();
+  showToast('You limp back to town, a little poorer.', 2400);
+}
+
+// ---------- Item submenu ----------
+function renderItemMenu() {
+  const p = state.player;
+  const potionBtn = el('btn-item-potion');
+  const etherBtn = el('btn-item-ether');
+  potionBtn.textContent = `${ITEMS.potion.name} (${p.inventory.potion || 0})`;
+  potionBtn.disabled = !(p.inventory.potion > 0);
+  etherBtn.textContent = `${ITEMS.ether.name} (${p.inventory.ether || 0})`;
+  etherBtn.disabled = !(p.inventory.ether > 0);
+}
+
+// ---------- Shop ----------
+function renderShop() {
+  el('shop-gold').textContent = state.player.gold;
+  const list = el('shop-list');
+  list.innerHTML = '';
+  Object.values(ITEMS).forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">${item.name}</span>
+        <span class="shop-item-desc">${item.desc} — ${item.price}G</span>
+      </div>
+      <button class="btn btn-small" data-buy="${item.key}">Buy</button>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('[data-buy]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-buy');
+      const item = ITEMS[key];
+      if (state.player.gold >= item.price) {
+        state.player.gold -= item.price;
+        state.player.inventory[key] = (state.player.inventory[key] || 0) + 1;
+        autosave();
+        renderShop();
+      }
+    });
+  });
+}
+
+// ---------- Status ----------
+function renderStatus() {
+  const p = state.player;
+  el('status-name').textContent = `${p.name} — Lv. ${p.level}`;
+  el('status-body').innerHTML = `
+    <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
+    <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
+    <div class="status-row"><span>Attack</span><span>${p.atk}</span></div>
+    <div class="status-row"><span>Defense</span><span>${p.def}</span></div>
+    <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
+    <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
+    <div class="status-row"><span>Weapon</span><span>${p.weapon}</span></div>
+    <div class="status-row"><span>Armor</span><span>${p.armor}</span></div>
+    <div class="status-row"><span>Potions</span><span>${p.inventory.potion || 0}</span></div>
+    <div class="status-row"><span>Ethers</span><span>${p.inventory.ether || 0}</span></div>
+  `;
+}
+
+// ---------- Wiring ----------
+function wireEvents() {
+  el('btn-new-game').addEventListener('click', () => {
+    state = newGameState();
+    autosave();
+    goToMap();
+  });
+
+  el('btn-continue').addEventListener('click', () => {
+    const saved = loadSave();
+    if (!saved) return;
+    state = fromSaveObject(saved);
+    goToMap();
+  });
+
+  document.querySelectorAll('.dpad-btn').forEach((btn) => {
+    btn.addEventListener('click', () => handleMove(btn.getAttribute('data-dir')));
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (screens.map.classList.contains('hidden')) return;
+    const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
+    const dir = map[e.key];
+    if (dir) { e.preventDefault(); handleMove(dir); }
+  });
+
+  el('btn-status').addEventListener('click', () => { renderStatus(); showModal('modal-status'); });
+  el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
+
+  // Town modal
+  el('btn-town-rest').addEventListener('click', () => {
+    state.player.hp = state.player.maxHp;
+    state.player.mp = state.player.maxMp;
+    autosave();
+    updateHud();
+    showToast('You feel fully rested.');
+  });
+  el('btn-town-shop').addEventListener('click', () => {
+    hideModal('modal-town');
+    renderShop();
+    showModal('modal-shop');
+  });
+  el('btn-town-leave').addEventListener('click', () => {
+    hideModal('modal-town');
+    updateHud();
+  });
+  el('btn-shop-back').addEventListener('click', () => {
+    hideModal('modal-shop');
+    showModal('modal-town');
+  });
+
+  // Boss modal
+  el('btn-boss-fight').addEventListener('click', () => {
+    hideModal('modal-boss');
+    startBattle(BOSS, true);
+  });
+  el('btn-boss-retreat').addEventListener('click', () => {
+    hideModal('modal-boss');
+    if (prevPos) { state.pos = { ...prevPos }; redrawMap(); }
+  });
+
+  // Battle menu
+  el('btn-attack').addEventListener('click', () => { playerAttack(battle, state); renderBattle(); });
+  el('btn-skill').addEventListener('click', () => { playerSkill(battle, state); renderBattle(); });
+  el('btn-run').addEventListener('click', () => { playerRun(battle, state); renderBattle(); });
+  el('btn-item').addEventListener('click', () => {
+    renderItemMenu();
+    el('battle-menu-main').classList.add('hidden');
+    el('battle-menu-items').classList.remove('hidden');
+  });
+  el('btn-item-back').addEventListener('click', () => {
+    el('battle-menu-items').classList.add('hidden');
+    el('battle-menu-main').classList.remove('hidden');
+  });
+  el('btn-item-potion').addEventListener('click', () => {
+    playerItem(battle, state, 'potion');
+    el('battle-menu-items').classList.add('hidden');
+    el('battle-menu-main').classList.remove('hidden');
+    renderBattle();
+  });
+  el('btn-item-ether').addEventListener('click', () => {
+    playerItem(battle, state, 'ether');
+    el('battle-menu-items').classList.add('hidden');
+    el('battle-menu-main').classList.remove('hidden');
+    renderBattle();
+  });
+  el('btn-battle-continue').addEventListener('click', () => resolveBattleEnd());
+
+  el('btn-gameover-continue').addEventListener('click', () => respawnAfterDefeat());
+  el('btn-victory-continue').addEventListener('click', () => goToMap());
+}
+
+export function init() {
+  initCanvas();
+  wireEvents();
+  el('btn-continue').disabled = !hasSave();
+  showScreen('title');
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Emberfall</title>
+<meta name="theme-color" content="#1a142e" />
+<meta name="description" content="Emberfall — a small turn-based RPG for your phone." />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE SCREEN -->
+  <section id="screen-title" class="screen">
+    <h1 class="title-logo">Emberfall</h1>
+    <p class="tagline">A small ember, a long road.</p>
+    <div class="menu-stack">
+      <button id="btn-new-game" class="btn btn-primary">New Game</button>
+      <button id="btn-continue" class="btn">Continue</button>
+    </div>
+    <p class="hint">Arrow keys or the D-pad to move. Walk into grass to find trouble.</p>
+  </section>
+
+  <!-- MAP SCREEN -->
+  <section id="screen-map" class="screen hidden">
+    <div class="hud">
+      <div class="hud-row">
+        <span id="hud-name" class="hud-name"></span>
+        <span id="hud-level" class="hud-level"></span>
+        <button id="btn-status" class="btn btn-small">Status</button>
+      </div>
+      <div class="hud-bars">
+        <div class="bar-track hp"><div id="hud-hp-fill" class="bar-fill"></div><span id="hud-hp-text" class="bar-text"></span></div>
+        <div class="bar-track mp"><div id="hud-mp-fill" class="bar-fill"></div><span id="hud-mp-text" class="bar-text"></span></div>
+      </div>
+      <div class="hud-row">
+        <span id="hud-gold" class="hud-gold"></span>
+      </div>
+    </div>
+
+    <div class="map-wrap">
+      <canvas id="map-canvas"></canvas>
+    </div>
+
+    <div id="map-toast" class="map-toast hidden"></div>
+
+    <div class="dpad">
+      <button class="dpad-btn dpad-up" data-dir="up" aria-label="Move up">&#9650;</button>
+      <button class="dpad-btn dpad-left" data-dir="left" aria-label="Move left">&#9664;</button>
+      <button class="dpad-btn dpad-right" data-dir="right" aria-label="Move right">&#9654;</button>
+      <button class="dpad-btn dpad-down" data-dir="down" aria-label="Move down">&#9660;</button>
+    </div>
+  </section>
+
+  <!-- BATTLE SCREEN -->
+  <section id="screen-battle" class="screen hidden">
+    <div class="battle-field">
+      <div class="combatant enemy">
+        <div id="enemy-name" class="combatant-name"></div>
+        <div class="bar-track hp enemy-hp"><div id="enemy-hp-fill" class="bar-fill"></div></div>
+        <div id="enemy-sprite" class="sprite enemy-sprite"></div>
+      </div>
+      <div class="combatant player">
+        <div id="battle-player-name" class="combatant-name"></div>
+        <div class="bar-track hp"><div id="battle-hp-fill" class="bar-fill"></div><span id="battle-hp-text" class="bar-text"></span></div>
+        <div class="bar-track mp"><div id="battle-mp-fill" class="bar-fill"></div><span id="battle-mp-text" class="bar-text"></span></div>
+        <div class="sprite player-sprite"></div>
+      </div>
+    </div>
+
+    <div id="battle-log" class="battle-log"></div>
+
+    <div id="battle-menu-main" class="battle-menu">
+      <button id="btn-attack" class="btn btn-battle">Attack</button>
+      <button id="btn-skill" class="btn btn-battle">Fireball</button>
+      <button id="btn-item" class="btn btn-battle">Item</button>
+      <button id="btn-run" class="btn btn-battle">Run</button>
+    </div>
+
+    <div id="battle-menu-items" class="battle-menu hidden">
+      <button id="btn-item-potion" class="btn btn-battle"></button>
+      <button id="btn-item-ether" class="btn btn-battle"></button>
+      <button id="btn-item-back" class="btn btn-battle">Back</button>
+    </div>
+
+    <button id="btn-battle-continue" class="btn btn-primary hidden">Continue</button>
+  </section>
+
+  <!-- GAME OVER -->
+  <section id="screen-gameover" class="screen hidden">
+    <h2>You have fallen...</h2>
+    <p>The town's healers carry you home.</p>
+    <button id="btn-gameover-continue" class="btn btn-primary">Return to Town</button>
+  </section>
+
+  <!-- VICTORY -->
+  <section id="screen-victory" class="screen hidden">
+    <h2>The Dark Knight falls!</h2>
+    <p>Emberfall is safe... for now. This is the end of the vertical slice — thanks for playing!</p>
+    <button id="btn-victory-continue" class="btn btn-primary">Keep Exploring</button>
+  </section>
+
+  <!-- TOWN MODAL -->
+  <div id="modal-town" class="modal hidden">
+    <div class="modal-card">
+      <h2>Emberfall Town</h2>
+      <p class="modal-sub">A quiet place to rest and resupply.</p>
+      <div class="menu-stack">
+        <button id="btn-town-rest" class="btn">Rest (heal HP &amp; MP)</button>
+        <button id="btn-town-shop" class="btn">Shop</button>
+        <button id="btn-town-leave" class="btn btn-primary">Leave Town</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP MODAL -->
+  <div id="modal-shop" class="modal hidden">
+    <div class="modal-card">
+      <h2>Shop</h2>
+      <p class="modal-sub">Gold: <span id="shop-gold"></span></p>
+      <div id="shop-list" class="shop-list"></div>
+      <button id="btn-shop-back" class="btn btn-primary">Back</button>
+    </div>
+  </div>
+
+  <!-- STATUS MODAL -->
+  <div id="modal-status" class="modal hidden">
+    <div class="modal-card">
+      <h2 id="status-name"></h2>
+      <div id="status-body" class="status-body"></div>
+      <button id="btn-status-close" class="btn btn-primary">Close</button>
+    </div>
+  </div>
+
+  <!-- BOSS WARNING MODAL -->
+  <div id="modal-boss" class="modal hidden">
+    <div class="modal-card">
+      <h2>The Dark Knight blocks the way</h2>
+      <p class="modal-sub">There is no running from this fight. Are you ready?</p>
+      <div class="menu-stack">
+        <button id="btn-boss-fight" class="btn btn-primary">Fight</button>
+        <button id="btn-boss-retreat" class="btn">Not Yet</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
