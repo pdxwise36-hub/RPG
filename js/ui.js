@@ -1,7 +1,7 @@
 import { ITEMS, SKILLS, WEAPONS, ARMORS, HERO_SPRITE, MAPS } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
-import { drawMap, tryMove, heroImage, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
+import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest } from './battle.js';
 
 let state = null;
@@ -48,6 +48,9 @@ function initCanvas() {
   canvas.height = MAP_ROWS * TILE_SIZE;
   ctx = canvas.getContext('2d');
   heroImage.addEventListener('load', () => { if (state) redrawMap(); });
+  Object.values(bossImages).forEach((img) => {
+    img.addEventListener('load', () => { if (state) redrawMap(); });
+  });
 }
 
 function redrawMap() {

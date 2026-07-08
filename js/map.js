@@ -9,6 +9,14 @@ const ENCOUNTER_CHANCE = 0.12;
 export const heroImage = new Image();
 heroImage.src = HERO_SPRITE;
 
+// One boss portrait per map, preloaded so it can stand on its lair tile.
+export const bossImages = {};
+Object.values(MAPS).forEach((map) => {
+  const img = new Image();
+  img.src = map.bossEnemy.sprite;
+  bossImages[map.id] = img;
+});
+
 export function tileAt(grid, x, y) {
   if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return TILE.TREE;
   return grid[y][x];
@@ -188,10 +196,29 @@ export function drawMap(ctx, state) {
         ctx.closePath();
         ctx.fill();
       } else if (tile === TILE.BOSS) {
-        ctx.fillStyle = state.flags[map.bossFlag] ? '#8a6a1a' : '#5a1f3a';
-        ctx.beginPath();
-        ctx.arc(px + 16, py + 16, 10, 0, Math.PI * 2);
-        ctx.fill();
+        if (state.flags[map.bossFlag]) {
+          // cleared — reads the same as a portal, since that's what it now is
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.beginPath();
+          ctx.arc(px + 16, py + 16, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          // fallback marker in case the boss portrait hasn't loaded yet —
+          // the real portrait is drawn afterward as an overlay so its
+          // overflow into neighboring tiles isn't painted over below.
+          const bossImg = bossImages[map.id];
+          if (!(bossImg && bossImg.complete && bossImg.naturalWidth > 0)) {
+            ctx.fillStyle = '#5a1f3a';
+            ctx.beginPath();
+            ctx.arc(px + 16, py + 16, 10, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
       } else if (tile === TILE.PORTAL) {
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.beginPath();
@@ -224,6 +251,18 @@ export function drawMap(ctx, state) {
         ctx.arc(px + 16, py + 12, 10, 0, Math.PI * 2);
         ctx.stroke();
       }
+    }
+  }
+
+  // boss portrait — drawn as an overlay (not inline above) so its overflow
+  // into neighboring tiles isn't painted over by tiles later in the loop
+  if (!state.flags[map.bossFlag]) {
+    const bossImg = bossImages[map.id];
+    if (bossImg && bossImg.complete && bossImg.naturalWidth > 0) {
+      const bpx = map.bossPos.x * TILE_SIZE;
+      const bpy = map.bossPos.y * TILE_SIZE;
+      const size = TILE_SIZE * 2.2;
+      ctx.drawImage(bossImg, bpx + (TILE_SIZE - size) / 2, bpy + TILE_SIZE - size * 0.85, size, size);
     }
   }
 
