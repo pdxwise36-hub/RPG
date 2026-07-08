@@ -1,4 +1,4 @@
-import { ITEMS, BOSS, SKILL_FIREBALL, TOWN_POS, WEAPONS, ARMORS, HERO_SPRITE } from './data.js';
+import { ITEMS, SKILL_FIREBALL, WEAPONS, ARMORS, HERO_SPRITE, MAPS } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -82,19 +82,28 @@ function handleMove(dir) {
   const result = tryMove(state, dx, dy);
   redrawMap();
 
-  if (result === 'blocked') return;
-  if (result === 'moved') return;
-  if (result === 'town') {
+  if (result.type === 'blocked') return;
+  if (result.type === 'moved') return;
+  if (result.type === 'town') {
     autosave();
     showModal('modal-town');
     return;
   }
-  if (result === 'boss') {
+  if (result.type === 'boss') {
+    el('boss-modal-title').textContent = `${MAPS[state.mapId].bossEnemy.name} blocks the way`;
     showModal('modal-boss');
     return;
   }
-  if (result === 'encounter') {
-    startBattle(pickRandomEnemy(), false);
+  if (result.type === 'portal') {
+    state.mapId = result.mapId;
+    state.pos = { ...result.pos };
+    autosave();
+    goToMap();
+    showToast(`You arrive in ${MAPS[state.mapId].name}.`, 2200);
+    return;
+  }
+  if (result.type === 'encounter') {
+    startBattle(pickRandomEnemy(MAPS[state.mapId].enemyPool), false);
   }
 }
 
@@ -127,8 +136,7 @@ function renderBattle() {
 }
 
 function startBattle(enemyDef, isBoss) {
-  battle = createBattle(enemyDef);
-  battle.isBoss = isBoss;
+  battle = createBattle(enemyDef, isBoss);
   el('battle-menu-main').classList.remove('hidden');
   el('battle-menu-items').classList.add('hidden');
   showScreen('battle');
@@ -141,13 +149,20 @@ function resolveBattleEnd() {
     const rewards = grantRewards(state, battle.enemy);
     let msg = `Won ${rewards.goldWon}G and ${rewards.xpWon} XP.`;
     if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
-    showToast(msg, 2400);
     if (battle.isBoss) {
-      state.flags.bossDefeated = true;
+      const map = MAPS[state.mapId];
+      state.flags[map.bossFlag] = true;
       autosave();
-      showScreen('victory');
+      if (map.nextMap) {
+        // A path onward opens — no full "the end" screen yet.
+        showToast(`${msg} The way onward has opened!`, 2800);
+        goToMap();
+      } else {
+        showScreen('victory');
+      }
       return;
     }
+    showToast(msg, 2400);
     autosave();
     goToMap();
   } else if (battle.result === 'lose') {
@@ -162,7 +177,8 @@ function respawnAfterDefeat() {
   p.gold = Math.floor(p.gold * 0.8);
   p.hp = p.maxHp;
   p.mp = p.maxMp;
-  state.pos = { ...TOWN_POS };
+  state.mapId = 'overworld';
+  state.pos = { ...MAPS.overworld.townPos };
   // step off the town tile so re-entering fires the town event naturally later
   state.pos.y += 1;
   autosave();
@@ -352,7 +368,7 @@ function wireEvents() {
   // Boss modal
   el('btn-boss-fight').addEventListener('click', () => {
     hideModal('modal-boss');
-    startBattle(BOSS, true);
+    startBattle(MAPS[state.mapId].bossEnemy, true);
   });
   el('btn-boss-retreat').addEventListener('click', () => {
     hideModal('modal-boss');

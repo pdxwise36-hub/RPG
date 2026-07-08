@@ -1,16 +1,18 @@
-import { PLAYER_BASE, START_POS, WEAPONS, ARMORS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, MAPS } from './data.js';
 
 export function newGameState() {
   return {
     player: structuredClone(PLAYER_BASE),
-    pos: { ...START_POS },
-    flags: { bossDefeated: false },
+    mapId: 'overworld',
+    pos: { ...MAPS.overworld.startPos },
+    flags: { bossDefeated: false, lichDefeated: false },
   };
 }
 
 export function toSaveObject(state) {
   return {
     player: state.player,
+    mapId: state.mapId,
     pos: state.pos,
     flags: state.flags,
   };
@@ -31,8 +33,10 @@ export function fromSaveObject(saved) {
   }
   return {
     player,
+    // Pre-depths saves have no mapId/lichDefeated — default to the overworld.
+    mapId: saved.mapId || 'overworld',
     pos: { ...saved.pos },
-    flags: { bossDefeated: false, ...saved.flags },
+    flags: { bossDefeated: false, lichDefeated: false, ...saved.flags },
   };
 }
 

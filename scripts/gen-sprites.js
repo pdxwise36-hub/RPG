@@ -194,6 +194,69 @@ function buildDarkKnight() {
   return rasterize(g, palette, SCALE);
 }
 
+// ---------- Bat — 16x14, small flier ----------
+function buildBat() {
+  const g = makeGrid(16, 14);
+  const leftWing = { 4: [4, 5], 5: [2, 5], 6: [0, 5], 7: [1, 5], 8: [3, 5] };
+  const rightWing = { 4: [10, 11], 5: [10, 13], 6: [10, 15], 7: [10, 14], 8: [10, 12] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'b'));
+  Object.entries(rightWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'b'));
+  fillRect(g, 6, 4, 4, 5, 'b'); // body
+  setPx(g, 6, 3, 'b'); setPx(g, 9, 3, 'b'); // ears
+  setPx(g, 6, 9, 'b'); setPx(g, 9, 9, 'b'); // feet
+  setPx(g, 7, 6, 'r'); setPx(g, 8, 6, 'r'); // eyes
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [58, 38, 74, 255],
+    'd': [31, 20, 42, 255],
+    'r': [201, 48, 48, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Specter — 16x18, hazy floating robe ----------
+function buildSpecter() {
+  const g = makeGrid(16, 18);
+  fillRect(g, 6, 2, 4, 5, 'g');   // hood/head
+  setPx(g, 7, 4, 'e'); setPx(g, 8, 4, 'e'); // glowing eyes
+  fillRect(g, 4, 7, 8, 8, 'g');  // robe body
+  fillRect(g, 2, 8, 2, 5, 'g');  // left sleeve
+  fillRect(g, 12, 8, 2, 5, 'g'); // right sleeve
+  [4, 5, 7, 8, 10, 11].forEach((x) => setPx(g, x, 15, 'g')); // tattered hem
+  const palette = {
+    'g': [150, 205, 215, 175],
+    'e': [230, 255, 255, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Lich (final boss) — 20x22 ----------
+function buildLich() {
+  const g = makeGrid(20, 22);
+  fillRect(g, 7, 1, 6, 5, 'k');   // skull
+  setPx(g, 8, 3, 'e'); setPx(g, 11, 3, 'e'); // eye glow
+  fillRect(g, 8, 5, 4, 1, 'j');   // jaw shadow
+  fillRect(g, 5, 6, 10, 3, 'r');  // hood/collar
+  fillRect(g, 6, 8, 8, 10, 'r');  // robe body
+  fillRect(g, 3, 9, 3, 5, 'r');   // left sleeve
+  fillRect(g, 14, 9, 3, 5, 'r');  // right sleeve
+  setPx(g, 4, 13, 'k'); setPx(g, 15, 13, 'k'); // bone hands
+  [6, 7, 9, 10, 12, 13].forEach((x) => setPx(g, x, 18, 'r')); // tattered hem
+  fillRect(g, 17, 2, 1, 15, 'w'); // staff
+  fillRect(g, 16, 0, 3, 2, 'o');  // orb
+  addRim(g, 'r', 'd');
+  const palette = {
+    'k': [225, 220, 200, 255],
+    'e': [80, 230, 120, 255],
+    'j': [40, 35, 30, 255],
+    'r': [58, 34, 84, 255],
+    'd': [31, 18, 46, 255],
+    'w': [107, 74, 42, 255],
+    'o': [178, 88, 224, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -203,6 +266,9 @@ const sprites = {
   'goblin.png': buildGoblin,
   'wolf.png': buildWolf,
   'darkknight.png': buildDarkKnight,
+  'bat.png': buildBat,
+  'specter.png': buildSpecter,
+  'lich.png': buildLich,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

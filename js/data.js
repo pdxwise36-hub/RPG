@@ -8,15 +8,16 @@ export const TILE = {
   TREE: 3,
   TOWN: 4,
   BOSS: 5,
+  PORTAL: 6,
 };
 
-export const WALKABLE = new Set([TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS]);
+export const WALKABLE = new Set([TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
 // 12 columns x 16 rows. A single path (col 5) runs from the town at the top
 // to the boss lair at the bottom; grass on either side is where random
 // encounters happen; water and stray trees just add texture/obstacles.
-export const MAP = [
+const OVERWORLD_GRID = [
   [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
   [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
   [3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 3],
@@ -35,9 +36,12 @@ export const MAP = [
   [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
 ];
 
-export const START_POS = { x: 5, y: 3 };
-export const TOWN_POS = { x: 5, y: 2 };
-export const BOSS_POS = { x: 5, y: 14 };
+// The Ember Depths reuses the overworld's layout (same obstacles, same
+// footprint) so no canvas-resize logic is needed, but swaps the town for a
+// return portal and re-themes via a different tile palette in map.js.
+const DEPTHS_GRID = OVERWORLD_GRID.map((row) => row.slice());
+DEPTHS_GRID[1][5] = TILE.PORTAL;
+DEPTHS_GRID[2][5] = TILE.PATH;
 
 export const HERO_SPRITE = 'icons/sprites/hero.png';
 
@@ -82,6 +86,46 @@ export const ENEMIES = {
 
 export const BOSS = {
   key: 'darkknight', name: 'Dark Knight', maxHp: 70, atk: 12, def: 5, xp: 150, goldMin: 100, goldMax: 100, sprite: 'icons/sprites/darkknight.png',
+};
+
+export const DEPTHS_ENEMIES = {
+  bat: { key: 'bat', name: 'Bat', maxHp: 16, atk: 9, def: 2, xp: 14, goldMin: 10, goldMax: 16, weight: 4, sprite: 'icons/sprites/bat.png' },
+  specter: { key: 'specter', name: 'Specter', maxHp: 26, atk: 10, def: 4, xp: 18, goldMin: 14, goldMax: 22, weight: 3, sprite: 'icons/sprites/specter.png' },
+};
+
+export const LICH = {
+  key: 'lich', name: 'The Lich', maxHp: 100, atk: 15, def: 7, xp: 250, goldMin: 200, goldMax: 200, sprite: 'icons/sprites/lich.png',
+};
+
+// Registry driving movement/rendering/encounters per zone (map.js, battle.js,
+// ui.js all key off state.mapId instead of hardcoding a single map).
+export const MAPS = {
+  overworld: {
+    id: 'overworld',
+    name: 'Emberfall',
+    grid: OVERWORLD_GRID,
+    theme: 'overworld',
+    startPos: { x: 5, y: 3 },
+    townPos: { x: 5, y: 2 },
+    bossPos: { x: 5, y: 14 },
+    bossEnemy: BOSS,
+    bossFlag: 'bossDefeated',
+    enemyPool: ENEMIES,
+    // Once the boss is beaten, its tile becomes a permanent portal down.
+    nextMap: { mapId: 'depths', pos: { x: 5, y: 2 } },
+  },
+  depths: {
+    id: 'depths',
+    name: 'The Ember Depths',
+    grid: DEPTHS_GRID,
+    theme: 'depths',
+    bossPos: { x: 5, y: 14 },
+    bossEnemy: LICH,
+    bossFlag: 'lichDefeated',
+    enemyPool: DEPTHS_ENEMIES,
+    portalPos: { x: 5, y: 1 },
+    portalTarget: { mapId: 'overworld', pos: { x: 5, y: 14 } },
+  },
 };
 
 export const ITEMS = {

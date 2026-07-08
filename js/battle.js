@@ -1,4 +1,4 @@
-import { ENEMIES, BOSS, ITEMS, SKILL_FIREBALL, LEVEL_GROWTH } from './data.js';
+import { ITEMS, SKILL_FIREBALL, LEVEL_GROWTH } from './data.js';
 import { effectiveAtk, effectiveDef } from './state.js';
 
 function rand(min, max) {
@@ -9,8 +9,8 @@ function damageRoll(atk, def) {
   return Math.max(1, atk - def + rand(-2, 2));
 }
 
-export function pickRandomEnemy() {
-  const pool = Object.values(ENEMIES);
+export function pickRandomEnemy(enemyPool) {
+  const pool = Object.values(enemyPool);
   const totalWeight = pool.reduce((sum, e) => sum + e.weight, 0);
   let roll = Math.random() * totalWeight;
   for (const e of pool) {
@@ -20,13 +20,14 @@ export function pickRandomEnemy() {
   return pool[0];
 }
 
-export function createBattle(enemyDef) {
+export function createBattle(enemyDef, isBoss = false) {
   return {
     enemy: { ...enemyDef, hp: enemyDef.maxHp },
-    log: [`A wild ${enemyDef.name} appears!`],
+    log: [isBoss ? `${enemyDef.name} blocks your path!` : `A wild ${enemyDef.name} appears!`],
     over: false,
     result: null, // 'win' | 'lose' | 'fled'
     playerTurn: true,
+    isBoss,
   };
 }
 
@@ -98,7 +99,7 @@ export function playerItem(battle, state, itemKey) {
 
 export function playerRun(battle, state) {
   if (battle.over) return;
-  if (battle.enemy.key === BOSS.key) {
+  if (battle.isBoss) {
     pushLog(battle, 'You cannot flee this battle!');
     enemyStrikes(battle, state);
     return;
