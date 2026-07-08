@@ -122,6 +122,7 @@ function renderBattle() {
   const p = state.player;
   el('enemy-name').textContent = battle.enemy.name;
   el('enemy-hp-fill').style.width = `${pct(battle.enemy.hp, battle.enemy.maxHp)}%`;
+  el('enemy-hp-text').textContent = `${battle.enemy.hp}/${battle.enemy.maxHp}`;
   el('enemy-sprite').style.backgroundImage = battle.enemy.sprite ? `url('${battle.enemy.sprite}')` : '';
   el('battle-player-name').textContent = `${p.name} (Lv. ${p.level})`;
   el('battle-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
