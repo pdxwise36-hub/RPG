@@ -391,7 +391,7 @@ function renderMage() { renderVendor('mage', 'mage-gold', 'mage-list'); }
 // ---------- Wiring ----------
 function wireEvents() {
   el('btn-new-game').addEventListener('click', () => {
-    state = newGameState();
+    state = newGameState(el('hero-name-input').value);
     autosave();
     goToMap();
   });

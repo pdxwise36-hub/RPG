@@ -1,8 +1,11 @@
 import { PLAYER_BASE, WEAPONS, ARMORS, MAPS } from './data.js';
 
-export function newGameState() {
+export function newGameState(heroName) {
+  const player = structuredClone(PLAYER_BASE);
+  const trimmed = (heroName || '').trim();
+  if (trimmed) player.name = trimmed.slice(0, 12);
   return {
-    player: structuredClone(PLAYER_BASE),
+    player,
     mapId: 'overworld',
     pos: { ...MAPS.overworld.startPos },
     flags: { bossDefeated: false, lichDefeated: false },
