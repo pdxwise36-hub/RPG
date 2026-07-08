@@ -405,6 +405,24 @@ function buildAncientDragon() {
   return rasterize(g, palette, SCALE);
 }
 
+// ---------- Treasure Chest — 16x14, open with gold spilling out ----------
+function buildChest() {
+  const g = makeGrid(16, 14);
+  fillRect(g, 2, 3, 12, 3, 'w2'); // open lid (tilted back)
+  fillRect(g, 1, 7, 14, 6, 'w');  // base
+  fillRect(g, 1, 7, 14, 1, 'g');  // gold trim on rim
+  setPx(g, 7, 7, 'g'); setPx(g, 8, 7, 'g'); // lock/clasp
+  setPx(g, 3, 6, 'g'); setPx(g, 5, 5, 'g'); setPx(g, 9, 5, 'g'); setPx(g, 11, 6, 'g'); setPx(g, 7, 4, 'g'); // coin sparkle
+  addRim(g, 'w', 'd');
+  const palette = {
+    'w': [107, 74, 42, 255],
+    'w2': [138, 98, 58, 255],
+    'd': [70, 48, 26, 255],
+    'g': [212, 168, 64, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -423,6 +441,7 @@ const sprites = {
   'wyrmling.png': buildWyrmling,
   'drake.png': buildDrake,
   'ancientdragon.png': buildAncientDragon,
+  'chest.png': buildChest,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

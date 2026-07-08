@@ -17,7 +17,7 @@ Then visit `http://<your-machine-ip>:8765/` from your phone on the same network,
 - Move with the on-screen D-pad or arrow keys.
 - Walking through grass risks a random encounter; the path is safe.
 - Battles are turn-based: Attack, cast a Skill (costs MP), use an Item, or Run.
-- Winning fights grants gold and XP; leveling up raises your stats and fully heals you.
+- Winning fights grants gold and XP; leveling up raises your stats and fully heals you. Regular (non-boss) wins also have a chance to drop a treasure chest — gold, a Potion/Ether, or a scroll that teaches a random skill you don't already know for free.
 - The town (top of the map) lets you rest for free, buy Potions/Ethers, and visit the Armory to buy and equip better weapons/armor.
 - The Knight and the Master Mage (two huts off the path, south of town) teach permanent new skills for gold — physical techniques and spells respectively, though mechanically both just spend MP for bonus damage.
 - Your progress autosaves (browser local storage) after town visits, battles, and area transitions — use Continue from the title screen to resume.

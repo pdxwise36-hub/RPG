@@ -2,7 +2,7 @@ import { ITEMS, SKILLS, WEAPONS, ARMORS, HERO_SPRITE, MAPS } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards } from './battle.js';
+import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -174,9 +174,14 @@ function resolveBattleEnd() {
       }
       return;
     }
+    const chest = rollChest(state);
     showToast(msg, 2400);
     autosave();
     goToMap();
+    if (chest) {
+      renderChest(chest);
+      showModal('modal-chest');
+    }
   } else if (battle.result === 'lose') {
     showScreen('gameover');
   } else {
@@ -267,6 +272,19 @@ function renderShop() {
       }
     });
   });
+}
+
+// ---------- Chest ----------
+function renderChest(chest) {
+  let desc;
+  if (chest.type === 'gold') {
+    desc = `You found ${chest.amount} gold!`;
+  } else if (chest.type === 'item') {
+    desc = `You found a ${ITEMS[chest.itemKey].name}!`;
+  } else {
+    desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
+  }
+  el('chest-desc').textContent = desc;
 }
 
 // ---------- Status ----------
@@ -416,6 +434,11 @@ function wireEvents() {
 
   el('btn-status').addEventListener('click', () => { renderStatus(); showModal('modal-status'); });
   el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
+
+  el('btn-chest-close').addEventListener('click', () => {
+    hideModal('modal-chest');
+    updateHud();
+  });
 
   // Town modal
   el('btn-town-rest').addEventListener('click', () => {

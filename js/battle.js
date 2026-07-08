@@ -137,3 +137,38 @@ export function grantRewards(state, enemyDef) {
   }
   return { goldWon, xpWon: enemyDef.xp, leveledUp: levels > 0, levels };
 }
+
+const CHEST_CHANCE = 0.25;
+
+// Rolls a chest drop after a non-boss win. Mutates player state directly
+// (same pattern as grantRewards) and returns a description of the loot, or
+// null if no chest appeared.
+export function rollChest(state) {
+  if (Math.random() >= CHEST_CHANCE) return null;
+  const player = state.player;
+  const roll = Math.random();
+
+  if (roll < 0.4) {
+    const amount = rand(15, 40);
+    player.gold += amount;
+    return { type: 'gold', amount };
+  }
+
+  if (roll < 0.75) {
+    const itemKey = Math.random() < 0.6 ? 'potion' : 'ether';
+    player.inventory[itemKey] = (player.inventory[itemKey] || 0) + 1;
+    return { type: 'item', itemKey };
+  }
+
+  const learnable = Object.values(SKILLS).filter(
+    (s) => s.key !== 'fireball' && !player.knownSkills.includes(s.key)
+  );
+  if (learnable.length === 0) {
+    const amount = rand(15, 40);
+    player.gold += amount;
+    return { type: 'gold', amount };
+  }
+  const skill = learnable[Math.floor(Math.random() * learnable.length)];
+  player.knownSkills.push(skill.key);
+  return { type: 'scroll', skillKey: skill.key };
+}
