@@ -1,4 +1,5 @@
 import { ENEMIES, BOSS, ITEMS, SKILL_FIREBALL, LEVEL_GROWTH } from './data.js';
+import { effectiveAtk, effectiveDef } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -36,7 +37,7 @@ function pushLog(battle, msg) {
 
 function enemyStrikes(battle, state) {
   const player = state.player;
-  const dmg = damageRoll(battle.enemy.atk, player.def);
+  const dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
   player.hp = Math.max(0, player.hp - dmg);
   pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
   if (player.hp <= 0) {
@@ -58,7 +59,7 @@ function afterPlayerAction(battle, state) {
 
 export function playerAttack(battle, state) {
   if (battle.over) return;
-  const dmg = damageRoll(state.player.atk, battle.enemy.def);
+  const dmg = damageRoll(effectiveAtk(state.player), battle.enemy.def);
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `You strike ${battle.enemy.name} for ${dmg}.`);
   afterPlayerAction(battle, state);
@@ -72,7 +73,7 @@ export function playerSkill(battle, state) {
     return;
   }
   player.mp -= SKILL_FIREBALL.mpCost;
-  const dmg = Math.max(2, Math.round(player.atk * SKILL_FIREBALL.power) - battle.enemy.def);
+  const dmg = Math.max(2, Math.round(effectiveAtk(player) * SKILL_FIREBALL.power) - battle.enemy.def);
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `Fireball scorches ${battle.enemy.name} for ${dmg}!`);
   afterPlayerAction(battle, state);
@@ -125,8 +126,8 @@ export function grantRewards(state, enemyDef) {
     player.level += 1;
     player.maxHp += LEVEL_GROWTH.hp;
     player.maxMp += LEVEL_GROWTH.mp;
-    player.atk += LEVEL_GROWTH.atk;
-    player.def += LEVEL_GROWTH.def;
+    player.baseAtk += LEVEL_GROWTH.atk;
+    player.baseDef += LEVEL_GROWTH.def;
     player.hp = player.maxHp;
     player.mp = player.maxMp;
     levels += 1;

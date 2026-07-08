@@ -39,6 +39,20 @@ export const START_POS = { x: 5, y: 3 };
 export const TOWN_POS = { x: 5, y: 2 };
 export const BOSS_POS = { x: 5, y: 14 };
 
+export const HERO_SPRITE = 'icons/sprites/hero.png';
+
+export const WEAPONS = {
+  rustySword: { key: 'rustySword', name: 'Rusty Sword', atkBonus: 0, price: 0 },
+  ironSword: { key: 'ironSword', name: 'Iron Sword', atkBonus: 4, price: 40 },
+  steelBlade: { key: 'steelBlade', name: 'Steel Blade', atkBonus: 9, price: 120 },
+};
+
+export const ARMORS = {
+  clothTunic: { key: 'clothTunic', name: 'Cloth Tunic', defBonus: 0, price: 0 },
+  leatherArmor: { key: 'leatherArmor', name: 'Leather Armor', defBonus: 3, price: 35 },
+  ironPlate: { key: 'ironPlate', name: 'Iron Plate', defBonus: 7, price: 110 },
+};
+
 export const PLAYER_BASE = {
   name: 'Kael',
   level: 1,
@@ -46,26 +60,28 @@ export const PLAYER_BASE = {
   maxHp: 30,
   mp: 10,
   maxMp: 10,
-  atk: 6,
-  def: 3,
+  baseAtk: 6,
+  baseDef: 3,
   xp: 0,
   xpToNext: 20,
   gold: 15,
-  weapon: 'Rusty Sword',
-  armor: 'Cloth Tunic',
+  weaponKey: 'rustySword',
+  armorKey: 'clothTunic',
+  ownedWeapons: ['rustySword'],
+  ownedArmors: ['clothTunic'],
   inventory: { potion: 3, ether: 0 },
 };
 
 export const LEVEL_GROWTH = { hp: 8, mp: 3, atk: 2, def: 1, xpFactor: 1.6 };
 
 export const ENEMIES = {
-  slime: { key: 'slime', name: 'Slime', maxHp: 12, atk: 3, def: 1, xp: 5, goldMin: 3, goldMax: 6, weight: 5 },
-  goblin: { key: 'goblin', name: 'Goblin', maxHp: 20, atk: 6, def: 2, xp: 10, goldMin: 6, goldMax: 12, weight: 3 },
-  wolf: { key: 'wolf', name: 'Wolf', maxHp: 18, atk: 8, def: 1, xp: 12, goldMin: 8, goldMax: 14, weight: 2 },
+  slime: { key: 'slime', name: 'Slime', maxHp: 12, atk: 3, def: 1, xp: 5, goldMin: 3, goldMax: 6, weight: 5, sprite: 'icons/sprites/slime.png' },
+  goblin: { key: 'goblin', name: 'Goblin', maxHp: 20, atk: 6, def: 2, xp: 10, goldMin: 6, goldMax: 12, weight: 3, sprite: 'icons/sprites/goblin.png' },
+  wolf: { key: 'wolf', name: 'Wolf', maxHp: 18, atk: 8, def: 1, xp: 12, goldMin: 8, goldMax: 14, weight: 2, sprite: 'icons/sprites/wolf.png' },
 };
 
 export const BOSS = {
-  key: 'darkknight', name: 'Dark Knight', maxHp: 70, atk: 12, def: 5, xp: 150, goldMin: 100, goldMax: 100,
+  key: 'darkknight', name: 'Dark Knight', maxHp: 70, atk: 12, def: 5, xp: 150, goldMin: 100, goldMax: 100, sprite: 'icons/sprites/darkknight.png',
 };
 
 export const ITEMS = {

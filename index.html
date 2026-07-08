@@ -68,7 +68,7 @@
         <div id="battle-player-name" class="combatant-name"></div>
         <div class="bar-track hp"><div id="battle-hp-fill" class="bar-fill"></div><span id="battle-hp-text" class="bar-text"></span></div>
         <div class="bar-track mp"><div id="battle-mp-fill" class="bar-fill"></div><span id="battle-mp-text" class="bar-text"></span></div>
-        <div class="sprite player-sprite"></div>
+        <div id="player-sprite" class="sprite player-sprite"></div>
       </div>
     </div>
 
@@ -112,6 +112,7 @@
       <div class="menu-stack">
         <button id="btn-town-rest" class="btn">Rest (heal HP &amp; MP)</button>
         <button id="btn-town-shop" class="btn">Shop</button>
+        <button id="btn-town-armory" class="btn">Armory</button>
         <button id="btn-town-leave" class="btn btn-primary">Leave Town</button>
       </div>
     </div>
@@ -124,6 +125,16 @@
       <p class="modal-sub">Gold: <span id="shop-gold"></span></p>
       <div id="shop-list" class="shop-list"></div>
       <button id="btn-shop-back" class="btn btn-primary">Back</button>
+    </div>
+  </div>
+
+  <!-- ARMORY MODAL -->
+  <div id="modal-armory" class="modal hidden">
+    <div class="modal-card">
+      <h2>Armory</h2>
+      <p class="modal-sub">Gold: <span id="armory-gold"></span></p>
+      <div id="armory-list" class="shop-list"></div>
+      <button id="btn-armory-back" class="btn btn-primary">Back</button>
     </div>
   </div>
 

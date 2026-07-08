@@ -1,8 +1,11 @@
-import { TILE, MAP, WALKABLE, ENCOUNTER_TILES, BOSS_POS } from './data.js';
+import { TILE, MAP, WALKABLE, ENCOUNTER_TILES, BOSS_POS, HERO_SPRITE } from './data.js';
 
 export const TILE_SIZE = 32;
 export const MAP_COLS = MAP[0].length;
 export const MAP_ROWS = MAP.length;
+
+export const heroImage = new Image();
+heroImage.src = HERO_SPRITE;
 
 const ENCOUNTER_CHANCE = 0.12;
 
@@ -40,6 +43,7 @@ const TILE_COLORS = {
 export function drawMap(ctx, state) {
   const w = MAP_COLS * TILE_SIZE;
   const h = MAP_ROWS * TILE_SIZE;
+  ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, w, h);
 
   for (let y = 0; y < MAP_ROWS; y++) {
@@ -89,13 +93,18 @@ export function drawMap(ctx, state) {
   // player marker
   const ppx = state.pos.x * TILE_SIZE;
   const ppy = state.pos.y * TILE_SIZE;
-  ctx.fillStyle = '#f4e04d';
-  ctx.beginPath();
-  ctx.arc(ppx + TILE_SIZE / 2, ppy + TILE_SIZE / 2, TILE_SIZE / 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#3a2a10';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  if (heroImage.complete && heroImage.naturalWidth > 0) {
+    const size = TILE_SIZE * 1.15;
+    ctx.drawImage(heroImage, ppx + (TILE_SIZE - size) / 2, ppy + TILE_SIZE - size, size, size);
+  } else {
+    ctx.fillStyle = '#f4e04d';
+    ctx.beginPath();
+    ctx.arc(ppx + TILE_SIZE / 2, ppy + TILE_SIZE / 2, TILE_SIZE / 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3a2a10';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 }
 
 export function isNearBoss(state) {

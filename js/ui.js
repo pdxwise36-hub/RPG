@@ -1,7 +1,7 @@
-import { ITEMS, BOSS, SKILL_FIREBALL, TOWN_POS } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject } from './state.js';
+import { ITEMS, BOSS, SKILL_FIREBALL, TOWN_POS, WEAPONS, ARMORS, HERO_SPRITE } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
-import { drawMap, tryMove, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
+import { drawMap, tryMove, heroImage, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards } from './battle.js';
 
 let state = null;
@@ -47,6 +47,7 @@ function initCanvas() {
   canvas.width = MAP_COLS * TILE_SIZE;
   canvas.height = MAP_ROWS * TILE_SIZE;
   ctx = canvas.getContext('2d');
+  heroImage.addEventListener('load', () => { if (state) redrawMap(); });
 }
 
 function redrawMap() {
@@ -102,6 +103,7 @@ function renderBattle() {
   const p = state.player;
   el('enemy-name').textContent = battle.enemy.name;
   el('enemy-hp-fill').style.width = `${pct(battle.enemy.hp, battle.enemy.maxHp)}%`;
+  el('enemy-sprite').style.backgroundImage = battle.enemy.sprite ? `url('${battle.enemy.sprite}')` : '';
   el('battle-player-name').textContent = `${p.name} (Lv. ${p.level})`;
   el('battle-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
   el('battle-hp-text').textContent = `${p.hp}/${p.maxHp}`;
@@ -213,19 +215,77 @@ function renderShop() {
 // ---------- Status ----------
 function renderStatus() {
   const p = state.player;
+  const weapon = WEAPONS[p.weaponKey];
+  const armor = ARMORS[p.armorKey];
   el('status-name').textContent = `${p.name} — Lv. ${p.level}`;
   el('status-body').innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
-    <div class="status-row"><span>Attack</span><span>${p.atk}</span></div>
-    <div class="status-row"><span>Defense</span><span>${p.def}</span></div>
+    <div class="status-row"><span>Attack</span><span>${effectiveAtk(p)} (${p.baseAtk}+${weapon.atkBonus})</span></div>
+    <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
-    <div class="status-row"><span>Weapon</span><span>${p.weapon}</span></div>
-    <div class="status-row"><span>Armor</span><span>${p.armor}</span></div>
+    <div class="status-row"><span>Weapon</span><span>${weapon.name}</span></div>
+    <div class="status-row"><span>Armor</span><span>${armor.name}</span></div>
     <div class="status-row"><span>Potions</span><span>${p.inventory.potion || 0}</span></div>
     <div class="status-row"><span>Ethers</span><span>${p.inventory.ether || 0}</span></div>
   `;
+}
+
+// ---------- Armory ----------
+function renderArmory() {
+  el('armory-gold').textContent = state.player.gold;
+  const list = el('armory-list');
+  list.innerHTML = '<h3 class="armory-section">Weapons</h3>';
+  Object.values(WEAPONS).forEach((w) => list.appendChild(buildArmoryRow(w, 'weapon', '+' + w.atkBonus + ' ATK')));
+  const armorHeading = document.createElement('h3');
+  armorHeading.className = 'armory-section';
+  armorHeading.textContent = 'Armor';
+  list.appendChild(armorHeading);
+  Object.values(ARMORS).forEach((a) => list.appendChild(buildArmoryRow(a, 'armor', '+' + a.defBonus + ' DEF')));
+}
+
+function buildArmoryRow(item, slot, statLabel) {
+  const p = state.player;
+  const equippedKey = slot === 'weapon' ? p.weaponKey : p.armorKey;
+  const owned = (slot === 'weapon' ? p.ownedWeapons : p.ownedArmors).includes(item.key);
+  const isEquipped = equippedKey === item.key;
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  const priceLabel = item.price > 0 ? `${item.price}G` : 'Free';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">${statLabel} — ${owned ? 'Owned' : priceLabel}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isEquipped) {
+    btn.textContent = 'Equipped';
+    btn.disabled = true;
+  } else if (owned) {
+    btn.textContent = 'Equip';
+    btn.addEventListener('click', () => {
+      if (slot === 'weapon') p.weaponKey = item.key; else p.armorKey = item.key;
+      autosave();
+      renderArmory();
+    });
+  } else {
+    btn.textContent = 'Buy';
+    btn.disabled = p.gold < item.price;
+    btn.addEventListener('click', () => {
+      if (p.gold < item.price) return;
+      p.gold -= item.price;
+      if (slot === 'weapon') { p.ownedWeapons.push(item.key); p.weaponKey = item.key; }
+      else { p.ownedArmors.push(item.key); p.armorKey = item.key; }
+      autosave();
+      renderArmory();
+    });
+  }
+  row.appendChild(btn);
+  return row;
 }
 
 // ---------- Wiring ----------
@@ -270,6 +330,11 @@ function wireEvents() {
     renderShop();
     showModal('modal-shop');
   });
+  el('btn-town-armory').addEventListener('click', () => {
+    hideModal('modal-town');
+    renderArmory();
+    showModal('modal-armory');
+  });
   el('btn-town-leave').addEventListener('click', () => {
     hideModal('modal-town');
     updateHud();
@@ -277,6 +342,11 @@ function wireEvents() {
   el('btn-shop-back').addEventListener('click', () => {
     hideModal('modal-shop');
     showModal('modal-town');
+  });
+  el('btn-armory-back').addEventListener('click', () => {
+    hideModal('modal-armory');
+    showModal('modal-town');
+    updateHud();
   });
 
   // Boss modal
@@ -323,6 +393,7 @@ function wireEvents() {
 export function init() {
   initCanvas();
   wireEvents();
+  el('player-sprite').style.backgroundImage = `url('${HERO_SPRITE}')`;
   el('btn-continue').disabled = !hasSave();
   showScreen('title');
 }
