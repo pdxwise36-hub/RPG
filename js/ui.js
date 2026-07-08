@@ -124,6 +124,7 @@ function renderBattle() {
   el('enemy-hp-fill').style.width = `${pct(battle.enemy.hp, battle.enemy.maxHp)}%`;
   el('enemy-hp-text').textContent = `${battle.enemy.hp}/${battle.enemy.maxHp}`;
   el('enemy-sprite').style.backgroundImage = battle.enemy.sprite ? `url('${battle.enemy.sprite}')` : '';
+  el('enemy-sprite').classList.toggle('boss-sprite', battle.isBoss);
   el('battle-player-name').textContent = `${p.name} (Lv. ${p.level})`;
   el('battle-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
   el('battle-hp-text').textContent = `${p.hp}/${p.maxHp}`;

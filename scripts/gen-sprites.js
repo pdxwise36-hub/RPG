@@ -162,34 +162,50 @@ function buildWolf() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Dark Knight (boss) — 18x22 ----------
+// ---------- Dark Knight (boss) — 26x32, larger and more detailed ----------
 function buildDarkKnight() {
-  const g = makeGrid(18, 22);
-  fillRect(g, 5, 1, 8, 6, 'a');   // helmet
-  setPx(g, 4, 1, 'a'); setPx(g, 4, 0, 'a'); // left horn
-  setPx(g, 13, 1, 'a'); setPx(g, 13, 0, 'a'); // right horn
-  setPx(g, 7, 4, 'r'); setPx(g, 10, 4, 'r'); // visor glow
-  fillRect(g, 2, 7, 3, 3, 'a');   // left pauldron
-  fillRect(g, 13, 7, 3, 3, 'a');  // right pauldron
-  fillRect(g, 5, 7, 8, 8, 'a');   // chestplate
-  setPx(g, 8, 10, 'r'); setPx(g, 9, 10, 'r'); // chest emblem
-  fillRect(g, 2, 10, 3, 5, 'a');  // left arm
-  fillRect(g, 13, 10, 3, 5, 'a'); // right arm
-  fillRect(g, 16, 3, 1, 12, 's'); // sword blade
-  fillRect(g, 15, 14, 3, 1, 'g'); // crossguard
-  fillRect(g, 16, 15, 1, 2, 'g'); // hilt
-  fillRect(g, 5, 15, 4, 5, 'a');  // left leg
-  fillRect(g, 9, 15, 4, 5, 'a');  // right leg
-  fillRect(g, 5, 20, 4, 2, 'o');  // left boot
-  fillRect(g, 9, 20, 4, 2, 'o');  // right boot
+  const g = makeGrid(26, 32);
+  // flowing cape, drawn first so armor sits in front of it
+  fillRect(g, 1, 9, 4, 19, 'c');
+  fillRect(g, 21, 9, 4, 19, 'c');
+  addRim(g, 'c', 'd');
+
+  fillRect(g, 8, 1, 10, 8, 'a');  // helmet (taller, no visible neck gap)
+  setPx(g, 12, 0, 'a'); setPx(g, 13, 0, 'a'); // small crest spike
+  fillRect(g, 9, 2, 3, 2, 'a2');  // helmet highlight
+  fillRect(g, 10, 5, 6, 1, 'r');  // horizontal visor slit
+  fillRect(g, 12, 6, 2, 2, 'r');  // nose-guard glow
+
+  fillRect(g, 5, 9, 4, 5, 'a');   // left pauldron
+  fillRect(g, 18, 9, 4, 5, 'a');  // right pauldron
+  fillRect(g, 9, 9, 9, 11, 'a');  // chestplate
+  fillRect(g, 12, 10, 3, 3, 'a2'); // chest highlight
+  fillRect(g, 12, 14, 2, 2, 'r');  // chest emblem gem
+  setPx(g, 9, 17, 'd'); setPx(g, 12, 17, 'd'); setPx(g, 15, 17, 'd'); setPx(g, 17, 17, 'd'); // plate seams
+
+  fillRect(g, 5, 14, 4, 10, 'a');  // left arm
+  fillRect(g, 18, 14, 4, 10, 'a'); // right arm
+
+  fillRect(g, 22, 3, 3, 18, 's');  // sword blade
+  fillRect(g, 23, 3, 1, 17, 'gr'); // blade groove shine
+  fillRect(g, 20, 21, 6, 1, 'g');  // crossguard
+  fillRect(g, 22, 22, 2, 4, 'g');  // hilt
+
+  fillRect(g, 9, 25, 4, 6, 'a');   // left leg
+  fillRect(g, 14, 25, 4, 6, 'a');  // right leg
+  fillRect(g, 9, 31, 4, 1, 'o');   // left boot
+  fillRect(g, 14, 31, 4, 1, 'o');  // right boot
   addRim(g, 'a', 'd');
   const palette = {
     'a': [58, 58, 68, 255],
-    'd': [31, 31, 38, 255],
+    'a2': [92, 92, 106, 255],
+    'd': [27, 27, 33, 255],
     'r': [224, 48, 63, 255],
     's': [216, 216, 224, 255],
+    'gr': [244, 244, 250, 255],
     'g': [176, 138, 62, 255],
     'o': [15, 15, 18, 255],
+    'c': [70, 15, 25, 255],
   };
   return rasterize(g, palette, SCALE);
 }
@@ -230,27 +246,39 @@ function buildSpecter() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Lich (final boss) — 20x22 ----------
+// ---------- Lich (final boss) — 26x30, larger and more detailed ----------
 function buildLich() {
-  const g = makeGrid(20, 22);
-  fillRect(g, 7, 1, 6, 5, 'k');   // skull
-  setPx(g, 8, 3, 'e'); setPx(g, 11, 3, 'e'); // eye glow
-  fillRect(g, 8, 5, 4, 1, 'j');   // jaw shadow
-  fillRect(g, 5, 6, 10, 3, 'r');  // hood/collar
-  fillRect(g, 6, 8, 8, 10, 'r');  // robe body
-  fillRect(g, 3, 9, 3, 5, 'r');   // left sleeve
-  fillRect(g, 14, 9, 3, 5, 'r');  // right sleeve
-  setPx(g, 4, 13, 'k'); setPx(g, 15, 13, 'k'); // bone hands
-  [6, 7, 9, 10, 12, 13].forEach((x) => setPx(g, x, 18, 'r')); // tattered hem
-  fillRect(g, 17, 2, 1, 15, 'w'); // staff
-  fillRect(g, 16, 0, 3, 2, 'o');  // orb
+  const g = makeGrid(26, 30);
+  fillRect(g, 9, 1, 8, 7, 'k');    // skull
+  setPx(g, 11, 3, 'e'); setPx(g, 14, 3, 'e'); // eye glow
+  fillRect(g, 11, 6, 4, 1, 'j');   // jaw shadow
+
+  fillRect(g, 6, 7, 14, 4, 'r');   // hood/collar
+  fillRect(g, 8, 8, 10, 1, 'r2');  // collar highlight
+
+  fillRect(g, 8, 10, 10, 14, 'r'); // robe body
+  fillRect(g, 12, 12, 2, 9, 'r2'); // fabric fold shine
+  fillRect(g, 12, 13, 2, 2, 'e');  // amulet glow
+
+  fillRect(g, 4, 11, 4, 9, 'r');   // left sleeve
+  fillRect(g, 18, 11, 4, 9, 'r');  // right sleeve
+  fillRect(g, 4, 19, 3, 2, 'k');   // left bone hand
+  fillRect(g, 19, 19, 3, 2, 'k');  // right bone hand
+
+  [8, 9, 11, 12, 14, 15, 17].forEach((x) => setPx(g, x, 25, 'r')); // tattered hem
+  [9, 12, 15].forEach((x) => setPx(g, x, 26, 'r')); // longer ragged tips
+
+  fillRect(g, 23, 3, 2, 24, 'w');  // staff shaft
+  fillRect(g, 20, 0, 5, 3, 'o');   // orb cage
+  setPx(g, 19, 1, 'e'); setPx(g, 25, 1, 'e'); // orb glow ring
   addRim(g, 'r', 'd');
   const palette = {
     'k': [225, 220, 200, 255],
     'e': [80, 230, 120, 255],
     'j': [40, 35, 30, 255],
     'r': [58, 34, 84, 255],
-    'd': [31, 18, 46, 255],
+    'r2': [92, 58, 130, 255],
+    'd': [24, 14, 36, 255],
     'w': [107, 74, 42, 255],
     'o': [178, 88, 224, 255],
   };
@@ -296,28 +324,37 @@ function buildIceSprite() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Glacial Titan (boss) — 20x24 ----------
+// ---------- Glacial Titan (boss) — 26x34, larger and more detailed ----------
 function buildGlacialTitan() {
-  const g = makeGrid(20, 24);
-  fillRect(g, 7, 1, 6, 5, 'i');  // head
-  setPx(g, 8, 0, 'i'); setPx(g, 11, 0, 'i'); // icicle crown
-  setPx(g, 8, 3, 'g'); setPx(g, 11, 3, 'g'); // glow eyes
-  fillRect(g, 3, 6, 3, 3, 'i');  // left shoulder
-  fillRect(g, 14, 6, 3, 3, 'i'); // right shoulder
-  fillRect(g, 6, 6, 8, 10, 'i'); // torso
-  setPx(g, 9, 10, 'g'); setPx(g, 10, 10, 'g'); // core glow
-  fillRect(g, 2, 9, 3, 7, 'i');  // left arm
-  fillRect(g, 15, 9, 3, 7, 'i'); // right arm (fist)
-  setPx(g, 17, 8, 'i'); setPx(g, 18, 9, 'i'); // icicle spike on fist
-  fillRect(g, 6, 16, 4, 6, 'i'); // left leg
-  fillRect(g, 10, 16, 4, 6, 'i'); // right leg
-  fillRect(g, 6, 22, 4, 2, 'd'); // left foot
-  fillRect(g, 10, 22, 4, 2, 'd'); // right foot
+  const g = makeGrid(26, 34);
+  fillRect(g, 9, 1, 8, 7, 'i');   // head
+  setPx(g, 9, 0, 'i'); setPx(g, 12, 0, 'i'); setPx(g, 13, 0, 'i'); setPx(g, 16, 0, 'i'); // icicle crown
+  setPx(g, 11, 3, 'g'); setPx(g, 14, 3, 'g'); // glow eyes
+  setPx(g, 10, 5, 'cr'); // face crack
+
+  fillRect(g, 4, 8, 5, 5, 'i');   // left shoulder
+  fillRect(g, 17, 8, 5, 5, 'i');  // right shoulder
+  fillRect(g, 8, 8, 10, 13, 'i'); // torso
+  fillRect(g, 11, 13, 4, 2, 'g'); // core glow
+  setPx(g, 10, 12, 'i2'); setPx(g, 15, 12, 'i2'); setPx(g, 10, 16, 'i2'); setPx(g, 15, 16, 'i2'); // glow halo
+  setPx(g, 9, 10, 'cr'); setPx(g, 16, 17, 'cr'); setPx(g, 12, 18, 'cr'); // torso cracks
+
+  fillRect(g, 2, 11, 4, 10, 'i');   // left arm
+  fillRect(g, 20, 11, 4, 10, 'i');  // right arm (fist)
+  setPx(g, 24, 10, 'i'); setPx(g, 25, 11, 'i'); setPx(g, 24, 12, 'i'); // icicle spikes, right fist
+  setPx(g, 1, 10, 'i'); setPx(g, 0, 11, 'i'); setPx(g, 1, 12, 'i');    // icicle spikes, left fist
+
+  fillRect(g, 7, 22, 4, 9, 'i');  // left leg
+  fillRect(g, 15, 22, 4, 9, 'i'); // right leg
+  fillRect(g, 7, 31, 4, 3, 'd');  // left foot
+  fillRect(g, 15, 31, 4, 3, 'd'); // right foot
   addRim(g, 'i', 'd');
   const palette = {
     'i': [190, 225, 240, 255],
-    'd': [120, 175, 205, 255],
+    'i2': [220, 240, 250, 255],
+    'd': [110, 165, 195, 255],
     'g': [140, 230, 255, 255],
+    'cr': [90, 150, 180, 255],
   };
   return rasterize(g, palette, SCALE);
 }
@@ -373,26 +410,36 @@ function buildDrake() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Ancient Dragon (final boss) — 24x22, wings spread, front-facing ----------
+// ---------- Ancient Dragon (final boss) — 32x28, wings spread, front-facing ----------
 function buildAncientDragon() {
-  const g = makeGrid(24, 22);
-  fillRect(g, 9, 1, 6, 6, 'b');   // head
-  setPx(g, 8, 0, 'h'); setPx(g, 15, 0, 'h'); // horns
-  setPx(g, 10, 3, 'e'); setPx(g, 13, 3, 'e'); // eyes
-  fillRect(g, 10, 6, 4, 1, 'j');  // jaw shadow
-  fillRect(g, 10, 7, 4, 2, 'b');  // neck
-  const leftWing = { 5: [2, 8], 6: [0, 9], 7: [0, 9], 8: [1, 9] };
-  const rightWing = { 5: [15, 21], 6: [14, 23], 7: [14, 23], 8: [14, 22] };
+  const g = makeGrid(32, 28);
+  fillRect(g, 13, 1, 7, 7, 'b');   // head
+  setPx(g, 11, 0, 'h'); setPx(g, 12, 1, 'h'); // left horn
+  setPx(g, 20, 0, 'h'); setPx(g, 19, 1, 'h'); // right horn
+  setPx(g, 14, 3, 'e'); setPx(g, 18, 3, 'e'); // eyes
+  fillRect(g, 14, 7, 5, 1, 'j');   // jaw shadow
+
+  fillRect(g, 14, 8, 5, 3, 'b');   // neck
+  const leftWing = { 6: [3, 11], 7: [0, 12], 8: [0, 12], 9: [1, 12], 10: [3, 11] };
+  const rightWing = { 6: [20, 28], 7: [19, 31], 8: [19, 31], 9: [19, 30], 10: [20, 28] };
   Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
   Object.entries(rightWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
-  fillRect(g, 8, 9, 8, 7, 'b');   // body
-  setPx(g, 11, 12, 'e'); setPx(g, 12, 12, 'e'); // power core glow
-  fillRect(g, 5, 11, 3, 5, 'b');  // left arm
-  fillRect(g, 16, 11, 3, 5, 'b'); // right arm
-  setPx(g, 5, 16, 'h'); setPx(g, 18, 16, 'h'); // claws
-  fillRect(g, 9, 16, 3, 5, 'b');  // left leg
-  fillRect(g, 12, 16, 3, 5, 'b'); // right leg
-  fillRect(g, 19, 17, 4, 2, 'b'); // tail
+  setPx(g, 6, 8, 'b'); setPx(g, 25, 8, 'b'); // wing vein accents
+
+  fillRect(g, 11, 11, 10, 9, 'b'); // body
+  fillRect(g, 15, 14, 2, 2, 'e');  // power core glow
+  setPx(g, 12, 12, 'd'); setPx(g, 19, 13, 'd'); setPx(g, 13, 17, 'd'); setPx(g, 18, 18, 'd'); // scale texture
+
+  fillRect(g, 7, 13, 4, 7, 'b');   // left arm
+  fillRect(g, 21, 13, 4, 7, 'b');  // right arm
+  setPx(g, 7, 20, 'h'); setPx(g, 6, 21, 'h');   // left claws
+  setPx(g, 24, 20, 'h'); setPx(g, 25, 21, 'h'); // right claws
+
+  fillRect(g, 12, 20, 4, 7, 'b');  // left leg
+  fillRect(g, 16, 20, 4, 7, 'b');  // right leg
+  fillRect(g, 25, 21, 5, 2, 'b');  // tail
+  fillRect(g, 28, 23, 3, 2, 'b');  // tail curl
+  setPx(g, 30, 22, 'h');           // tail spade tip
   addRim(g, 'b', 'd');
   const palette = {
     'b': [140, 20, 20, 255],
