@@ -9,14 +9,19 @@ export const TILE = {
   TOWN: 4,
   BOSS: 5,
   PORTAL: 6,
+  KNIGHT: 7,
+  MAGE: 8,
 };
 
-export const WALKABLE = new Set([TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL]);
+export const WALKABLE = new Set([
+  TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE,
+]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
 // 12 columns x 16 rows. A single path (col 5) runs from the town at the top
 // to the boss lair at the bottom; grass on either side is where random
-// encounters happen; water and stray trees just add texture/obstacles.
+// encounters happen; water and stray trees just add texture/obstacles. The
+// Knight (col 2) and Master Mage (col 9) sit off the path in row 9.
 const OVERWORLD_GRID = [
   [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
   [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
@@ -27,7 +32,7 @@ const OVERWORLD_GRID = [
   [3, 0, 2, 2, 0, 1, 0, 0, 0, 2, 0, 3],
   [3, 0, 2, 2, 0, 1, 0, 0, 0, 2, 0, 3],
   [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
-  [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
+  [3, 0, 7, 0, 0, 1, 0, 0, 0, 8, 0, 3],
   [3, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 3],
   [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
   [3, 0, 0, 3, 0, 1, 0, 3, 0, 0, 0, 3],
@@ -38,10 +43,13 @@ const OVERWORLD_GRID = [
 
 // The Ember Depths reuses the overworld's layout (same obstacles, same
 // footprint) so no canvas-resize logic is needed, but swaps the town for a
-// return portal and re-themes via a different tile palette in map.js.
+// return portal, drops the vendors (they only make sense above ground), and
+// re-themes via a different tile palette in map.js.
 const DEPTHS_GRID = OVERWORLD_GRID.map((row) => row.slice());
 DEPTHS_GRID[1][5] = TILE.PORTAL;
 DEPTHS_GRID[2][5] = TILE.PATH;
+DEPTHS_GRID[9][2] = TILE.GRASS;
+DEPTHS_GRID[9][9] = TILE.GRASS;
 
 export const HERO_SPRITE = 'icons/sprites/hero.png';
 
@@ -55,6 +63,17 @@ export const ARMORS = {
   clothTunic: { key: 'clothTunic', name: 'Cloth Tunic', defBonus: 0, price: 0 },
   leatherArmor: { key: 'leatherArmor', name: 'Leather Armor', defBonus: 3, price: 35 },
   ironPlate: { key: 'ironPlate', name: 'Iron Plate', defBonus: 7, price: 110 },
+};
+
+// Both the Knight and the Master Mage teach permanent skills for gold — they
+// share one mechanic (spend MP, hit for atk*power - def) so "physical skill"
+// vs "spell" is flavor only, not a separate stat.
+export const SKILLS = {
+  fireball: { key: 'fireball', name: 'Fireball', mpCost: 5, power: 1.8, price: 0, vendor: null },
+  powerStrike: { key: 'powerStrike', name: 'Power Strike', mpCost: 4, power: 2.2, price: 50, vendor: 'knight' },
+  whirlwind: { key: 'whirlwind', name: 'Whirlwind', mpCost: 8, power: 3.0, price: 150, vendor: 'knight' },
+  iceShard: { key: 'iceShard', name: 'Ice Shard', mpCost: 6, power: 2.0, price: 60, vendor: 'mage' },
+  thunderbolt: { key: 'thunderbolt', name: 'Thunderbolt', mpCost: 10, power: 2.6, price: 140, vendor: 'mage' },
 };
 
 export const PLAYER_BASE = {
@@ -73,6 +92,7 @@ export const PLAYER_BASE = {
   armorKey: 'clothTunic',
   ownedWeapons: ['rustySword'],
   ownedArmors: ['clothTunic'],
+  knownSkills: ['fireball'],
   inventory: { potion: 3, ether: 0 },
 };
 
@@ -132,7 +152,5 @@ export const ITEMS = {
   potion: { key: 'potion', name: 'Potion', desc: 'Restores 20 HP', price: 8, heal: 20 },
   ether: { key: 'ether', name: 'Ether', desc: 'Restores 10 MP', price: 10, mp: 10 },
 };
-
-export const SKILL_FIREBALL = { name: 'Fireball', mpCost: 5, power: 1.8 };
 
 export const SAVE_KEY = 'emberfall-save-v1';

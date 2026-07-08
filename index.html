@@ -76,7 +76,7 @@
 
     <div id="battle-menu-main" class="battle-menu">
       <button id="btn-attack" class="btn btn-battle">Attack</button>
-      <button id="btn-skill" class="btn btn-battle">Fireball</button>
+      <button id="btn-skill" class="btn btn-battle">Skills</button>
       <button id="btn-item" class="btn btn-battle">Item</button>
       <button id="btn-run" class="btn btn-battle">Run</button>
     </div>
@@ -85,6 +85,10 @@
       <button id="btn-item-potion" class="btn btn-battle"></button>
       <button id="btn-item-ether" class="btn btn-battle"></button>
       <button id="btn-item-back" class="btn btn-battle">Back</button>
+    </div>
+
+    <div id="battle-menu-skills" class="battle-menu hidden">
+      <!-- populated dynamically from the player's known skills -->
     </div>
 
     <button id="btn-battle-continue" class="btn btn-primary hidden">Continue</button>
@@ -135,6 +139,26 @@
       <p class="modal-sub">Gold: <span id="armory-gold"></span></p>
       <div id="armory-list" class="shop-list"></div>
       <button id="btn-armory-back" class="btn btn-primary">Back</button>
+    </div>
+  </div>
+
+  <!-- KNIGHT MODAL -->
+  <div id="modal-knight" class="modal hidden">
+    <div class="modal-card">
+      <h2>The Knight's Hall</h2>
+      <p class="modal-sub">Gold: <span id="knight-gold"></span></p>
+      <div id="knight-list" class="shop-list"></div>
+      <button id="btn-knight-back" class="btn btn-primary">Leave</button>
+    </div>
+  </div>
+
+  <!-- MAGE MODAL -->
+  <div id="modal-mage" class="modal hidden">
+    <div class="modal-card">
+      <h2>The Master Mage's Tower</h2>
+      <p class="modal-sub">Gold: <span id="mage-gold"></span></p>
+      <div id="mage-list" class="shop-list"></div>
+      <button id="btn-mage-back" class="btn btn-primary">Leave</button>
     </div>
   </div>
 

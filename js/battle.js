@@ -1,4 +1,4 @@
-import { ITEMS, SKILL_FIREBALL, LEVEL_GROWTH } from './data.js';
+import { ITEMS, SKILLS, LEVEL_GROWTH } from './data.js';
 import { effectiveAtk, effectiveDef } from './state.js';
 
 function rand(min, max) {
@@ -66,17 +66,19 @@ export function playerAttack(battle, state) {
   afterPlayerAction(battle, state);
 }
 
-export function playerSkill(battle, state) {
+export function playerSkill(battle, state, skillKey) {
   if (battle.over) return;
   const player = state.player;
-  if (player.mp < SKILL_FIREBALL.mpCost) {
+  const skill = SKILLS[skillKey];
+  if (!skill || !player.knownSkills.includes(skillKey)) return;
+  if (player.mp < skill.mpCost) {
     pushLog(battle, 'Not enough MP!');
     return;
   }
-  player.mp -= SKILL_FIREBALL.mpCost;
-  const dmg = Math.max(2, Math.round(effectiveAtk(player) * SKILL_FIREBALL.power) - battle.enemy.def);
+  player.mp -= skill.mpCost;
+  const dmg = Math.max(2, Math.round(effectiveAtk(player) * skill.power) - battle.enemy.def);
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `Fireball scorches ${battle.enemy.name} for ${dmg}!`);
+  pushLog(battle, `${skill.name} hits ${battle.enemy.name} for ${dmg}!`);
   afterPlayerAction(battle, state);
 }
 

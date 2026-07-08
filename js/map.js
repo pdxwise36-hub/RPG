@@ -15,7 +15,7 @@ export function tileAt(grid, x, y) {
 }
 
 // Attempts to move the player by (dx, dy). Returns one of:
-// { type: 'blocked' | 'moved' | 'encounter' | 'town' | 'boss' }
+// { type: 'blocked' | 'moved' | 'encounter' | 'town' | 'boss' | 'knight' | 'mage' }
 // { type: 'portal', mapId, pos }  — step onto a portal/cleared-boss tile
 export function tryMove(state, dx, dy) {
   const map = MAPS[state.mapId];
@@ -28,6 +28,8 @@ export function tryMove(state, dx, dy) {
   state.pos.y = ny;
 
   if (tile === TILE.TOWN) return { type: 'town' };
+  if (tile === TILE.KNIGHT) return { type: 'knight' };
+  if (tile === TILE.MAGE) return { type: 'mage' };
 
   if (tile === TILE.BOSS) {
     if (state.flags[map.bossFlag]) {
@@ -54,6 +56,8 @@ const PALETTES = {
     [TILE.TOWN]: '#b08a3e',
     [TILE.BOSS]: '#c94040',
     [TILE.PORTAL]: '#7a3fae',
+    [TILE.KNIGHT]: '#2f6b3a',
+    [TILE.MAGE]: '#2f6b3a',
   },
   depths: {
     [TILE.GRASS]: '#3a3550',
@@ -63,6 +67,8 @@ const PALETTES = {
     [TILE.TOWN]: '#b08a3e',
     [TILE.BOSS]: '#8a2fae',
     [TILE.PORTAL]: '#3fd4c4',
+    [TILE.KNIGHT]: '#3a3550',
+    [TILE.MAGE]: '#3a3550',
   },
 };
 
@@ -143,6 +149,27 @@ export function drawMap(ctx, state) {
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (tile === TILE.KNIGHT) {
+        ctx.fillStyle = '#8a8a92';
+        ctx.fillRect(px + 6, py + 10, 20, 18);
+        ctx.strokeStyle = '#d4a840';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(px + 16, py + 8); ctx.lineTo(px + 16, py + 25);
+        ctx.moveTo(px + 10, py + 14); ctx.lineTo(px + 22, py + 14);
+        ctx.stroke();
+      } else if (tile === TILE.MAGE) {
+        ctx.fillStyle = '#3a2a5a';
+        ctx.fillRect(px + 6, py + 12, 20, 16);
+        ctx.fillStyle = '#7ad4f4';
+        ctx.beginPath();
+        ctx.arc(px + 16, py + 12, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(122,212,244,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(px + 16, py + 12, 10, 0, Math.PI * 2);
         ctx.stroke();
       }
     }

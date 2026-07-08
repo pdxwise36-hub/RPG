@@ -1,4 +1,4 @@
-import { ITEMS, SKILL_FIREBALL, WEAPONS, ARMORS, HERO_SPRITE, MAPS } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, HERO_SPRITE, MAPS } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -94,6 +94,16 @@ function handleMove(dir) {
     showModal('modal-boss');
     return;
   }
+  if (result.type === 'knight') {
+    renderKnight();
+    showModal('modal-knight');
+    return;
+  }
+  if (result.type === 'mage') {
+    renderMage();
+    showModal('modal-mage');
+    return;
+  }
   if (result.type === 'portal') {
     state.mapId = result.mapId;
     state.pos = { ...result.pos };
@@ -120,15 +130,15 @@ function renderBattle() {
   el('battle-mp-text').textContent = `${p.mp}/${p.maxMp}`;
   el('battle-log').innerHTML = battle.log.map((l) => `<div>${l}</div>`).join('');
 
-  el('btn-skill').disabled = p.mp < SKILL_FIREBALL.mpCost;
-
   const menuMain = el('battle-menu-main');
   const menuItems = el('battle-menu-items');
+  const menuSkills = el('battle-menu-skills');
   const continueBtn = el('btn-battle-continue');
 
   if (battle.over) {
     menuMain.classList.add('hidden');
     menuItems.classList.add('hidden');
+    menuSkills.classList.add('hidden');
     continueBtn.classList.remove('hidden');
   } else {
     continueBtn.classList.add('hidden');
@@ -139,6 +149,7 @@ function startBattle(enemyDef, isBoss) {
   battle = createBattle(enemyDef, isBoss);
   el('battle-menu-main').classList.remove('hidden');
   el('battle-menu-items').classList.add('hidden');
+  el('battle-menu-skills').classList.add('hidden');
   showScreen('battle');
   renderBattle();
 }
@@ -197,6 +208,35 @@ function renderItemMenu() {
   etherBtn.disabled = !(p.inventory.ether > 0);
 }
 
+// ---------- Skill submenu (battle) ----------
+function renderSkillMenu() {
+  const p = state.player;
+  const menu = el('battle-menu-skills');
+  menu.innerHTML = '';
+  p.knownSkills.forEach((key) => {
+    const skill = SKILLS[key];
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-battle';
+    btn.textContent = `${skill.name} (${skill.mpCost} MP)`;
+    btn.disabled = p.mp < skill.mpCost;
+    btn.addEventListener('click', () => {
+      playerSkill(battle, state, key);
+      el('battle-menu-skills').classList.add('hidden');
+      el('battle-menu-main').classList.remove('hidden');
+      renderBattle();
+    });
+    menu.appendChild(btn);
+  });
+  const backBtn = document.createElement('button');
+  backBtn.className = 'btn btn-battle';
+  backBtn.textContent = 'Back';
+  backBtn.addEventListener('click', () => {
+    el('battle-menu-skills').classList.add('hidden');
+    el('battle-menu-main').classList.remove('hidden');
+  });
+  menu.appendChild(backBtn);
+}
+
 // ---------- Shop ----------
 function renderShop() {
   el('shop-gold').textContent = state.player.gold;
@@ -245,6 +285,7 @@ function renderStatus() {
     <div class="status-row"><span>Armor</span><span>${armor.name}</span></div>
     <div class="status-row"><span>Potions</span><span>${p.inventory.potion || 0}</span></div>
     <div class="status-row"><span>Ethers</span><span>${p.inventory.ether || 0}</span></div>
+    <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
   `;
 }
 
@@ -303,6 +344,48 @@ function buildArmoryRow(item, slot, statLabel) {
   row.appendChild(btn);
   return row;
 }
+
+// ---------- Knight / Mage skill vendors ----------
+function renderVendor(vendorKey, goldElId, listElId) {
+  const p = state.player;
+  el(goldElId).textContent = p.gold;
+  const list = el(listElId);
+  list.innerHTML = '';
+  Object.values(SKILLS)
+    .filter((s) => s.vendor === vendorKey)
+    .forEach((skill) => {
+      const known = p.knownSkills.includes(skill.key);
+      const row = document.createElement('div');
+      row.className = 'shop-item';
+      row.innerHTML = `
+        <div class="shop-item-info">
+          <span class="shop-item-name">${skill.name}</span>
+          <span class="shop-item-desc">${skill.mpCost} MP, power ${skill.power}x — ${known ? 'Known' : skill.price + 'G'}</span>
+        </div>
+      `;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-small';
+      if (known) {
+        btn.textContent = 'Known';
+        btn.disabled = true;
+      } else {
+        btn.textContent = 'Learn';
+        btn.disabled = p.gold < skill.price;
+        btn.addEventListener('click', () => {
+          if (p.gold < skill.price) return;
+          p.gold -= skill.price;
+          p.knownSkills.push(skill.key);
+          autosave();
+          renderVendor(vendorKey, goldElId, listElId);
+        });
+      }
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+}
+
+function renderKnight() { renderVendor('knight', 'knight-gold', 'knight-list'); }
+function renderMage() { renderVendor('mage', 'mage-gold', 'mage-list'); }
 
 // ---------- Wiring ----------
 function wireEvents() {
@@ -365,6 +448,16 @@ function wireEvents() {
     updateHud();
   });
 
+  // Knight / Mage vendors (standalone map tiles, not inside the town)
+  el('btn-knight-back').addEventListener('click', () => {
+    hideModal('modal-knight');
+    updateHud();
+  });
+  el('btn-mage-back').addEventListener('click', () => {
+    hideModal('modal-mage');
+    updateHud();
+  });
+
   // Boss modal
   el('btn-boss-fight').addEventListener('click', () => {
     hideModal('modal-boss');
@@ -377,7 +470,11 @@ function wireEvents() {
 
   // Battle menu
   el('btn-attack').addEventListener('click', () => { playerAttack(battle, state); renderBattle(); });
-  el('btn-skill').addEventListener('click', () => { playerSkill(battle, state); renderBattle(); });
+  el('btn-skill').addEventListener('click', () => {
+    renderSkillMenu();
+    el('battle-menu-main').classList.add('hidden');
+    el('battle-menu-skills').classList.remove('hidden');
+  });
   el('btn-run').addEventListener('click', () => { playerRun(battle, state); renderBattle(); });
   el('btn-item').addEventListener('click', () => {
     renderItemMenu();
