@@ -41,15 +41,21 @@ const OVERWORLD_GRID = [
   [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
 ];
 
-// The Ember Depths reuses the overworld's layout (same obstacles, same
-// footprint) so no canvas-resize logic is needed, but swaps the town for a
-// return portal, drops the vendors (they only make sense above ground), and
-// re-themes via a different tile palette in map.js.
-const DEPTHS_GRID = OVERWORLD_GRID.map((row) => row.slice());
-DEPTHS_GRID[1][5] = TILE.PORTAL;
-DEPTHS_GRID[2][5] = TILE.PATH;
-DEPTHS_GRID[9][2] = TILE.GRASS;
-DEPTHS_GRID[9][9] = TILE.GRASS;
+// Every dungeon level below the overworld reuses the same layout (same
+// obstacles, same footprint, no canvas-resize logic needed) but swaps the
+// town for a return portal, drops the vendors (they only make sense above
+// ground), and re-themes via a different tile palette in map.js.
+function makeDungeonGrid() {
+  const grid = OVERWORLD_GRID.map((row) => row.slice());
+  grid[1][5] = TILE.PORTAL;
+  grid[2][5] = TILE.PATH;
+  grid[9][2] = TILE.GRASS;
+  grid[9][9] = TILE.GRASS;
+  return grid;
+}
+const DEPTHS_GRID = makeDungeonGrid();
+const FROSTREACH_GRID = makeDungeonGrid();
+const SPIRE_GRID = makeDungeonGrid();
 
 export const HERO_SPRITE = 'icons/sprites/hero.png';
 
@@ -117,6 +123,24 @@ export const LICH = {
   key: 'lich', name: 'The Lich', maxHp: 100, atk: 15, def: 7, xp: 250, goldMin: 200, goldMax: 200, sprite: 'icons/sprites/lich.png',
 };
 
+export const FROSTREACH_ENEMIES = {
+  frostGolem: { key: 'frostGolem', name: 'Frost Golem', maxHp: 32, atk: 12, def: 6, xp: 24, goldMin: 18, goldMax: 26, weight: 3, sprite: 'icons/sprites/frostgolem.png' },
+  iceSprite: { key: 'iceSprite', name: 'Ice Sprite', maxHp: 20, atk: 11, def: 3, xp: 20, goldMin: 16, goldMax: 22, weight: 4, sprite: 'icons/sprites/icesprite.png' },
+};
+
+export const GLACIAL_TITAN = {
+  key: 'glacialtitan', name: 'Glacial Titan', maxHp: 135, atk: 18, def: 9, xp: 350, goldMin: 300, goldMax: 300, sprite: 'icons/sprites/glacialtitan.png',
+};
+
+export const SPIRE_ENEMIES = {
+  wyrmling: { key: 'wyrmling', name: 'Wyrmling', maxHp: 36, atk: 14, def: 6, xp: 30, goldMin: 24, goldMax: 32, weight: 4, sprite: 'icons/sprites/wyrmling.png' },
+  drake: { key: 'drake', name: 'Drake', maxHp: 48, atk: 16, def: 8, xp: 38, goldMin: 30, goldMax: 40, weight: 3, sprite: 'icons/sprites/drake.png' },
+};
+
+export const ANCIENT_DRAGON = {
+  key: 'ancientdragon', name: 'The Ancient Dragon', maxHp: 180, atk: 22, def: 11, xp: 500, goldMin: 500, goldMax: 500, sprite: 'icons/sprites/ancientdragon.png',
+};
+
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
 // ui.js all key off state.mapId instead of hardcoding a single map).
 export const MAPS = {
@@ -145,6 +169,33 @@ export const MAPS = {
     enemyPool: DEPTHS_ENEMIES,
     portalPos: { x: 5, y: 1 },
     portalTarget: { mapId: 'overworld', pos: { x: 5, y: 14 } },
+    nextMap: { mapId: 'frostreach', pos: { x: 5, y: 2 } },
+  },
+  frostreach: {
+    id: 'frostreach',
+    name: 'The Frostreach',
+    grid: FROSTREACH_GRID,
+    theme: 'frostreach',
+    bossPos: { x: 5, y: 14 },
+    bossEnemy: GLACIAL_TITAN,
+    bossFlag: 'titanDefeated',
+    enemyPool: FROSTREACH_ENEMIES,
+    portalPos: { x: 5, y: 1 },
+    portalTarget: { mapId: 'depths', pos: { x: 5, y: 14 } },
+    nextMap: { mapId: 'spire', pos: { x: 5, y: 2 } },
+  },
+  spire: {
+    id: 'spire',
+    name: "The Dragon's Spire",
+    grid: SPIRE_GRID,
+    theme: 'spire',
+    bossPos: { x: 5, y: 14 },
+    bossEnemy: ANCIENT_DRAGON,
+    bossFlag: 'dragonDefeated',
+    enemyPool: SPIRE_ENEMIES,
+    portalPos: { x: 5, y: 1 },
+    portalTarget: { mapId: 'frostreach', pos: { x: 5, y: 14 } },
+    // No nextMap — defeating the Ancient Dragon is the true ending.
   },
 };
 

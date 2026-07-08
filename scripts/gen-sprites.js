@@ -257,6 +257,154 @@ function buildLich() {
   return rasterize(g, palette, SCALE);
 }
 
+// ---------- Frost Golem — 16x18, blocky ice construct ----------
+function buildFrostGolem() {
+  const g = makeGrid(16, 18);
+  fillRect(g, 5, 1, 6, 5, 'i');  // head
+  setPx(g, 6, 3, 'g'); setPx(g, 9, 3, 'g'); // glow eyes
+  fillRect(g, 4, 6, 8, 8, 'i');  // torso
+  setPx(g, 7, 9, 'g'); setPx(g, 8, 9, 'g'); // core glow
+  fillRect(g, 2, 7, 2, 5, 'i');  // left arm
+  fillRect(g, 12, 7, 2, 5, 'i'); // right arm
+  fillRect(g, 5, 14, 3, 4, 'i'); // left leg
+  fillRect(g, 8, 14, 3, 4, 'i'); // right leg
+  addRim(g, 'i', 'd');
+  const palette = {
+    'i': [176, 224, 240, 255],
+    'd': [110, 170, 200, 255],
+    'g': [120, 220, 255, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Ice Sprite — 14x14, tiny flying wisp ----------
+function buildIceSprite() {
+  const g = makeGrid(14, 14);
+  const leftWing = { 4: [3, 4], 5: [1, 4], 6: [0, 4], 7: [1, 4], 8: [3, 4] };
+  const rightWing = { 4: [9, 10], 5: [9, 12], 6: [9, 13], 7: [9, 12], 8: [9, 10] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  Object.entries(rightWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  fillRect(g, 5, 5, 4, 5, 'b'); // body
+  setPx(g, 6, 7, 'e'); setPx(g, 7, 7, 'e'); // eyes
+  setPx(g, 8, 4, 's'); // sparkle
+  const palette = {
+    'b': [210, 240, 250, 255],
+    'w': [180, 230, 250, 150],
+    'e': [40, 60, 90, 255],
+    's': [255, 255, 255, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Glacial Titan (boss) — 20x24 ----------
+function buildGlacialTitan() {
+  const g = makeGrid(20, 24);
+  fillRect(g, 7, 1, 6, 5, 'i');  // head
+  setPx(g, 8, 0, 'i'); setPx(g, 11, 0, 'i'); // icicle crown
+  setPx(g, 8, 3, 'g'); setPx(g, 11, 3, 'g'); // glow eyes
+  fillRect(g, 3, 6, 3, 3, 'i');  // left shoulder
+  fillRect(g, 14, 6, 3, 3, 'i'); // right shoulder
+  fillRect(g, 6, 6, 8, 10, 'i'); // torso
+  setPx(g, 9, 10, 'g'); setPx(g, 10, 10, 'g'); // core glow
+  fillRect(g, 2, 9, 3, 7, 'i');  // left arm
+  fillRect(g, 15, 9, 3, 7, 'i'); // right arm (fist)
+  setPx(g, 17, 8, 'i'); setPx(g, 18, 9, 'i'); // icicle spike on fist
+  fillRect(g, 6, 16, 4, 6, 'i'); // left leg
+  fillRect(g, 10, 16, 4, 6, 'i'); // right leg
+  fillRect(g, 6, 22, 4, 2, 'd'); // left foot
+  fillRect(g, 10, 22, 4, 2, 'd'); // right foot
+  addRim(g, 'i', 'd');
+  const palette = {
+    'i': [190, 225, 240, 255],
+    'd': [120, 175, 205, 255],
+    'g': [140, 230, 255, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Wyrmling — 16x14, small dragon, side profile ----------
+function buildWyrmling() {
+  const g = makeGrid(16, 14);
+  fillRect(g, 0, 3, 6, 6, 'b');  // head
+  fillRect(g, 5, 5, 9, 5, 'b');  // body
+  setPx(g, 3, 2, 'h');           // horn
+  setPx(g, 2, 5, 'e');           // eye
+  const leftWing = { 1: [7, 8], 2: [6, 9], 3: [6, 9] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  fillRect(g, 14, 6, 2, 3, 'b'); // tail
+  fillRect(g, 3, 10, 2, 3, 'b'); // front-left leg
+  fillRect(g, 7, 10, 2, 3, 'b'); // front-right leg
+  fillRect(g, 11, 10, 2, 3, 'b'); // back-left leg
+  fillRect(g, 14, 10, 2, 3, 'b'); // back-right leg
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [180, 74, 54, 255],
+    'd': [90, 35, 28, 255],
+    'w': [130, 50, 38, 255],
+    'h': [212, 168, 64, 255],
+    'e': [230, 200, 60, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Drake — 18x16, bigger cousin of the Wyrmling ----------
+function buildDrake() {
+  const g = makeGrid(18, 16);
+  fillRect(g, 0, 3, 7, 7, 'b');  // head
+  fillRect(g, 6, 5, 10, 6, 'b'); // body
+  setPx(g, 3, 2, 'h');           // horn
+  setPx(g, 2, 6, 'e');           // eye
+  const leftWing = { 1: [8, 10], 2: [7, 12], 3: [7, 12] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  setPx(g, 8, 4, 'h'); setPx(g, 11, 4, 'h'); setPx(g, 14, 4, 'h'); // back spikes
+  fillRect(g, 16, 7, 2, 3, 'b'); // tail
+  fillRect(g, 4, 11, 2, 4, 'b'); // front-left leg
+  fillRect(g, 8, 11, 2, 4, 'b'); // front-right leg
+  fillRect(g, 12, 11, 2, 4, 'b'); // back-left leg
+  fillRect(g, 15, 11, 2, 4, 'b'); // back-right leg
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [110, 60, 140, 255],
+    'd': [55, 28, 68, 255],
+    'w': [70, 35, 90, 255],
+    'h': [212, 168, 64, 255],
+    'e': [230, 110, 40, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Ancient Dragon (final boss) — 24x22, wings spread, front-facing ----------
+function buildAncientDragon() {
+  const g = makeGrid(24, 22);
+  fillRect(g, 9, 1, 6, 6, 'b');   // head
+  setPx(g, 8, 0, 'h'); setPx(g, 15, 0, 'h'); // horns
+  setPx(g, 10, 3, 'e'); setPx(g, 13, 3, 'e'); // eyes
+  fillRect(g, 10, 6, 4, 1, 'j');  // jaw shadow
+  fillRect(g, 10, 7, 4, 2, 'b');  // neck
+  const leftWing = { 5: [2, 8], 6: [0, 9], 7: [0, 9], 8: [1, 9] };
+  const rightWing = { 5: [15, 21], 6: [14, 23], 7: [14, 23], 8: [14, 22] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  Object.entries(rightWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  fillRect(g, 8, 9, 8, 7, 'b');   // body
+  setPx(g, 11, 12, 'e'); setPx(g, 12, 12, 'e'); // power core glow
+  fillRect(g, 5, 11, 3, 5, 'b');  // left arm
+  fillRect(g, 16, 11, 3, 5, 'b'); // right arm
+  setPx(g, 5, 16, 'h'); setPx(g, 18, 16, 'h'); // claws
+  fillRect(g, 9, 16, 3, 5, 'b');  // left leg
+  fillRect(g, 12, 16, 3, 5, 'b'); // right leg
+  fillRect(g, 19, 17, 4, 2, 'b'); // tail
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [140, 20, 20, 255],
+    'd': [60, 8, 8, 255],
+    'w': [90, 15, 15, 255],
+    'h': [212, 168, 64, 255],
+    'e': [255, 140, 40, 255],
+    'j': [40, 10, 10, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -269,6 +417,12 @@ const sprites = {
   'bat.png': buildBat,
   'specter.png': buildSpecter,
   'lich.png': buildLich,
+  'frostgolem.png': buildFrostGolem,
+  'icesprite.png': buildIceSprite,
+  'glacialtitan.png': buildGlacialTitan,
+  'wyrmling.png': buildWyrmling,
+  'drake.png': buildDrake,
+  'ancientdragon.png': buildAncientDragon,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

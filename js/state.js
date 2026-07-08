@@ -8,7 +8,7 @@ export function newGameState(heroName) {
     player,
     mapId: 'overworld',
     pos: { ...MAPS.overworld.startPos },
-    flags: { bossDefeated: false, lichDefeated: false },
+    flags: { bossDefeated: false, lichDefeated: false, titanDefeated: false, dragonDefeated: false },
   };
 }
 
@@ -36,10 +36,10 @@ export function fromSaveObject(saved) {
   }
   return {
     player,
-    // Pre-depths saves have no mapId/lichDefeated — default to the overworld.
+    // Older saves predate later zones/flags — default to the overworld.
     mapId: saved.mapId || 'overworld',
     pos: { ...saved.pos },
-    flags: { bossDefeated: false, lichDefeated: false, ...saved.flags },
+    flags: { bossDefeated: false, lichDefeated: false, titanDefeated: false, dragonDefeated: false, ...saved.flags },
   };
 }
 

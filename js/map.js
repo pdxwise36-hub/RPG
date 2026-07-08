@@ -70,6 +70,28 @@ const PALETTES = {
     [TILE.KNIGHT]: '#3a3550',
     [TILE.MAGE]: '#3a3550',
   },
+  frostreach: {
+    [TILE.GRASS]: '#a8d4e8',
+    [TILE.PATH]: '#cfe4ea',
+    [TILE.WATER]: '#0c2436',
+    [TILE.TREE]: '#7ab8d0',
+    [TILE.TOWN]: '#b08a3e',
+    [TILE.BOSS]: '#4fa8c9',
+    [TILE.PORTAL]: '#3fd4c4',
+    [TILE.KNIGHT]: '#a8d4e8',
+    [TILE.MAGE]: '#a8d4e8',
+  },
+  spire: {
+    [TILE.GRASS]: '#4a2a2a',
+    [TILE.PATH]: '#6a4a3a',
+    [TILE.WATER]: '#c94a10',
+    [TILE.TREE]: '#2a1818',
+    [TILE.TOWN]: '#b08a3e',
+    [TILE.BOSS]: '#5a2a1a',
+    [TILE.PORTAL]: '#3fd4c4',
+    [TILE.KNIGHT]: '#4a2a2a',
+    [TILE.MAGE]: '#4a2a2a',
+  },
 };
 
 const BOSS_CLEARED_COLOR = '#caa53d';
@@ -81,7 +103,7 @@ export function drawMap(ctx, state) {
   const rows = grid.length, cols = grid[0].length;
   const w = cols * TILE_SIZE;
   const h = rows * TILE_SIZE;
-  const isDepths = map.theme === 'depths';
+  const theme = map.theme;
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, w, h);
 
@@ -94,15 +116,31 @@ export function drawMap(ctx, state) {
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
       if (tile === TILE.GRASS) {
-        ctx.fillStyle = isDepths ? 'rgba(180,150,255,0.08)' : 'rgba(255,255,255,0.05)';
+        const speckle = {
+          overworld: 'rgba(255,255,255,0.05)',
+          depths: 'rgba(180,150,255,0.08)',
+          frostreach: 'rgba(255,255,255,0.35)',
+          spire: 'rgba(255,120,60,0.15)',
+        }[theme];
+        ctx.fillStyle = speckle;
         if ((x + y) % 2 === 0) ctx.fillRect(px + 6, py + 8, 3, 3);
         if ((x * 3 + y) % 5 === 0) ctx.fillRect(px + 20, py + 20, 3, 3);
       } else if (tile === TILE.WATER) {
-        if (isDepths) {
+        if (theme === 'depths') {
           ctx.strokeStyle = 'rgba(120,90,180,0.25)';
           ctx.beginPath();
           ctx.moveTo(px + 6, py + 10); ctx.lineTo(px + 14, py + 20); ctx.lineTo(px + 8, py + 28);
           ctx.stroke();
+        } else if (theme === 'frostreach') {
+          ctx.strokeStyle = 'rgba(200,240,255,0.4)';
+          ctx.beginPath();
+          ctx.moveTo(px + 5, py + 8); ctx.lineTo(px + 16, py + 18); ctx.lineTo(px + 10, py + 27);
+          ctx.moveTo(px + 16, py + 18); ctx.lineTo(px + 26, py + 10);
+          ctx.stroke();
+        } else if (theme === 'spire') {
+          ctx.fillStyle = 'rgba(255,200,80,0.55)';
+          ctx.beginPath(); ctx.arc(px + 12, py + 20, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(px + 21, py + 12, 2, 0, Math.PI * 2); ctx.fill();
         } else {
           ctx.strokeStyle = 'rgba(255,255,255,0.15)';
           ctx.beginPath();
@@ -111,12 +149,26 @@ export function drawMap(ctx, state) {
           ctx.stroke();
         }
       } else if (tile === TILE.TREE) {
-        if (isDepths) {
+        if (theme === 'depths') {
           ctx.fillStyle = '#4a4260';
           ctx.beginPath();
           ctx.moveTo(px + 16, py + 4); ctx.lineTo(px + 27, py + 26); ctx.lineTo(px + 5, py + 26);
           ctx.closePath();
           ctx.fill();
+        } else if (theme === 'frostreach') {
+          ctx.fillStyle = '#eaf7fd';
+          ctx.beginPath();
+          ctx.moveTo(px + 16, py + 3); ctx.lineTo(px + 24, py + 27); ctx.lineTo(px + 8, py + 27);
+          ctx.closePath();
+          ctx.fill();
+        } else if (theme === 'spire') {
+          ctx.fillStyle = '#1a0e0e';
+          ctx.beginPath();
+          ctx.moveTo(px + 16, py + 4); ctx.lineTo(px + 26, py + 27); ctx.lineTo(px + 6, py + 27);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,140,60,0.7)';
+          ctx.fillRect(px + 15, py + 18, 2, 2);
         } else {
           ctx.fillStyle = '#5a3a22';
           ctx.fillRect(px + 13, py + 20, 6, 10);

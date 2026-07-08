@@ -21,12 +21,12 @@ Then visit `http://<your-machine-ip>:8765/` from your phone on the same network,
 - The town (top of the map) lets you rest for free, buy Potions/Ethers, and visit the Armory to buy and equip better weapons/armor.
 - The Knight and the Master Mage (two huts off the path, south of town) teach permanent new skills for gold — physical techniques and spells respectively, though mechanically both just spend MP for bonus damage.
 - Your progress autosaves (browser local storage) after town visits, battles, and area transitions — use Continue from the title screen to resume.
-- The Dark Knight guards the stairs at the bottom of the map — defeat him and his tile becomes a permanent portal down into a second area, The Ember Depths, home to tougher monsters and a final boss, the Lich.
+- Four areas, each with its own monster type and boss: the overworld (Slime/Goblin/Wolf, boss the Dark Knight) → The Ember Depths (Bat/Specter, boss the Lich) → The Frostreach (Frost Golem/Ice Sprite, boss the Glacial Titan) → The Dragon's Spire (Wyrmling/Drake, boss the Ancient Dragon — the true final boss). Beating a boss turns its tile into a permanent portal down to the next area; a matching portal tile at each area's entrance leads back up.
 
 ## Project layout
 
 - `index.html`, `css/style.css` — screens and mobile-first styling
-- `js/data.js` — stats, enemies, items, equipment, and the `MAPS` registry (overworld + Depths, each with its own grid, palette, enemy pool, and boss)
+- `js/data.js` — stats, enemies, items, equipment, and the `MAPS` registry (four zones, each with its own grid, palette, enemy pool, and boss)
 - `js/state.js`, `js/save.js` — game state and localStorage persistence
 - `js/map.js` — tile rendering and movement/encounter/portal logic, driven by the current map in `MAPS`
 - `js/battle.js` — turn-based combat and leveling
