@@ -2,7 +2,7 @@ import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest } from './battle.js';
+import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -310,25 +310,100 @@ function renderChest(chest) {
 }
 
 // ---------- Status ----------
+function sectionHeading(text) {
+  const h = document.createElement('h3');
+  h.className = 'armory-section';
+  h.textContent = text;
+  return h;
+}
+
+// Items are usable right here — no need to be in battle or visit town.
+function buildStatusItemRow(itemKey) {
+  const p = state.player;
+  const item = ITEMS[itemKey];
+  const count = p.inventory[itemKey] || 0;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">${item.desc} — Have ${count}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  btn.textContent = 'Use';
+  btn.disabled = count <= 0;
+  btn.addEventListener('click', () => {
+    const msg = consumeItem(p, itemKey);
+    if (msg) showToast(msg, 2000);
+    autosave();
+    updateHud();
+    renderStatus();
+  });
+  row.appendChild(btn);
+  return row;
+}
+
+// Any owned weapon/armor can be equipped straight from here — no need to
+// visit the Armory once you already own the piece (e.g. from a chest drop).
+function buildStatusEquipRow(gearKey, slot) {
+  const p = state.player;
+  const gear = slot === 'weapon' ? WEAPONS[gearKey] : ARMORS[gearKey];
+  const isEquipped = (slot === 'weapon' ? p.weaponKey : p.armorKey) === gearKey;
+  const statLabel = slot === 'weapon' ? `+${gear.atkBonus} ATK` : `+${gear.defBonus} DEF`;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${gear.name}</span>
+      <span class="shop-item-desc">${statLabel}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isEquipped) {
+    btn.textContent = 'Equipped';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Equip';
+    btn.addEventListener('click', () => {
+      if (slot === 'weapon') p.weaponKey = gearKey; else p.armorKey = gearKey;
+      autosave();
+      updateHud();
+      renderStatus();
+    });
+  }
+  row.appendChild(btn);
+  return row;
+}
+
 function renderStatus() {
   const p = state.player;
   const weapon = WEAPONS[p.weaponKey];
   const armor = ARMORS[p.armorKey];
   el('status-name').textContent = `${p.name} — Lv. ${p.level}`;
-  el('status-body').innerHTML = `
+  const body = el('status-body');
+  body.innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
     <div class="status-row"><span>Attack</span><span>${effectiveAtk(p)} (${p.baseAtk}+${weapon.atkBonus})</span></div>
     <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
-    <div class="status-row"><span>Weapon</span><span>${weapon.name}</span></div>
-    <div class="status-row"><span>Armor</span><span>${armor.name}</span></div>
-    <div class="status-row"><span>Potions</span><span>${p.inventory.potion || 0}</span></div>
-    <div class="status-row"><span>Ethers</span><span>${p.inventory.ether || 0}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
   `;
+
+  body.appendChild(sectionHeading('Items'));
+  body.appendChild(buildStatusItemRow('potion'));
+  body.appendChild(buildStatusItemRow('ether'));
+
+  body.appendChild(sectionHeading('Weapons'));
+  p.ownedWeapons.forEach((key) => body.appendChild(buildStatusEquipRow(key, 'weapon')));
+
+  body.appendChild(sectionHeading('Armor'));
+  p.ownedArmors.forEach((key) => body.appendChild(buildStatusEquipRow(key, 'armor')));
 }
 
 // ---------- Armory ----------

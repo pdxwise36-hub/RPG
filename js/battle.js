@@ -107,20 +107,30 @@ export function playerSkill(battle, state, skillKey) {
   afterPlayerAction(battle, state);
 }
 
-export function playerItem(battle, state, itemKey) {
-  if (battle.over) return;
-  const player = state.player;
+// Applies an item's effect directly to the player and decrements inventory.
+// Shared by in-battle item use and the Status screen's out-of-battle "Use"
+// buttons. Returns a message describing what happened, or null if the item
+// couldn't be used (none left, or not a consumable).
+export function consumeItem(player, itemKey) {
   const count = player.inventory[itemKey] || 0;
-  if (count <= 0) return;
+  if (count <= 0) return null;
   const item = ITEMS[itemKey];
   player.inventory[itemKey] = count - 1;
   if (item.heal) {
     player.hp = Math.min(player.maxHp, player.hp + item.heal);
-    pushLog(battle, `You drink a ${item.name}. Restored ${item.heal} HP.`);
-  } else if (item.mp) {
-    player.mp = Math.min(player.maxMp, player.mp + item.mp);
-    pushLog(battle, `You drink an ${item.name}. Restored ${item.mp} MP.`);
+    return `You drink a ${item.name}. Restored ${item.heal} HP.`;
   }
+  if (item.mp) {
+    player.mp = Math.min(player.maxMp, player.mp + item.mp);
+    return `You drink an ${item.name}. Restored ${item.mp} MP.`;
+  }
+  return null;
+}
+
+export function playerItem(battle, state, itemKey) {
+  if (battle.over) return;
+  const msg = consumeItem(state.player, itemKey);
+  if (msg) pushLog(battle, msg);
   afterPlayerAction(battle, state);
 }
 
