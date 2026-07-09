@@ -22,18 +22,21 @@ Then visit `http://<your-machine-ip>:8765/` from your phone on the same network,
 - The Knight and the Master Mage (two huts off the path, south of town) each teach 12 permanent skills for gold — physical techniques and spells respectively, though mechanically both just spend MP for bonus damage, spanning cheap/weak to expensive/strong.
 - The Pet Tamer (a hut further south of town) sells ten battle pets, cheap-and-weak to rare-and-strong: Turtle, Wolf Pup, Fox, Hawk, Boar, Salamander, Owl, Baby Golem, Panther, and the Dragonling. An adopted, active pet fights beside you: after your action each turn, it automatically lands its own bonus hit on the enemy before it strikes back. Only one pet can be active at a time, but switching between owned pets is free.
 - Your progress autosaves (browser local storage) after town visits, battles, and area transitions — use Continue from the title screen to resume.
-- Four areas, each with its own monster type and boss: the overworld (Slime/Goblin/Wolf, boss the Dark Knight) → The Ember Depths (Bat/Specter, boss the Lich) → The Frostreach (Frost Golem/Ice Sprite, boss the Glacial Titan) → The Dragon's Spire (Wyrmling/Drake, boss the Ancient Dragon — the true final boss). Beating a boss turns its tile into a permanent portal down to the next area; a matching portal tile at each area's entrance leads back up.
+- The Armory sells ten tiers of weapons and armor, from the free starting gear up to the Celestial Edge and Celestial Aegis.
+- Fourteen areas in a chain, each with its own monster pair and boss, escalating from the overworld all the way to the true final boss: Emberfall (Slime/Goblin/Wolf → Dark Knight) → The Ember Depths (Bat/Specter → Lich) → The Frostreach (Frost Golem/Ice Sprite → Glacial Titan) → The Dragon's Spire (Wyrmling/Drake → Ancient Dragon) → The Sunken Ruins (Merfolk Raider/Reef Serpent → Drowned Queen) → The Whispering Woods (Thornling/Wisp Moth → Elder Ent) → The Sandscar Wastes (Dust Jackal/Sand Viper → Sand Reaver) → The Volcanic Depths (Cinder Imp/Magma Hound → Molten Wyrm) → The Shattered Peaks (Storm Harpy/Rock Wyvern → Stormguard Titan) → The Blightmarsh (Bog Leech/Plague Rat → Rotlord) → The Crystal Caverns (Crystal Stalker/Gem Ooze → Prism Colossus) → The Shadowfen (Shade Stalker/Nightmare Hound → Nightmare Drake) → The Celestial Spire (Star Wisp/Cloud Serpent → Astral Guardian) → The Void Rift (Void Spawn/Chaos Hound → the World Serpent, the true final boss). Beating a boss turns its tile into a permanent portal down to the next area; a matching portal tile at each area's entrance leads back up.
+- Every area past the overworld is procedurally generated — the winding path from entrance to boss, the vendor placement, and the scatter of trees/water are randomized fresh each time you step into that zone, so it's never the same straight corridor twice. The overworld (your home town) stays fixed once generated, so it always feels like a stable home base.
 
 ## Project layout
 
 - `index.html`, `css/style.css` — screens and mobile-first styling
-- `js/data.js` — stats, enemies, items, equipment, and the `MAPS` registry (four zones, each with its own grid, palette, enemy pool, and boss)
-- `js/state.js`, `js/save.js` — game state and localStorage persistence
-- `js/map.js` — tile rendering and movement/encounter/portal logic, driven by the current map in `MAPS`
+- `js/data.js` — stats, enemies, items, equipment, and the `MAPS` registry (fourteen zones, each with its own theme, enemy pool, and boss — no fixed layout, since layouts are generated)
+- `js/mapgen.js` — procedural zone-layout generator: a randomized winding path from entry to boss, with vendor placement and a reachability check/retry so a level is never accidentally unsolvable
+- `js/state.js`, `js/save.js` — game state, per-zone layout caching, and localStorage persistence
+- `js/map.js` — tile rendering and movement/encounter/portal logic, reading the current zone's cached layout from state
 - `js/battle.js` — turn-based combat and leveling
 - `js/ui.js`, `js/main.js` — screen wiring and app bootstrap
 - `manifest.json`, `service-worker.js`, `icons/` — PWA installability + offline caching
 - `scripts/png-lib.js` — shared pure-Node PNG encoder (no image libraries available in this environment)
-- `scripts/gen-icons.js`, `scripts/gen-sprites.js` — one-off scripts that generated the app icons and pixel-art hero/monster sprites
+- `scripts/gen-icons.js`, `scripts/gen-sprites.js` — one-off scripts that generated the app icons and pixel-art sprites; monster/boss art reuses a handful of body-plan templates (quadruped/biped/flier/blob/serpent, and four boss archetypes) recolored per zone rather than one-off art for every creature
 
-Built to be easy to extend: add a new zone by adding an entry to `MAPS` in `data.js` (grid, palette, enemy pool, boss, portal linkage) — `map.js` and `ui.js` are already generic across maps.
+Built to be easy to extend: add a new zone by adding an entry to `MAPS` in `data.js` (theme, enemy pool, boss, `hasTown`/`vendors`, `portalTarget`/`nextMap` by zone id) — `mapgen.js` generates its layout automatically, and `map.js`/`ui.js` are already generic across zones.

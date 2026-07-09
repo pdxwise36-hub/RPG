@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest } from './battle.js';
@@ -113,8 +113,11 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'portal') {
+    // Every zone past the overworld gets a brand new random layout each
+    // time you step into it — arriving via a portal is always a fresh start.
     state.mapId = result.mapId;
-    state.pos = { ...result.pos };
+    const layout = ensureLayout(state, state.mapId, state.mapId !== 'overworld');
+    state.pos = { ...(result.target === 'boss' ? layout.bossPos : layout.startPos) };
     autosave();
     goToMap();
     showToast(`You arrive in ${MAPS[state.mapId].name}.`, 2200);
@@ -187,6 +190,7 @@ function resolveBattleEnd() {
         showToast(`${msg} The way onward has opened!`, 2800);
         goToMap();
       } else {
+        el('victory-title').textContent = `${battle.enemy.name} falls!`;
         showScreen('victory');
       }
       return;
@@ -212,9 +216,7 @@ function respawnAfterDefeat() {
   p.hp = p.maxHp;
   p.mp = p.maxMp;
   state.mapId = 'overworld';
-  state.pos = { ...MAPS.overworld.townPos };
-  // step off the town tile so re-entering fires the town event naturally later
-  state.pos.y += 1;
+  state.pos = { ...state.layouts.overworld.startPos };
   autosave();
   goToMap();
   showToast('You limp back to town, a little poorer.', 2400);
@@ -511,6 +513,9 @@ function wireEvents() {
     const saved = loadSave();
     if (!saved) return;
     state = fromSaveObject(saved);
+    // Resuming reuses whatever layout was saved — only very old saves that
+    // predate procedural generation would be missing one.
+    ensureLayout(state, state.mapId, false);
     goToMap();
   });
 

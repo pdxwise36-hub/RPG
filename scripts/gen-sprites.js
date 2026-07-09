@@ -162,8 +162,9 @@ function buildWolf() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Dark Knight (boss) — 26x32, larger and more detailed ----------
-function buildDarkKnight() {
+// ---------- Armored boss template — 26x32, larger and more detailed.
+// Reused (recolored) across zones for their "knight" archetype boss. ----------
+function buildArmoredBossTemplate(palette) {
   const g = makeGrid(26, 32);
   // flowing cape, drawn first so armor sits in front of it
   fillRect(g, 1, 9, 4, 19, 'c');
@@ -196,7 +197,11 @@ function buildDarkKnight() {
   fillRect(g, 9, 31, 4, 1, 'o');   // left boot
   fillRect(g, 14, 31, 4, 1, 'o');  // right boot
   addRim(g, 'a', 'd');
-  const palette = {
+  return rasterize(g, palette, SCALE);
+}
+
+function buildDarkKnight() {
+  return buildArmoredBossTemplate({
     'a': [58, 58, 68, 255],
     'a2': [92, 92, 106, 255],
     'd': [27, 27, 33, 255],
@@ -206,8 +211,7 @@ function buildDarkKnight() {
     'g': [176, 138, 62, 255],
     'o': [15, 15, 18, 255],
     'c': [70, 15, 25, 255],
-  };
-  return rasterize(g, palette, SCALE);
+  });
 }
 
 // ---------- Bat — 16x14, small flier ----------
@@ -246,8 +250,9 @@ function buildSpecter() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Lich (final boss) — 26x30, larger and more detailed ----------
-function buildLich() {
+// ---------- Robed caster boss template — 26x30, larger and more detailed.
+// Reused (recolored) across zones for their "caster" archetype boss. ----------
+function buildRobedBossTemplate(palette) {
   const g = makeGrid(26, 30);
   fillRect(g, 9, 1, 8, 7, 'k');    // skull
   setPx(g, 11, 3, 'e'); setPx(g, 14, 3, 'e'); // eye glow
@@ -272,7 +277,11 @@ function buildLich() {
   fillRect(g, 20, 0, 5, 3, 'o');   // orb cage
   setPx(g, 19, 1, 'e'); setPx(g, 25, 1, 'e'); // orb glow ring
   addRim(g, 'r', 'd');
-  const palette = {
+  return rasterize(g, palette, SCALE);
+}
+
+function buildLich() {
+  return buildRobedBossTemplate({
     'k': [225, 220, 200, 255],
     'e': [80, 230, 120, 255],
     'j': [40, 35, 30, 255],
@@ -281,8 +290,7 @@ function buildLich() {
     'd': [24, 14, 36, 255],
     'w': [107, 74, 42, 255],
     'o': [178, 88, 224, 255],
-  };
-  return rasterize(g, palette, SCALE);
+  });
 }
 
 // ---------- Frost Golem — 16x18, blocky ice construct ----------
@@ -324,11 +332,12 @@ function buildIceSprite() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Glacial Titan (boss) — 26x34, larger and more detailed ----------
-function buildGlacialTitan() {
+// ---------- Golem boss template — 26x34, larger and more detailed. Reused
+// (recolored) across zones for their "golem/elemental" archetype boss. ----------
+function buildGolemBossTemplate(palette) {
   const g = makeGrid(26, 34);
   fillRect(g, 9, 1, 8, 7, 'i');   // head
-  setPx(g, 9, 0, 'i'); setPx(g, 12, 0, 'i'); setPx(g, 13, 0, 'i'); setPx(g, 16, 0, 'i'); // icicle crown
+  setPx(g, 9, 0, 'i'); setPx(g, 12, 0, 'i'); setPx(g, 13, 0, 'i'); setPx(g, 16, 0, 'i'); // crest spikes
   setPx(g, 11, 3, 'g'); setPx(g, 14, 3, 'g'); // glow eyes
   setPx(g, 10, 5, 'cr'); // face crack
 
@@ -341,22 +350,25 @@ function buildGlacialTitan() {
 
   fillRect(g, 2, 11, 4, 10, 'i');   // left arm
   fillRect(g, 20, 11, 4, 10, 'i');  // right arm (fist)
-  setPx(g, 24, 10, 'i'); setPx(g, 25, 11, 'i'); setPx(g, 24, 12, 'i'); // icicle spikes, right fist
-  setPx(g, 1, 10, 'i'); setPx(g, 0, 11, 'i'); setPx(g, 1, 12, 'i');    // icicle spikes, left fist
+  setPx(g, 24, 10, 'i'); setPx(g, 25, 11, 'i'); setPx(g, 24, 12, 'i'); // spikes, right fist
+  setPx(g, 1, 10, 'i'); setPx(g, 0, 11, 'i'); setPx(g, 1, 12, 'i');    // spikes, left fist
 
   fillRect(g, 7, 22, 4, 9, 'i');  // left leg
   fillRect(g, 15, 22, 4, 9, 'i'); // right leg
   fillRect(g, 7, 31, 4, 3, 'd');  // left foot
   fillRect(g, 15, 31, 4, 3, 'd'); // right foot
   addRim(g, 'i', 'd');
-  const palette = {
+  return rasterize(g, palette, SCALE);
+}
+
+function buildGlacialTitan() {
+  return buildGolemBossTemplate({
     'i': [190, 225, 240, 255],
     'i2': [220, 240, 250, 255],
     'd': [110, 165, 195, 255],
     'g': [140, 230, 255, 255],
     'cr': [90, 150, 180, 255],
-  };
-  return rasterize(g, palette, SCALE);
+  });
 }
 
 // ---------- Wyrmling — 16x14, small dragon, side profile ----------
@@ -410,8 +422,9 @@ function buildDrake() {
   return rasterize(g, palette, SCALE);
 }
 
-// ---------- Ancient Dragon (final boss) — 32x28, wings spread, front-facing ----------
-function buildAncientDragon() {
+// ---------- Dragon boss template — 32x28, wings spread, front-facing.
+// Reused (recolored) across zones for their "dragon" archetype boss. ----------
+function buildDragonBossTemplate(palette) {
   const g = makeGrid(32, 28);
   fillRect(g, 13, 1, 7, 7, 'b');   // head
   setPx(g, 11, 0, 'h'); setPx(g, 12, 1, 'h'); // left horn
@@ -441,15 +454,18 @@ function buildAncientDragon() {
   fillRect(g, 28, 23, 3, 2, 'b');  // tail curl
   setPx(g, 30, 22, 'h');           // tail spade tip
   addRim(g, 'b', 'd');
-  const palette = {
+  return rasterize(g, palette, SCALE);
+}
+
+function buildAncientDragon() {
+  return buildDragonBossTemplate({
     'b': [140, 20, 20, 255],
     'd': [60, 8, 8, 255],
     'w': [90, 15, 15, 255],
     'h': [212, 168, 64, 255],
     'e': [255, 140, 40, 255],
     'j': [40, 10, 10, 255],
-  };
-  return rasterize(g, palette, SCALE);
+  });
 }
 
 // ---------- Treasure Chest — 16x14, open with gold spilling out ----------
@@ -692,6 +708,221 @@ function buildDragonling() {
   return rasterize(g, palette, SCALE);
 }
 
+// ---------- Generic enemy body-plan templates, reused (recolored) for the
+// ten new zones' monsters instead of thirty bespoke pixel layouts — each
+// zone still reads as visually distinct via its own palette + name + stats.
+function buildQuadrupedTemplate(palette) {
+  const g = makeGrid(20, 14);
+  fillRect(g, 0, 3, 6, 6, 'b');
+  fillRect(g, 2, 1, 2, 2, 'b');
+  fillRect(g, 5, 5, 11, 5, 'b');
+  fillRect(g, 16, 3, 4, 4, 'b');
+  setPx(g, 2, 5, 'e');
+  fillRect(g, 3, 10, 2, 3, 'b');
+  fillRect(g, 7, 10, 2, 3, 'b');
+  fillRect(g, 11, 10, 2, 3, 'b');
+  fillRect(g, 14, 10, 2, 3, 'b');
+  addRim(g, 'b', 'd');
+  return rasterize(g, palette, SCALE);
+}
+
+function buildBipedTemplate(palette) {
+  const g = makeGrid(16, 18);
+  fillRect(g, 5, 1, 6, 5, 'k');
+  setPx(g, 4, 2, 'k'); setPx(g, 11, 2, 'k');
+  setPx(g, 6, 4, 'r'); setPx(g, 9, 4, 'r');
+  fillRect(g, 5, 6, 6, 1, 'k');
+  fillRect(g, 5, 7, 6, 4, 'v');
+  fillRect(g, 5, 11, 6, 1, 'r');
+  fillRect(g, 3, 7, 2, 4, 'k');
+  fillRect(g, 11, 7, 2, 4, 'k');
+  fillRect(g, 12, 4, 3, 2, 'w');
+  fillRect(g, 13, 6, 1, 5, 'w');
+  fillRect(g, 5, 12, 3, 4, 'k');
+  fillRect(g, 8, 12, 3, 4, 'k');
+  fillRect(g, 5, 16, 3, 2, 'o');
+  fillRect(g, 8, 16, 3, 2, 'o');
+  addRim(g, 'k', 'd');
+  return rasterize(g, palette, SCALE);
+}
+
+function buildFlierTemplate(palette) {
+  const g = makeGrid(16, 14);
+  const leftWing = { 4: [4, 5], 5: [2, 5], 6: [0, 5], 7: [1, 5], 8: [3, 5] };
+  const rightWing = { 4: [10, 11], 5: [10, 13], 6: [10, 15], 7: [10, 14], 8: [10, 12] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'b'));
+  Object.entries(rightWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'b'));
+  fillRect(g, 6, 4, 4, 5, 'b');
+  setPx(g, 6, 3, 'b'); setPx(g, 9, 3, 'b');
+  setPx(g, 6, 9, 'b'); setPx(g, 9, 9, 'b');
+  setPx(g, 7, 6, 'e'); setPx(g, 8, 6, 'e');
+  addRim(g, 'b', 'd');
+  return rasterize(g, palette, SCALE);
+}
+
+function buildBlobTemplate(palette) {
+  const g = makeGrid(16, 14);
+  const rows = {
+    2: [6, 9], 3: [5, 10], 4: [4, 11], 5: [3, 12], 6: [3, 12],
+    7: [2, 13], 8: [2, 13], 9: [2, 13], 10: [2, 13], 11: [3, 12], 12: [4, 11],
+  };
+  Object.entries(rows).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'm'));
+  fillRect(g, 4, 4, 2, 2, 'l');
+  setPx(g, 6, 7, 'o'); setPx(g, 11, 7, 'o');
+  addRim(g, 'm', 'd');
+  return rasterize(g, palette, SCALE);
+}
+
+function buildSerpentTemplate(palette) {
+  const g = makeGrid(16, 14);
+  fillRect(g, 0, 3, 6, 6, 'b');
+  fillRect(g, 5, 5, 9, 5, 'b');
+  setPx(g, 3, 2, 'h');
+  setPx(g, 2, 5, 'e');
+  const leftWing = { 1: [7, 8], 2: [6, 9], 3: [6, 9] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  fillRect(g, 14, 6, 2, 3, 'b');
+  fillRect(g, 3, 10, 2, 3, 'b');
+  fillRect(g, 7, 10, 2, 3, 'b');
+  fillRect(g, 11, 10, 2, 3, 'b');
+  fillRect(g, 14, 10, 2, 3, 'b');
+  addRim(g, 'b', 'd');
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Zone 5: The Sunken Ruins ----------
+const buildMerfolkRaider = () => buildBipedTemplate({
+  'k': [60, 140, 150, 255], 'd': [35, 90, 100, 255], 'v': [40, 80, 110, 255],
+  'r': [200, 220, 60, 255], 'w': [180, 190, 200, 255], 'o': [20, 40, 50, 255],
+});
+const buildReefSerpent = () => buildSerpentTemplate({
+  'b': [40, 150, 140, 255], 'd': [20, 90, 85, 255], 'w': [30, 110, 105, 255],
+  'h': [210, 230, 80, 255], 'e': [255, 230, 90, 255],
+});
+const buildDrownedQueen = () => buildRobedBossTemplate({
+  'k': [180, 220, 225, 255], 'e': [100, 230, 220, 255], 'j': [30, 50, 55, 255],
+  'r': [20, 70, 80, 255], 'r2': [40, 110, 120, 255], 'd': [10, 35, 40, 255],
+  'w': [70, 90, 95, 255], 'o': [80, 220, 210, 255],
+});
+
+// ---------- Zone 6: The Whispering Woods ----------
+const buildThornling = () => buildBipedTemplate({
+  'k': [90, 130, 60, 255], 'd': [50, 80, 30, 255], 'v': [100, 70, 40, 255],
+  'r': [180, 60, 60, 255], 'w': [110, 80, 50, 255], 'o': [30, 25, 15, 255],
+});
+const buildWispMoth = () => buildFlierTemplate({
+  'b': [200, 230, 190, 255], 'd': [150, 190, 150, 255], 'e': [120, 200, 120, 255],
+});
+const buildElderEnt = () => buildGolemBossTemplate({
+  'i': [90, 110, 60, 255], 'i2': [130, 150, 90, 255], 'd': [55, 70, 35, 255],
+  'g': [180, 220, 100, 255], 'cr': [60, 45, 25, 255],
+});
+
+// ---------- Zone 7: The Sandscar Wastes ----------
+const buildDustJackal = () => buildQuadrupedTemplate({
+  'b': [200, 170, 110, 255], 'd': [150, 120, 70, 255], 'e': [220, 90, 40, 255],
+});
+const buildSandViper = () => buildSerpentTemplate({
+  'b': [210, 150, 80, 255], 'd': [150, 100, 50, 255], 'w': [180, 120, 60, 255],
+  'h': [255, 220, 120, 255], 'e': [255, 120, 40, 255],
+});
+const buildSandReaver = () => buildArmoredBossTemplate({
+  'a': [180, 150, 90, 255], 'a2': [220, 190, 130, 255], 'd': [110, 85, 45, 255],
+  'r': [220, 70, 40, 255], 's': [230, 220, 180, 255], 'gr': [250, 245, 220, 255],
+  'g': [140, 100, 50, 255], 'o': [50, 35, 20, 255], 'c': [120, 70, 30, 255],
+});
+
+// ---------- Zone 8: The Volcanic Depths ----------
+const buildCinderImp = () => buildBipedTemplate({
+  'k': [200, 60, 40, 255], 'd': [120, 30, 20, 255], 'v': [40, 30, 30, 255],
+  'r': [255, 200, 60, 255], 'w': [80, 60, 50, 255], 'o': [20, 10, 10, 255],
+});
+const buildMagmaHound = () => buildQuadrupedTemplate({
+  'b': [230, 90, 30, 255], 'd': [140, 40, 15, 255], 'e': [255, 230, 80, 255],
+});
+const buildMoltenWyrm = () => buildDragonBossTemplate({
+  'b': [220, 80, 20, 255], 'd': [130, 40, 10, 255], 'w': [160, 50, 15, 255],
+  'h': [255, 220, 80, 255], 'e': [255, 255, 150, 255], 'j': [80, 25, 8, 255],
+});
+
+// ---------- Zone 9: The Shattered Peaks ----------
+const buildStormHarpy = () => buildFlierTemplate({
+  'b': [150, 165, 180, 255], 'd': [100, 115, 130, 255], 'e': [230, 240, 255, 255],
+});
+const buildRockWyvern = () => buildSerpentTemplate({
+  'b': [110, 100, 95, 255], 'd': [70, 62, 58, 255], 'w': [90, 82, 78, 255],
+  'h': [200, 200, 210, 255], 'e': [255, 220, 100, 255],
+});
+const buildStormguardTitan = () => buildArmoredBossTemplate({
+  'a': [130, 150, 170, 255], 'a2': [170, 190, 210, 255], 'd': [80, 95, 110, 255],
+  'r': [90, 200, 255, 255], 's': [220, 230, 240, 255], 'gr': [245, 250, 255, 255],
+  'g': [150, 160, 175, 255], 'o': [40, 50, 60, 255], 'c': [60, 80, 110, 255],
+});
+
+// ---------- Zone 10: The Blightmarsh ----------
+const buildBogLeech = () => buildBlobTemplate({
+  'm': [90, 110, 40, 255], 'l': [140, 160, 70, 255], 'o': [40, 20, 50, 255], 'd': [55, 70, 25, 255],
+});
+const buildPlagueRat = () => buildQuadrupedTemplate({
+  'b': [70, 80, 55, 255], 'd': [40, 48, 30, 255], 'e': [180, 40, 160, 255],
+});
+const buildRotlord = () => buildRobedBossTemplate({
+  'k': [150, 170, 110, 255], 'e': [200, 60, 180, 255], 'j': [40, 45, 20, 255],
+  'r': [70, 60, 30, 255], 'r2': [100, 90, 50, 255], 'd': [30, 25, 10, 255],
+  'w': [90, 70, 40, 255], 'o': [160, 60, 150, 255],
+});
+
+// ---------- Zone 11: The Crystal Caverns ----------
+const buildCrystalStalker = () => buildQuadrupedTemplate({
+  'b': [100, 110, 220, 255], 'd': [60, 68, 150, 255], 'e': [255, 120, 220, 255],
+});
+const buildGemOoze = () => buildBlobTemplate({
+  'm': [230, 110, 200, 255], 'l': [255, 180, 230, 255], 'o': [80, 30, 90, 255], 'd': [160, 60, 140, 255],
+});
+const buildPrismColossus = () => buildGolemBossTemplate({
+  'i': [180, 150, 220, 255], 'i2': [220, 190, 250, 255], 'd': [110, 90, 150, 255],
+  'g': [255, 150, 220, 255], 'cr': [100, 200, 230, 255],
+});
+
+// ---------- Zone 12: The Shadowfen ----------
+const buildShadeStalker = () => buildBipedTemplate({
+  'k': [40, 20, 55, 255], 'd': [20, 10, 30, 255], 'v': [60, 20, 80, 255],
+  'r': [200, 60, 220, 255], 'w': [50, 30, 60, 255], 'o': [10, 5, 15, 255],
+});
+const buildNightmareHound = () => buildQuadrupedTemplate({
+  'b': [25, 15, 30, 255], 'd': [10, 5, 15, 255], 'e': [220, 30, 50, 255],
+});
+const buildNightmareDrake = () => buildDragonBossTemplate({
+  'b': [35, 20, 45, 255], 'd': [15, 8, 20, 255], 'w': [25, 14, 32, 255],
+  'h': [180, 60, 220, 255], 'e': [255, 40, 90, 255], 'j': [10, 5, 12, 255],
+});
+
+// ---------- Zone 13: The Celestial Spire ----------
+const buildStarWisp = () => buildFlierTemplate({
+  'b': [240, 235, 255, 255], 'd': [200, 195, 225, 255], 'e': [255, 215, 80, 255],
+});
+const buildCloudSerpent = () => buildSerpentTemplate({
+  'b': [220, 225, 245, 255], 'd': [170, 180, 210, 255], 'w': [200, 210, 235, 255],
+  'h': [255, 225, 110, 255], 'e': [130, 180, 255, 255],
+});
+const buildAstralGuardian = () => buildArmoredBossTemplate({
+  'a': [220, 210, 180, 255], 'a2': [250, 245, 220, 255], 'd': [160, 150, 120, 255],
+  'r': [255, 230, 100, 255], 's': [240, 240, 250, 255], 'gr': [255, 255, 255, 255],
+  'g': [200, 180, 120, 255], 'o': [100, 90, 60, 255], 'c': [180, 160, 220, 255],
+});
+
+// ---------- Zone 14: The Void Rift (final) ----------
+const buildVoidSpawn = () => buildBlobTemplate({
+  'm': [20, 10, 25, 255], 'l': [60, 20, 70, 255], 'o': [220, 30, 60, 255], 'd': [10, 5, 15, 255],
+});
+const buildChaosHound = () => buildQuadrupedTemplate({
+  'b': [15, 10, 18, 255], 'd': [5, 5, 8, 255], 'e': [255, 40, 60, 255],
+});
+const buildWorldSerpent = () => buildDragonBossTemplate({
+  'b': [10, 8, 12, 255], 'd': [3, 2, 4, 255], 'w': [15, 10, 18, 255],
+  'h': [200, 30, 60, 255], 'e': [255, 60, 90, 255], 'j': [5, 3, 6, 255],
+});
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -721,6 +952,36 @@ const sprites = {
   'owl.png': buildOwl,
   'panther.png': buildPanther,
   'dragonling.png': buildDragonling,
+  'merfolkraider.png': buildMerfolkRaider,
+  'reefserpent.png': buildReefSerpent,
+  'drownedqueen.png': buildDrownedQueen,
+  'thornling.png': buildThornling,
+  'wispmoth.png': buildWispMoth,
+  'elderent.png': buildElderEnt,
+  'dustjackal.png': buildDustJackal,
+  'sandviper.png': buildSandViper,
+  'sandreaver.png': buildSandReaver,
+  'cinderimp.png': buildCinderImp,
+  'magmahound.png': buildMagmaHound,
+  'moltenwyrm.png': buildMoltenWyrm,
+  'stormharpy.png': buildStormHarpy,
+  'rockwyvern.png': buildRockWyvern,
+  'stormguardtitan.png': buildStormguardTitan,
+  'bogleech.png': buildBogLeech,
+  'plaguerat.png': buildPlagueRat,
+  'rotlord.png': buildRotlord,
+  'crystalstalker.png': buildCrystalStalker,
+  'gemooze.png': buildGemOoze,
+  'prismcolossus.png': buildPrismColossus,
+  'shadestalker.png': buildShadeStalker,
+  'nightmarehound.png': buildNightmareHound,
+  'nightmaredrake.png': buildNightmareDrake,
+  'starwisp.png': buildStarWisp,
+  'cloudserpent.png': buildCloudSerpent,
+  'astralguardian.png': buildAstralGuardian,
+  'voidspawn.png': buildVoidSpawn,
+  'chaoshound.png': buildChaosHound,
+  'worldserpent.png': buildWorldSerpent,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

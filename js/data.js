@@ -1,5 +1,6 @@
-// Static game content: base stats, roster, items, and the overworld layout.
-// Nothing here mutates at runtime — state.js clones what it needs.
+// Static game content: base stats, roster, and the zone registry. Zone
+// layouts are no longer hand-authored here — they're procedurally generated
+// per playthrough by mapgen.js and cached on state.layouts.
 
 export const TILE = {
   GRASS: 0,
@@ -19,59 +20,32 @@ export const WALKABLE = new Set([
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
-// 12 columns x 16 rows. A single path (col 5) runs from the town at the top
-// to the boss lair at the bottom; grass on either side is where random
-// encounters happen; water and stray trees just add texture/obstacles. The
-// Knight (col 2) and Master Mage (col 9) sit off the path in row 9; the
-// Pet Tamer sits at row 11, col 2.
-const OVERWORLD_GRID = [
-  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-  [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
-  [3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 3],
-  [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
-  [3, 0, 0, 3, 3, 1, 3, 3, 0, 0, 0, 3],
-  [3, 0, 0, 3, 0, 1, 0, 3, 0, 0, 0, 3],
-  [3, 0, 2, 2, 0, 1, 0, 0, 0, 2, 0, 3],
-  [3, 0, 2, 2, 0, 1, 0, 0, 0, 2, 0, 3],
-  [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
-  [3, 0, 7, 0, 0, 1, 0, 0, 0, 8, 0, 3],
-  [3, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 3],
-  [3, 0, 9, 0, 0, 1, 0, 0, 0, 0, 0, 3],
-  [3, 0, 0, 3, 0, 1, 0, 3, 0, 0, 0, 3],
-  [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
-  [3, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 3],
-  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-];
-
-// Every dungeon level below the overworld reuses the same layout (same
-// obstacles, same footprint, no canvas-resize logic needed) but swaps the
-// town for a return portal, drops the vendors (they only make sense above
-// ground), and re-themes via a different tile palette in map.js.
-function makeDungeonGrid() {
-  const grid = OVERWORLD_GRID.map((row) => row.slice());
-  grid[1][5] = TILE.PORTAL;
-  grid[2][5] = TILE.PATH;
-  grid[9][2] = TILE.GRASS;
-  grid[9][9] = TILE.GRASS;
-  grid[11][2] = TILE.GRASS;
-  return grid;
-}
-const DEPTHS_GRID = makeDungeonGrid();
-const FROSTREACH_GRID = makeDungeonGrid();
-const SPIRE_GRID = makeDungeonGrid();
-
 export const HERO_SPRITE = 'icons/sprites/hero.png';
 
 export const WEAPONS = {
   rustySword: { key: 'rustySword', name: 'Rusty Sword', atkBonus: 0, price: 0 },
   ironSword: { key: 'ironSword', name: 'Iron Sword', atkBonus: 4, price: 40 },
   steelBlade: { key: 'steelBlade', name: 'Steel Blade', atkBonus: 9, price: 120 },
+  mithrilBlade: { key: 'mithrilBlade', name: 'Mithril Blade', atkBonus: 15, price: 220 },
+  flameSaber: { key: 'flameSaber', name: 'Flame Saber', atkBonus: 22, price: 340 },
+  frostFang: { key: 'frostFang', name: 'Frost Fang', atkBonus: 30, price: 480 },
+  thunderAxe: { key: 'thunderAxe', name: 'Thunder Axe', atkBonus: 38, price: 640 },
+  voidCleaver: { key: 'voidCleaver', name: 'Void Cleaver', atkBonus: 47, price: 820 },
+  dragonfang: { key: 'dragonfang', name: 'Dragonfang', atkBonus: 57, price: 1020 },
+  celestialEdge: { key: 'celestialEdge', name: 'Celestial Edge', atkBonus: 70, price: 1300 },
 };
 
 export const ARMORS = {
   clothTunic: { key: 'clothTunic', name: 'Cloth Tunic', defBonus: 0, price: 0 },
   leatherArmor: { key: 'leatherArmor', name: 'Leather Armor', defBonus: 3, price: 35 },
   ironPlate: { key: 'ironPlate', name: 'Iron Plate', defBonus: 7, price: 110 },
+  steelMail: { key: 'steelMail', name: 'Steel Mail', defBonus: 12, price: 200 },
+  mithrilVest: { key: 'mithrilVest', name: 'Mithril Vest', defBonus: 18, price: 320 },
+  dragonhideArmor: { key: 'dragonhideArmor', name: 'Dragonhide Armor', defBonus: 25, price: 460 },
+  runicPlate: { key: 'runicPlate', name: 'Runic Plate', defBonus: 33, price: 620 },
+  shadowweaveCloak: { key: 'shadowweaveCloak', name: 'Shadowweave Cloak', defBonus: 42, price: 800 },
+  stormguardArmor: { key: 'stormguardArmor', name: 'Stormguard Armor', defBonus: 52, price: 1000 },
+  celestialAegis: { key: 'celestialAegis', name: 'Celestial Aegis', defBonus: 64, price: 1280 },
 };
 
 // Both the Knight and the Master Mage teach permanent skills for gold — they
@@ -187,61 +161,165 @@ export const ANCIENT_DRAGON = {
   key: 'ancientdragon', name: 'The Ancient Dragon', maxHp: 180, atk: 22, def: 11, xp: 500, goldMin: 500, goldMax: 500, sprite: 'icons/sprites/ancientdragon.png',
 };
 
+export const SUNKENRUINS_ENEMIES = {
+  merfolkRaider: { key: 'merfolkRaider', name: 'Merfolk Raider', maxHp: 40, atk: 15, def: 7, xp: 32, goldMin: 24, goldMax: 32, weight: 4, sprite: 'icons/sprites/merfolkraider.png' },
+  reefSerpent: { key: 'reefSerpent', name: 'Reef Serpent', maxHp: 46, atk: 17, def: 8, xp: 38, goldMin: 28, goldMax: 36, weight: 3, sprite: 'icons/sprites/reefserpent.png' },
+};
+export const DROWNED_QUEEN = {
+  key: 'drownedqueen', name: 'The Drowned Queen', maxHp: 220, atk: 24, def: 13, xp: 600, goldMin: 600, goldMax: 600, sprite: 'icons/sprites/drownedqueen.png',
+};
+
+export const WHISPERINGWOODS_ENEMIES = {
+  thornling: { key: 'thornling', name: 'Thornling', maxHp: 48, atk: 17, def: 8, xp: 38, goldMin: 30, goldMax: 38, weight: 4, sprite: 'icons/sprites/thornling.png' },
+  wispMoth: { key: 'wispMoth', name: 'Wisp Moth', maxHp: 42, atk: 19, def: 6, xp: 40, goldMin: 32, goldMax: 40, weight: 3, sprite: 'icons/sprites/wispmoth.png' },
+};
+export const ELDER_ENT = {
+  key: 'elderent', name: 'The Elder Ent', maxHp: 260, atk: 26, def: 14, xp: 680, goldMin: 680, goldMax: 680, sprite: 'icons/sprites/elderent.png',
+};
+
+export const SANDSCAR_ENEMIES = {
+  dustJackal: { key: 'dustJackal', name: 'Dust Jackal', maxHp: 56, atk: 19, def: 9, xp: 44, goldMin: 36, goldMax: 44, weight: 4, sprite: 'icons/sprites/dustjackal.png' },
+  sandViper: { key: 'sandViper', name: 'Sand Viper', maxHp: 52, atk: 21, def: 8, xp: 46, goldMin: 38, goldMax: 46, weight: 3, sprite: 'icons/sprites/sandviper.png' },
+};
+export const SAND_REAVER = {
+  key: 'sandreaver', name: 'The Sand Reaver', maxHp: 300, atk: 28, def: 16, xp: 760, goldMin: 760, goldMax: 760, sprite: 'icons/sprites/sandreaver.png',
+};
+
+export const VOLCANIC_ENEMIES = {
+  cinderImp: { key: 'cinderImp', name: 'Cinder Imp', maxHp: 62, atk: 21, def: 10, xp: 50, goldMin: 42, goldMax: 50, weight: 4, sprite: 'icons/sprites/cinderimp.png' },
+  magmaHound: { key: 'magmaHound', name: 'Magma Hound', maxHp: 68, atk: 23, def: 10, xp: 54, goldMin: 46, goldMax: 54, weight: 3, sprite: 'icons/sprites/magmahound.png' },
+};
+export const MOLTEN_WYRM = {
+  key: 'moltenwyrm', name: 'The Molten Wyrm', maxHp: 340, atk: 30, def: 17, xp: 840, goldMin: 840, goldMax: 840, sprite: 'icons/sprites/moltenwyrm.png',
+};
+
+export const SHATTEREDPEAKS_ENEMIES = {
+  stormHarpy: { key: 'stormHarpy', name: 'Storm Harpy', maxHp: 70, atk: 23, def: 11, xp: 56, goldMin: 48, goldMax: 56, weight: 4, sprite: 'icons/sprites/stormharpy.png' },
+  rockWyvern: { key: 'rockWyvern', name: 'Rock Wyvern', maxHp: 76, atk: 25, def: 12, xp: 60, goldMin: 52, goldMax: 60, weight: 3, sprite: 'icons/sprites/rockwyvern.png' },
+};
+export const STORMGUARD_TITAN = {
+  key: 'stormguardtitan', name: 'The Stormguard Titan', maxHp: 380, atk: 32, def: 19, xp: 920, goldMin: 920, goldMax: 920, sprite: 'icons/sprites/stormguardtitan.png',
+};
+
+export const BLIGHTMARSH_ENEMIES = {
+  bogLeech: { key: 'bogLeech', name: 'Bog Leech', maxHp: 78, atk: 25, def: 12, xp: 62, goldMin: 54, goldMax: 62, weight: 4, sprite: 'icons/sprites/bogleech.png' },
+  plagueRat: { key: 'plagueRat', name: 'Plague Rat', maxHp: 72, atk: 27, def: 11, xp: 64, goldMin: 56, goldMax: 64, weight: 3, sprite: 'icons/sprites/plaguerat.png' },
+};
+export const ROTLORD = {
+  key: 'rotlord', name: 'The Rotlord', maxHp: 420, atk: 34, def: 20, xp: 1000, goldMin: 1000, goldMax: 1000, sprite: 'icons/sprites/rotlord.png',
+};
+
+export const CRYSTALCAVERNS_ENEMIES = {
+  crystalStalker: { key: 'crystalStalker', name: 'Crystal Stalker', maxHp: 86, atk: 27, def: 14, xp: 68, goldMin: 60, goldMax: 68, weight: 4, sprite: 'icons/sprites/crystalstalker.png' },
+  gemOoze: { key: 'gemOoze', name: 'Gem Ooze', maxHp: 92, atk: 29, def: 13, xp: 72, goldMin: 64, goldMax: 72, weight: 3, sprite: 'icons/sprites/gemooze.png' },
+};
+export const PRISM_COLOSSUS = {
+  key: 'prismcolossus', name: 'The Prism Colossus', maxHp: 460, atk: 36, def: 22, xp: 1080, goldMin: 1080, goldMax: 1080, sprite: 'icons/sprites/prismcolossus.png',
+};
+
+export const SHADOWFEN_ENEMIES = {
+  shadeStalker: { key: 'shadeStalker', name: 'Shade Stalker', maxHp: 94, atk: 29, def: 15, xp: 74, goldMin: 66, goldMax: 74, weight: 4, sprite: 'icons/sprites/shadestalker.png' },
+  nightmareHound: { key: 'nightmareHound', name: 'Nightmare Hound', maxHp: 100, atk: 31, def: 14, xp: 78, goldMin: 70, goldMax: 78, weight: 3, sprite: 'icons/sprites/nightmarehound.png' },
+};
+export const NIGHTMARE_DRAKE = {
+  key: 'nightmaredrake', name: 'The Nightmare Drake', maxHp: 500, atk: 38, def: 23, xp: 1160, goldMin: 1160, goldMax: 1160, sprite: 'icons/sprites/nightmaredrake.png',
+};
+
+export const CELESTIAL_ENEMIES = {
+  starWisp: { key: 'starWisp', name: 'Star Wisp', maxHp: 102, atk: 31, def: 16, xp: 80, goldMin: 72, goldMax: 80, weight: 4, sprite: 'icons/sprites/starwisp.png' },
+  cloudSerpent: { key: 'cloudSerpent', name: 'Cloud Serpent', maxHp: 108, atk: 33, def: 16, xp: 84, goldMin: 76, goldMax: 84, weight: 3, sprite: 'icons/sprites/cloudserpent.png' },
+};
+export const ASTRAL_GUARDIAN = {
+  key: 'astralguardian', name: 'The Astral Guardian', maxHp: 540, atk: 40, def: 25, xp: 1240, goldMin: 1240, goldMax: 1240, sprite: 'icons/sprites/astralguardian.png',
+};
+
+export const VOIDRIFT_ENEMIES = {
+  voidSpawn: { key: 'voidSpawn', name: 'Void Spawn', maxHp: 116, atk: 34, def: 17, xp: 90, goldMin: 80, goldMax: 90, weight: 4, sprite: 'icons/sprites/voidspawn.png' },
+  chaosHound: { key: 'chaosHound', name: 'Chaos Hound', maxHp: 122, atk: 36, def: 18, xp: 96, goldMin: 84, goldMax: 94, weight: 3, sprite: 'icons/sprites/chaoshound.png' },
+};
+export const WORLD_SERPENT = {
+  key: 'worldserpent', name: 'The World Serpent', maxHp: 640, atk: 45, def: 28, xp: 1600, goldMin: 1600, goldMax: 1600, sprite: 'icons/sprites/worldserpent.png',
+};
+
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
-// ui.js all key off state.mapId instead of hardcoding a single map).
+// ui.js all key off state.mapId instead of hardcoding a single map). Layouts
+// are no longer stored here — mapgen.js procedurally builds a fresh grid for
+// each zone, cached on state.layouts. `hasTown`/`vendors` tell the generator
+// to place the town and/or vendor huts; `portalTarget`/`nextMap` chain zones
+// together by id only (positions resolve dynamically from the generated
+// layout of whichever zone you're arriving in).
 export const MAPS = {
   overworld: {
-    id: 'overworld',
-    name: 'Emberfall',
-    grid: OVERWORLD_GRID,
-    theme: 'overworld',
-    startPos: { x: 5, y: 3 },
-    townPos: { x: 5, y: 2 },
-    bossPos: { x: 5, y: 14 },
-    bossEnemy: BOSS,
-    bossFlag: 'bossDefeated',
-    enemyPool: ENEMIES,
-    // Once the boss is beaten, its tile becomes a permanent portal down.
-    nextMap: { mapId: 'depths', pos: { x: 5, y: 2 } },
+    id: 'overworld', name: 'Emberfall', theme: 'overworld',
+    hasTown: true, vendors: [TILE.KNIGHT, TILE.MAGE, TILE.TAMER],
+    bossEnemy: BOSS, bossFlag: 'bossDefeated', enemyPool: ENEMIES,
+    nextMap: { mapId: 'depths' },
   },
   depths: {
-    id: 'depths',
-    name: 'The Ember Depths',
-    grid: DEPTHS_GRID,
-    theme: 'depths',
-    bossPos: { x: 5, y: 14 },
-    bossEnemy: LICH,
-    bossFlag: 'lichDefeated',
-    enemyPool: DEPTHS_ENEMIES,
-    portalPos: { x: 5, y: 1 },
-    portalTarget: { mapId: 'overworld', pos: { x: 5, y: 14 } },
-    nextMap: { mapId: 'frostreach', pos: { x: 5, y: 2 } },
+    id: 'depths', name: 'The Ember Depths', theme: 'depths',
+    bossEnemy: LICH, bossFlag: 'lichDefeated', enemyPool: DEPTHS_ENEMIES,
+    portalTarget: { mapId: 'overworld' }, nextMap: { mapId: 'frostreach' },
   },
   frostreach: {
-    id: 'frostreach',
-    name: 'The Frostreach',
-    grid: FROSTREACH_GRID,
-    theme: 'frostreach',
-    bossPos: { x: 5, y: 14 },
-    bossEnemy: GLACIAL_TITAN,
-    bossFlag: 'titanDefeated',
-    enemyPool: FROSTREACH_ENEMIES,
-    portalPos: { x: 5, y: 1 },
-    portalTarget: { mapId: 'depths', pos: { x: 5, y: 14 } },
-    nextMap: { mapId: 'spire', pos: { x: 5, y: 2 } },
+    id: 'frostreach', name: 'The Frostreach', theme: 'frostreach',
+    bossEnemy: GLACIAL_TITAN, bossFlag: 'titanDefeated', enemyPool: FROSTREACH_ENEMIES,
+    portalTarget: { mapId: 'depths' }, nextMap: { mapId: 'spire' },
   },
   spire: {
-    id: 'spire',
-    name: "The Dragon's Spire",
-    grid: SPIRE_GRID,
-    theme: 'spire',
-    bossPos: { x: 5, y: 14 },
-    bossEnemy: ANCIENT_DRAGON,
-    bossFlag: 'dragonDefeated',
-    enemyPool: SPIRE_ENEMIES,
-    portalPos: { x: 5, y: 1 },
-    portalTarget: { mapId: 'frostreach', pos: { x: 5, y: 14 } },
-    // No nextMap — defeating the Ancient Dragon is the true ending.
+    id: 'spire', name: "The Dragon's Spire", theme: 'spire',
+    bossEnemy: ANCIENT_DRAGON, bossFlag: 'dragonDefeated', enemyPool: SPIRE_ENEMIES,
+    portalTarget: { mapId: 'frostreach' }, nextMap: { mapId: 'sunkenruins' },
+  },
+  sunkenruins: {
+    id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins',
+    bossEnemy: DROWNED_QUEEN, bossFlag: 'drownedQueenDefeated', enemyPool: SUNKENRUINS_ENEMIES,
+    portalTarget: { mapId: 'spire' }, nextMap: { mapId: 'whisperingwoods' },
+  },
+  whisperingwoods: {
+    id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods',
+    bossEnemy: ELDER_ENT, bossFlag: 'elderEntDefeated', enemyPool: WHISPERINGWOODS_ENEMIES,
+    portalTarget: { mapId: 'sunkenruins' }, nextMap: { mapId: 'sandscar' },
+  },
+  sandscar: {
+    id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar',
+    bossEnemy: SAND_REAVER, bossFlag: 'sandReaverDefeated', enemyPool: SANDSCAR_ENEMIES,
+    portalTarget: { mapId: 'whisperingwoods' }, nextMap: { mapId: 'volcanic' },
+  },
+  volcanic: {
+    id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic',
+    bossEnemy: MOLTEN_WYRM, bossFlag: 'moltenWyrmDefeated', enemyPool: VOLCANIC_ENEMIES,
+    portalTarget: { mapId: 'sandscar' }, nextMap: { mapId: 'shatteredpeaks' },
+  },
+  shatteredpeaks: {
+    id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks',
+    bossEnemy: STORMGUARD_TITAN, bossFlag: 'stormguardTitanDefeated', enemyPool: SHATTEREDPEAKS_ENEMIES,
+    portalTarget: { mapId: 'volcanic' }, nextMap: { mapId: 'blightmarsh' },
+  },
+  blightmarsh: {
+    id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh',
+    bossEnemy: ROTLORD, bossFlag: 'rotlordDefeated', enemyPool: BLIGHTMARSH_ENEMIES,
+    portalTarget: { mapId: 'shatteredpeaks' }, nextMap: { mapId: 'crystalcaverns' },
+  },
+  crystalcaverns: {
+    id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns',
+    bossEnemy: PRISM_COLOSSUS, bossFlag: 'prismColossusDefeated', enemyPool: CRYSTALCAVERNS_ENEMIES,
+    portalTarget: { mapId: 'blightmarsh' }, nextMap: { mapId: 'shadowfen' },
+  },
+  shadowfen: {
+    id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen',
+    bossEnemy: NIGHTMARE_DRAKE, bossFlag: 'nightmareDrakeDefeated', enemyPool: SHADOWFEN_ENEMIES,
+    portalTarget: { mapId: 'crystalcaverns' }, nextMap: { mapId: 'celestial' },
+  },
+  celestial: {
+    id: 'celestial', name: 'The Celestial Spire', theme: 'celestial',
+    bossEnemy: ASTRAL_GUARDIAN, bossFlag: 'astralGuardianDefeated', enemyPool: CELESTIAL_ENEMIES,
+    portalTarget: { mapId: 'shadowfen' }, nextMap: { mapId: 'voidrift' },
+  },
+  voidrift: {
+    id: 'voidrift', name: 'The Void Rift', theme: 'voidrift',
+    bossEnemy: WORLD_SERPENT, bossFlag: 'worldSerpentDefeated', enemyPool: VOIDRIFT_ENEMIES,
+    portalTarget: { mapId: 'celestial' },
+    // No nextMap — defeating the World Serpent is the true ending.
   },
 };
 
