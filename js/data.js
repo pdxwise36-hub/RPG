@@ -135,7 +135,16 @@ export const PLAYER_BASE = {
   inventory: { potion: 3, ether: 0 },
 };
 
-export const LEVEL_GROWTH = { hp: 8, mp: 3, atk: 2, def: 1, xpFactor: 1.6 };
+// xpFactor compounds level-to-level below xpFactorCapLevel — this is the
+// original curve, unchanged since the game's first build. Beyond that level
+// it switches to a flat +xpLinearStep per level instead of continuing to
+// compound, since the multiplicative growth was never stress-tested past a
+// short 4-zone game and explodes to an ungrindable wall by level ~15 once
+// there's 14 zones of content to actually reach.
+export const LEVEL_GROWTH = {
+  hp: 8, mp: 3, atk: 2, def: 1,
+  xpFactor: 1.6, xpFactorCapLevel: 10, xpLinearStep: 500,
+};
 
 export const ENEMIES = {
   slime: { key: 'slime', name: 'Slime', maxHp: 12, atk: 3, def: 1, xp: 5, goldMin: 3, goldMax: 6, weight: 5, sprite: 'icons/sprites/slime.png' },

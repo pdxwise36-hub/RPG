@@ -160,7 +160,9 @@ export function grantRewards(state, enemyDef) {
   let levels = 0;
   while (player.xp >= player.xpToNext) {
     player.xp -= player.xpToNext;
-    player.xpToNext = Math.round(player.xpToNext * LEVEL_GROWTH.xpFactor);
+    player.xpToNext = player.level < LEVEL_GROWTH.xpFactorCapLevel
+      ? Math.round(player.xpToNext * LEVEL_GROWTH.xpFactor)
+      : player.xpToNext + LEVEL_GROWTH.xpLinearStep;
     player.level += 1;
     player.maxHp += LEVEL_GROWTH.hp;
     player.maxMp += LEVEL_GROWTH.mp;

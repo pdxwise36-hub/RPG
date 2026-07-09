@@ -386,6 +386,9 @@ function renderStatus() {
   const body = el('status-body');
 
   const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
+  const petDamageRow = p.activePetKey ? `
+    <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * petEffectivePower(p, p.activePetKey)))} per hit (+${Math.round(petEffectivePower(p, p.activePetKey) * 100)}% ATK)</span></div>
+  ` : '';
   const petBar = petProgress ? `
     <div class="bar-track pet-xp">
       <div class="bar-fill" style="width:${Math.round((petProgress.xpIntoLevel / petProgress.xpNeeded) * 100)}%"></div>
@@ -402,6 +405,7 @@ function renderStatus() {
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
+    ${petDamageRow}
     ${petBar}
   `;
 
