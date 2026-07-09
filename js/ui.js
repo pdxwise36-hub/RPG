@@ -181,6 +181,10 @@ function resolveBattleEnd() {
     const rewards = grantRewards(state, battle.enemy);
     let msg = `Won ${rewards.goldWon}G and ${rewards.xpWon} XP.`;
     if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
+    if (rewards.petLeveledUp) {
+      const pet = PETS[p.activePetKey];
+      msg += ` ${pet.name} is now Lv. ${petLevel(p, p.activePetKey)}!`;
+    }
     if (battle.isBoss) {
       const map = MAPS[state.mapId];
       state.flags[map.bossFlag] = true;

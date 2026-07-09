@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, PET_XP_PER_LEVEL, PET_LEVEL_POWER_BONUS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS } from './data.js';
 import { generateZoneGrid } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -73,12 +73,36 @@ export function effectiveDef(player) {
   return player.baseDef + armor.defBonus;
 }
 
-// Pet level is purely derived from cumulative XP earned while that pet was
-// active — no separate stored level field, so there's nothing to desync.
-// No cap, same as the player: it keeps growing for as long as you grind.
+// Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the
+// shared curve (compounds through xpFactorCapLevel, then a flat step per
+// level after that). Both the player and pets use this exact function with
+// the exact same per-kill XP amount, so an active pet levels in lockstep
+// with the player instead of lagging behind on some slower schedule.
+export function applyLevelUps(entity, growth = LEVEL_GROWTH) {
+  let levels = 0;
+  while (entity.xp >= entity.xpToNext) {
+    entity.xp -= entity.xpToNext;
+    entity.xpToNext = entity.level < growth.xpFactorCapLevel
+      ? Math.round(entity.xpToNext * growth.xpFactor)
+      : entity.xpToNext + growth.xpLinearStep;
+    entity.level += 1;
+    levels += 1;
+  }
+  return levels;
+}
+
+// Lazily creates a pet's progress record, starting at the exact same
+// level 1 / xp 0 / xpToNext as a brand-new player.
+export function ensurePetProgress(player, petKey) {
+  if (!player.petProgress[petKey]) {
+    player.petProgress[petKey] = { level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext };
+  }
+  return player.petProgress[petKey];
+}
+
 export function petLevel(player, petKey) {
-  const xp = (player.petXp && player.petXp[petKey]) || 0;
-  return 1 + Math.floor(xp / PET_XP_PER_LEVEL);
+  const progress = player.petProgress && player.petProgress[petKey];
+  return progress ? progress.level : 1;
 }
 
 export function petEffectivePower(player, petKey) {
@@ -90,7 +114,7 @@ export function petEffectivePower(player, petKey) {
 
 // Progress toward the pet's next level, for rendering an XP bar.
 export function petXpProgress(player, petKey) {
-  const xp = (player.petXp && player.petXp[petKey]) || 0;
-  const level = petLevel(player, petKey);
-  return { level, xpIntoLevel: xp - (level - 1) * PET_XP_PER_LEVEL, xpNeeded: PET_XP_PER_LEVEL };
+  const progress = player.petProgress && player.petProgress[petKey];
+  if (!progress) return { level: 1, xpIntoLevel: 0, xpNeeded: PLAYER_BASE.xpToNext };
+  return { level: progress.level, xpIntoLevel: progress.xp, xpNeeded: progress.xpToNext };
 }

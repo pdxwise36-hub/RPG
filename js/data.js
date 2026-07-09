@@ -105,11 +105,11 @@ export const PETS = {
   dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.png' },
 };
 
-// Pets level up from cumulative XP earned while active in battle (see
-// petLevel/petEffectivePower in state.js) — each level adds a flat bonus to
-// the pet's damage multiplier. No level cap, same as the player: it just
-// keeps growing for as long as you keep grinding.
-export const PET_XP_PER_LEVEL = 50;
+// Pets earn the exact same XP as the player from every kill they're active
+// for, leveling up on the exact same curve (see LEVEL_GROWTH below) — so an
+// active pet levels in lockstep with you instead of lagging behind. Each
+// level adds a flat bonus to the pet's damage multiplier; no cap, same as
+// the player.
 export const PET_LEVEL_POWER_BONUS = 0.15;
 
 export const PLAYER_BASE = {
@@ -131,7 +131,7 @@ export const PLAYER_BASE = {
   knownSkills: ['fireball'],
   ownedPets: [],
   activePetKey: null,
-  petXp: {},
+  petProgress: {},
   inventory: { potion: 3, ether: 0 },
 };
 

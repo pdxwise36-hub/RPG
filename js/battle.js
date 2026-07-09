@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, WEAPON_ORDER, ARMOR_ORDER } from './data.js';
-import { effectiveAtk, effectiveDef, petLevel, petEffectivePower } from './state.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, applyLevelUps, ensurePetProgress } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -64,16 +64,9 @@ function petAttacks(battle, state) {
   const petKey = player.activePetKey;
   const pet = PETS[petKey];
   if (!pet) return;
-  const levelBefore = petLevel(player, petKey);
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * petEffectivePower(player, petKey)));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${pet.name} attacks ${battle.enemy.name} for ${dmg}!`);
-
-  player.petXp[petKey] = (player.petXp[petKey] || 0) + rand(2, 5);
-  const levelAfter = petLevel(player, petKey);
-  if (levelAfter > levelBefore) {
-    pushLog(battle, `${pet.name} leveled up! Now Lv. ${levelAfter}.`);
-  }
 }
 
 function afterPlayerAction(battle, state) {
@@ -151,28 +144,37 @@ export function playerRun(battle, state) {
   }
 }
 
-// Returns { leveledUp, levels } describing how many level-ups occurred.
+// Returns { leveledUp, levels, petLeveledUp, petLevels } describing how many
+// level-ups occurred. The active pet earns the exact same XP as the player
+// from this kill and levels on the exact same curve, so it never lags
+// behind as long as it's been active the whole way.
 export function grantRewards(state, enemyDef) {
   const player = state.player;
   const goldWon = rand(enemyDef.goldMin, enemyDef.goldMax);
   player.gold += goldWon;
   player.xp += enemyDef.xp;
-  let levels = 0;
-  while (player.xp >= player.xpToNext) {
-    player.xp -= player.xpToNext;
-    player.xpToNext = player.level < LEVEL_GROWTH.xpFactorCapLevel
-      ? Math.round(player.xpToNext * LEVEL_GROWTH.xpFactor)
-      : player.xpToNext + LEVEL_GROWTH.xpLinearStep;
-    player.level += 1;
-    player.maxHp += LEVEL_GROWTH.hp;
-    player.maxMp += LEVEL_GROWTH.mp;
-    player.baseAtk += LEVEL_GROWTH.atk;
-    player.baseDef += LEVEL_GROWTH.def;
+  const levels = applyLevelUps(player);
+  if (levels > 0) {
+    player.maxHp += LEVEL_GROWTH.hp * levels;
+    player.maxMp += LEVEL_GROWTH.mp * levels;
+    player.baseAtk += LEVEL_GROWTH.atk * levels;
+    player.baseDef += LEVEL_GROWTH.def * levels;
     player.hp = player.maxHp;
     player.mp = player.maxMp;
-    levels += 1;
   }
-  return { goldWon, xpWon: enemyDef.xp, leveledUp: levels > 0, levels };
+
+  let petLevels = 0;
+  if (player.activePetKey) {
+    const progress = ensurePetProgress(player, player.activePetKey);
+    progress.xp += enemyDef.xp;
+    petLevels = applyLevelUps(progress);
+  }
+
+  return {
+    goldWon, xpWon: enemyDef.xp,
+    leveledUp: levels > 0, levels,
+    petLeveledUp: petLevels > 0, petLevels,
+  };
 }
 
 const CHEST_CHANCE = 0.25;
