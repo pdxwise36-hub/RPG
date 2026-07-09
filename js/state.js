@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, PET_XP_PER_LEVEL, PET_MAX_LEVEL, PET_LEVEL_POWER_BONUS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, PET_XP_PER_LEVEL, PET_LEVEL_POWER_BONUS } from './data.js';
 import { generateZoneGrid } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -75,9 +75,10 @@ export function effectiveDef(player) {
 
 // Pet level is purely derived from cumulative XP earned while that pet was
 // active — no separate stored level field, so there's nothing to desync.
+// No cap, same as the player: it keeps growing for as long as you grind.
 export function petLevel(player, petKey) {
   const xp = (player.petXp && player.petXp[petKey]) || 0;
-  return Math.min(PET_MAX_LEVEL, 1 + Math.floor(xp / PET_XP_PER_LEVEL));
+  return 1 + Math.floor(xp / PET_XP_PER_LEVEL);
 }
 
 export function petEffectivePower(player, petKey) {
@@ -87,13 +88,9 @@ export function petEffectivePower(player, petKey) {
   return pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
 }
 
-// Progress toward the pet's next level, for rendering an XP bar. At max
-// level there's nowhere left to progress to, so the bar just reads full.
+// Progress toward the pet's next level, for rendering an XP bar.
 export function petXpProgress(player, petKey) {
   const xp = (player.petXp && player.petXp[petKey]) || 0;
   const level = petLevel(player, petKey);
-  if (level >= PET_MAX_LEVEL) {
-    return { level, xpIntoLevel: PET_XP_PER_LEVEL, xpNeeded: PET_XP_PER_LEVEL, isMax: true };
-  }
-  return { level, xpIntoLevel: xp - (level - 1) * PET_XP_PER_LEVEL, xpNeeded: PET_XP_PER_LEVEL, isMax: false };
+  return { level, xpIntoLevel: xp - (level - 1) * PET_XP_PER_LEVEL, xpNeeded: PET_XP_PER_LEVEL };
 }

@@ -389,7 +389,7 @@ function renderStatus() {
   const petBar = petProgress ? `
     <div class="bar-track pet-xp">
       <div class="bar-fill" style="width:${Math.round((petProgress.xpIntoLevel / petProgress.xpNeeded) * 100)}%"></div>
-      <span class="bar-text">${petProgress.isMax ? 'MAX LEVEL' : `${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP`}</span>
+      <span class="bar-text">${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP</span>
     </div>
   ` : '';
 

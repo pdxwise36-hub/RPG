@@ -107,9 +107,9 @@ export const PETS = {
 
 // Pets level up from cumulative XP earned while active in battle (see
 // petLevel/petEffectivePower in state.js) — each level adds a flat bonus to
-// the pet's damage multiplier, capped at PET_MAX_LEVEL.
+// the pet's damage multiplier. No level cap, same as the player: it just
+// keeps growing for as long as you keep grinding.
 export const PET_XP_PER_LEVEL = 50;
-export const PET_MAX_LEVEL = 10;
 export const PET_LEVEL_POWER_BONUS = 0.15;
 
 export const PLAYER_BASE = {
