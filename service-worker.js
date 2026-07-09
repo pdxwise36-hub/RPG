@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v12';
+const CACHE_NAME = 'emberfall-v13';
 const ASSETS = [
   './',
   './index.html',
@@ -32,6 +32,12 @@ const ASSETS = [
   './icons/sprites/hawk.png',
   './icons/sprites/salamander.png',
   './icons/sprites/babygolem.png',
+  './icons/sprites/turtle.png',
+  './icons/sprites/fox.png',
+  './icons/sprites/boar.png',
+  './icons/sprites/owl.png',
+  './icons/sprites/panther.png',
+  './icons/sprites/dragonling.png',
 ];
 
 self.addEventListener('install', (event) => {

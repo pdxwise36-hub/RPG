@@ -111,12 +111,19 @@ export const SKILLS = {
 
 // Pets fight beside the player: each round, an equipped pet automatically
 // lands its own hit for atk*power damage right after the player's action,
-// no separate HP/AI — just a free extra hit each turn.
+// no separate HP/AI — just a free extra hit each turn. Ten pets span cheap
+// and weak to rare and strong, with the Dragonling as the top-tier prize.
 export const PETS = {
+  turtle: { key: 'turtle', name: 'Turtle', power: 0.3, price: 60, sprite: 'icons/sprites/turtle.png' },
   wolfPup: { key: 'wolfPup', name: 'Wolf Pup', power: 0.4, price: 80, sprite: 'icons/sprites/wolfpup.png' },
+  fox: { key: 'fox', name: 'Fox', power: 0.5, price: 130, sprite: 'icons/sprites/fox.png' },
   hawk: { key: 'hawk', name: 'Hawk', power: 0.55, price: 150, sprite: 'icons/sprites/hawk.png' },
+  boar: { key: 'boar', name: 'Boar', power: 0.65, price: 200, sprite: 'icons/sprites/boar.png' },
   salamander: { key: 'salamander', name: 'Salamander', power: 0.7, price: 250, sprite: 'icons/sprites/salamander.png' },
+  owl: { key: 'owl', name: 'Owl', power: 0.8, price: 320, sprite: 'icons/sprites/owl.png' },
   babyGolem: { key: 'babyGolem', name: 'Baby Golem', power: 0.9, price: 400, sprite: 'icons/sprites/babygolem.png' },
+  panther: { key: 'panther', name: 'Panther', power: 1.0, price: 500, sprite: 'icons/sprites/panther.png' },
+  dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.png' },
 };
 
 export const PLAYER_BASE = {

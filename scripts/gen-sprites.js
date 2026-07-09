@@ -555,6 +555,143 @@ function buildBabyGolem() {
   return rasterize(g, palette, SCALE);
 }
 
+// ---------- Turtle (pet) — 14x10, low dome shell, head poking out ----------
+function buildTurtle() {
+  const g = makeGrid(14, 10);
+  fillRect(g, 4, 1, 6, 1, 's');
+  fillRect(g, 3, 2, 8, 1, 's');
+  fillRect(g, 2, 3, 10, 3, 's');  // shell dome
+  fillRect(g, 3, 6, 8, 1, 's');
+  fillRect(g, 0, 4, 3, 3, 'h');   // head poking left
+  setPx(g, 0, 5, 'e');
+  fillRect(g, 3, 7, 2, 2, 'h');   // front leg
+  fillRect(g, 9, 7, 2, 2, 'h');   // back leg
+  setPx(g, 12, 6, 'h');           // tail nub
+  addRim(g, 's', 'sd');
+  const palette = {
+    's': [70, 140, 60, 255],
+    'sd': [40, 90, 40, 255],
+    'h': [190, 160, 90, 255],
+    'e': [30, 20, 10, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Fox (pet) — 16x12, pointy ears, bushy white-tipped tail ----------
+function buildFox() {
+  const g = makeGrid(16, 12);
+  fillRect(g, 1, 2, 6, 5, 'b');   // head
+  setPx(g, 1, 1, 'b'); setPx(g, 6, 1, 'b'); // pointy ear tips
+  setPx(g, 3, 5, 'e');            // eye
+  fillRect(g, 3, 5, 9, 5, 'b');   // body
+  fillRect(g, 11, 3, 3, 4, 'b');  // bushy tail curled up
+  setPx(g, 13, 2, 't');           // white tail tip
+  fillRect(g, 3, 10, 2, 2, 'd');  // front leg
+  fillRect(g, 8, 10, 2, 2, 'd');  // back leg
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [214, 110, 40, 255],
+    'd': [140, 60, 20, 255],
+    'e': [30, 20, 10, 255],
+    't': [255, 255, 255, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Boar (pet) — 16x12, tusks and a bristly back ridge ----------
+function buildBoar() {
+  const g = makeGrid(16, 12);
+  fillRect(g, 0, 3, 6, 5, 'b');   // head/snout
+  setPx(g, 0, 6, 'w'); setPx(g, 1, 7, 'w'); // tusks
+  setPx(g, 2, 4, 'e');            // eye
+  fillRect(g, 5, 4, 9, 6, 'b');   // body
+  setPx(g, 6, 3, 'br'); setPx(g, 8, 2, 'br'); setPx(g, 10, 3, 'br'); // bristle mane
+  fillRect(g, 14, 6, 2, 2, 'b');  // tail
+  fillRect(g, 2, 10, 2, 2, 'd');  // front leg
+  fillRect(g, 11, 10, 2, 2, 'd'); // back leg
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [110, 90, 80, 255],
+    'd': [70, 55, 50, 255],
+    'e': [20, 15, 10, 255],
+    'w': [255, 255, 240, 255],
+    'br': [40, 30, 25, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Owl (pet) — 14x14, round head with big eye discs, perched ----------
+function buildOwl() {
+  const g = makeGrid(14, 14);
+  fillRect(g, 3, 1, 8, 7, 'b');   // round head/upper body
+  setPx(g, 3, 0, 'b'); setPx(g, 10, 0, 'b'); // ear tufts
+  fillRect(g, 4, 3, 2, 2, 'w'); fillRect(g, 8, 3, 2, 2, 'w'); // eye discs
+  setPx(g, 5, 4, 'e'); setPx(g, 9, 4, 'e'); // pupils
+  setPx(g, 6, 6, 'y'); setPx(g, 7, 6, 'y'); // beak
+  fillRect(g, 2, 7, 10, 5, 'b');  // body
+  setPx(g, 4, 9, 'f'); setPx(g, 6, 10, 'f'); setPx(g, 9, 9, 'f'); // feather flecks
+  fillRect(g, 4, 12, 2, 1, 'y');  // feet
+  fillRect(g, 8, 12, 2, 1, 'y');
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [150, 110, 60, 255],
+    'd': [100, 70, 35, 255],
+    'w': [255, 255, 255, 255],
+    'e': [20, 15, 10, 255],
+    'y': [230, 180, 60, 255],
+    'f': [110, 80, 40, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Panther (pet) — 20x12, sleek low quadruped, glowing eye ----------
+function buildPanther() {
+  const g = makeGrid(20, 12);
+  fillRect(g, 0, 2, 6, 6, 'b');   // head
+  fillRect(g, 2, 0, 2, 2, 'b');   // ear
+  fillRect(g, 5, 4, 11, 5, 'b');  // sleek body
+  fillRect(g, 16, 2, 4, 4, 'b');  // long tail
+  setPx(g, 2, 4, 'e');            // glowing eye
+  fillRect(g, 3, 9, 2, 3, 'b');   // front-left leg
+  fillRect(g, 7, 9, 2, 3, 'b');   // front-right leg
+  fillRect(g, 11, 9, 2, 3, 'b');  // back-left leg
+  fillRect(g, 14, 9, 2, 3, 'b');  // back-right leg
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [35, 35, 42, 255],
+    'd': [20, 20, 25, 255],
+    'e': [80, 220, 90, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Dragonling (pet) — 16x14, friendly baby dragon, green/gold ----------
+function buildDragonling() {
+  const g = makeGrid(16, 14);
+  fillRect(g, 0, 3, 6, 6, 'b');   // head
+  fillRect(g, 5, 5, 9, 5, 'b');   // body
+  setPx(g, 3, 2, 'h');            // horn
+  setPx(g, 2, 5, 'e');            // eye
+  const leftWing = { 1: [7, 8], 2: [6, 9], 3: [6, 9] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'w'));
+  fillRect(g, 14, 6, 2, 3, 'b');  // tail
+  fillRect(g, 3, 10, 2, 3, 'b');  // front-left leg
+  fillRect(g, 7, 10, 2, 3, 'b');  // front-right leg
+  fillRect(g, 11, 10, 2, 3, 'b'); // back-left leg
+  fillRect(g, 14, 10, 2, 3, 'b'); // back-right leg
+  setPx(g, 7, 7, 'gem');          // chest gem — friendly companion marking
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [70, 160, 90, 255],
+    'd': [35, 90, 50, 255],
+    'w': [50, 120, 70, 255],
+    'h': [212, 168, 64, 255],
+    'e': [255, 210, 60, 255],
+    'gem': [90, 200, 255, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -578,6 +715,12 @@ const sprites = {
   'hawk.png': buildHawk,
   'salamander.png': buildSalamander,
   'babygolem.png': buildBabyGolem,
+  'turtle.png': buildTurtle,
+  'fox.png': buildFox,
+  'boar.png': buildBoar,
+  'owl.png': buildOwl,
+  'panther.png': buildPanther,
+  'dragonling.png': buildDragonling,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {
