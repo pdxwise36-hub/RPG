@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, HERO_SPRITE, MAPS } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, effectiveAtk, effectiveDef } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -107,6 +107,11 @@ function handleMove(dir) {
     showModal('modal-mage');
     return;
   }
+  if (result.type === 'tamer') {
+    renderTamer();
+    showModal('modal-tamer');
+    return;
+  }
   if (result.type === 'portal') {
     state.mapId = result.mapId;
     state.pos = { ...result.pos };
@@ -134,6 +139,14 @@ function renderBattle() {
   el('battle-mp-fill').style.width = `${pct(p.mp, p.maxMp)}%`;
   el('battle-mp-text').textContent = `${p.mp}/${p.maxMp}`;
   el('battle-log').innerHTML = battle.log.map((l) => `<div>${l}</div>`).join('');
+
+  const petEl = el('pet-sprite');
+  if (p.activePetKey) {
+    petEl.style.backgroundImage = `url('${PETS[p.activePetKey].sprite}')`;
+    petEl.classList.remove('hidden');
+  } else {
+    petEl.classList.add('hidden');
+  }
 
   const menuMain = el('battle-menu-main');
   const menuItems = el('battle-menu-items');
@@ -309,6 +322,7 @@ function renderStatus() {
     <div class="status-row"><span>Potions</span><span>${p.inventory.potion || 0}</span></div>
     <div class="status-row"><span>Ethers</span><span>${p.inventory.ether || 0}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
+    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? PETS[p.activePetKey].name : 'None'}</span></div>
   `;
 }
 
@@ -362,6 +376,81 @@ function buildArmoryRow(item, slot, statLabel) {
       else { p.ownedArmors.push(item.key); p.armorKey = item.key; }
       autosave();
       renderArmory();
+    });
+  }
+  row.appendChild(btn);
+  return row;
+}
+
+// ---------- Pet Tamer ----------
+function renderTamer() {
+  const p = state.player;
+  el('tamer-gold').textContent = p.gold;
+  const list = el('tamer-list');
+  list.innerHTML = '';
+
+  const noneRow = document.createElement('div');
+  noneRow.className = 'shop-item';
+  noneRow.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">No Pet</span>
+      <span class="shop-item-desc">Fight alone</span>
+    </div>
+  `;
+  const noneBtn = document.createElement('button');
+  noneBtn.className = 'btn btn-small';
+  if (!p.activePetKey) {
+    noneBtn.textContent = 'Active';
+    noneBtn.disabled = true;
+  } else {
+    noneBtn.textContent = 'Select';
+    noneBtn.addEventListener('click', () => {
+      p.activePetKey = null;
+      autosave();
+      renderTamer();
+    });
+  }
+  noneRow.appendChild(noneBtn);
+  list.appendChild(noneRow);
+
+  Object.values(PETS).forEach((pet) => list.appendChild(buildTamerRow(pet)));
+}
+
+function buildTamerRow(pet) {
+  const p = state.player;
+  const owned = p.ownedPets.includes(pet.key);
+  const isActive = p.activePetKey === pet.key;
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${pet.name}</span>
+      <span class="shop-item-desc">+${Math.round(pet.power * 100)}% ATK per turn — ${owned ? 'Owned' : pet.price + 'G'}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isActive) {
+    btn.textContent = 'Active';
+    btn.disabled = true;
+  } else if (owned) {
+    btn.textContent = 'Select';
+    btn.addEventListener('click', () => {
+      p.activePetKey = pet.key;
+      autosave();
+      renderTamer();
+    });
+  } else {
+    btn.textContent = 'Adopt';
+    btn.disabled = p.gold < pet.price;
+    btn.addEventListener('click', () => {
+      if (p.gold < pet.price) return;
+      p.gold -= pet.price;
+      p.ownedPets.push(pet.key);
+      p.activePetKey = pet.key;
+      autosave();
+      renderTamer();
     });
   }
   row.appendChild(btn);
@@ -483,6 +572,10 @@ function wireEvents() {
   });
   el('btn-mage-back').addEventListener('click', () => {
     hideModal('modal-mage');
+    updateHud();
+  });
+  el('btn-tamer-back').addEventListener('click', () => {
+    hideModal('modal-tamer');
     updateHud();
   });
 

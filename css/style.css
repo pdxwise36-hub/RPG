@@ -213,6 +213,19 @@ html, body {
   background-size: 88%;
 }
 .player-sprite { background-color: rgba(58, 90, 122, 0.15); }
+.sprite-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+.pet-sprite {
+  width: 48px;
+  height: 48px;
+  background-color: transparent;
+  margin-top: 0;
+}
 .chest-card { align-items: center; text-align: center; }
 .chest-sprite {
   width: 96px;

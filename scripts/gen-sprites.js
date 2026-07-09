@@ -470,6 +470,91 @@ function buildChest() {
   return rasterize(g, palette, SCALE);
 }
 
+// ---------- Wolf Pup (pet) — 14x12, cute sitting companion ----------
+function buildWolfPup() {
+  const g = makeGrid(14, 12);
+  fillRect(g, 1, 2, 7, 6, 'b');  // big head
+  setPx(g, 2, 1, 'b'); setPx(g, 6, 1, 'b'); // ear tips
+  setPx(g, 3, 5, 'e');            // eye
+  setPx(g, 1, 6, 'l');            // muzzle highlight
+  fillRect(g, 3, 5, 8, 6, 'b');   // body
+  setPx(g, 11, 5, 'b'); setPx(g, 12, 4, 'b'); // curled tail
+  fillRect(g, 3, 11, 2, 1, 'd');  // front leg
+  fillRect(g, 8, 11, 2, 1, 'd');  // back leg
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [168, 120, 74, 255],
+    'd': [110, 76, 46, 255],
+    'e': [40, 30, 20, 255],
+    'l': [224, 200, 170, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Hawk (pet) — 14x14, wings spread mid-perch ----------
+function buildHawk() {
+  // Compact flying-bird silhouette: wings swept up in a shallow V, short
+  // body, small tail — no legs, so it doesn't read as a tiny person.
+  const g = makeGrid(16, 10);
+  fillRect(g, 6, 0, 3, 2, 'b');   // head
+  setPx(g, 6, 1, 'e');            // eye
+  setPx(g, 9, 1, 'y');            // beak
+  const leftWing = { 1: [3, 4], 2: [1, 5] };
+  const rightWing = { 1: [11, 12], 2: [10, 14] };
+  Object.entries(leftWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'b'));
+  Object.entries(rightWing).forEach(([y, [x0, x1]]) => fillRect(g, x0, Number(y), x1 - x0 + 1, 1, 'b'));
+  fillRect(g, 6, 2, 4, 4, 'b');   // body
+  fillRect(g, 6, 6, 4, 2, 'b');   // small tail
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [120, 80, 50, 255],
+    'd': [76, 50, 30, 255],
+    'y': [230, 180, 60, 255],
+    'e': [40, 30, 20, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Salamander (pet) — 16x10, low quadruped with glowing spots ----------
+function buildSalamander() {
+  const g = makeGrid(16, 10);
+  fillRect(g, 0, 2, 4, 5, 'b');   // head
+  setPx(g, 1, 3, 'e');            // eye
+  fillRect(g, 3, 3, 10, 4, 'b');  // body
+  fillRect(g, 13, 4, 3, 2, 'b');  // tail
+  setPx(g, 5, 3, 'f'); setPx(g, 8, 3, 'f'); setPx(g, 11, 3, 'f'); // glowing back spots
+  fillRect(g, 2, 7, 2, 2, 'b'); fillRect(g, 6, 7, 2, 2, 'b'); // front/mid legs
+  fillRect(g, 10, 7, 2, 2, 'b'); fillRect(g, 13, 7, 2, 2, 'b'); // back legs
+  addRim(g, 'b', 'd');
+  const palette = {
+    'b': [200, 70, 40, 255],
+    'd': [130, 40, 20, 255],
+    'f': [255, 180, 60, 255],
+    'e': [40, 20, 10, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
+// ---------- Baby Golem (pet) — 14x16, small stone construct ----------
+function buildBabyGolem() {
+  const g = makeGrid(14, 16);
+  fillRect(g, 4, 1, 6, 4, 'i');   // head
+  setPx(g, 5, 2, 'g'); setPx(g, 8, 2, 'g'); // eyes
+  fillRect(g, 3, 5, 8, 7, 'i');   // body
+  setPx(g, 6, 8, 'g'); setPx(g, 7, 8, 'g'); // core glow
+  fillRect(g, 1, 6, 2, 4, 'i');   // left arm
+  fillRect(g, 11, 6, 2, 4, 'i');  // right arm
+  fillRect(g, 4, 12, 3, 3, 'i');  // left leg
+  fillRect(g, 7, 12, 3, 3, 'i');  // right leg
+  addRim(g, 'i', 'd');
+  const palette = {
+    'i': [150, 140, 120, 255],
+    'd': [96, 88, 72, 255],
+    'g': [230, 180, 80, 255],
+  };
+  return rasterize(g, palette, SCALE);
+}
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -489,6 +574,10 @@ const sprites = {
   'drake.png': buildDrake,
   'ancientdragon.png': buildAncientDragon,
   'chest.png': buildChest,
+  'wolfpup.png': buildWolfPup,
+  'hawk.png': buildHawk,
+  'salamander.png': buildSalamander,
+  'babygolem.png': buildBabyGolem,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

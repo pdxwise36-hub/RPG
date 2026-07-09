@@ -38,6 +38,7 @@ export function tryMove(state, dx, dy) {
   if (tile === TILE.TOWN) return { type: 'town' };
   if (tile === TILE.KNIGHT) return { type: 'knight' };
   if (tile === TILE.MAGE) return { type: 'mage' };
+  if (tile === TILE.TAMER) return { type: 'tamer' };
 
   if (tile === TILE.BOSS) {
     if (state.flags[map.bossFlag]) {
@@ -66,6 +67,7 @@ const PALETTES = {
     [TILE.PORTAL]: '#7a3fae',
     [TILE.KNIGHT]: '#2f6b3a',
     [TILE.MAGE]: '#2f6b3a',
+    [TILE.TAMER]: '#2f6b3a',
   },
   depths: {
     [TILE.GRASS]: '#3a3550',
@@ -77,6 +79,7 @@ const PALETTES = {
     [TILE.PORTAL]: '#3fd4c4',
     [TILE.KNIGHT]: '#3a3550',
     [TILE.MAGE]: '#3a3550',
+    [TILE.TAMER]: '#3a3550',
   },
   frostreach: {
     [TILE.GRASS]: '#a8d4e8',
@@ -88,6 +91,7 @@ const PALETTES = {
     [TILE.PORTAL]: '#3fd4c4',
     [TILE.KNIGHT]: '#a8d4e8',
     [TILE.MAGE]: '#a8d4e8',
+    [TILE.TAMER]: '#a8d4e8',
   },
   spire: {
     [TILE.GRASS]: '#4a2a2a',
@@ -99,6 +103,7 @@ const PALETTES = {
     [TILE.PORTAL]: '#3fd4c4',
     [TILE.KNIGHT]: '#4a2a2a',
     [TILE.MAGE]: '#4a2a2a',
+    [TILE.TAMER]: '#4a2a2a',
   },
 };
 
@@ -250,6 +255,14 @@ export function drawMap(ctx, state) {
         ctx.beginPath();
         ctx.arc(px + 16, py + 12, 10, 0, Math.PI * 2);
         ctx.stroke();
+      } else if (tile === TILE.TAMER) {
+        ctx.fillStyle = '#6b4a2e';
+        ctx.fillRect(px + 6, py + 12, 20, 16);
+        ctx.fillStyle = '#e8c890';
+        ctx.beginPath(); ctx.arc(px + 16, py + 17, 4, 0, Math.PI * 2); ctx.fill(); // paw pad
+        ctx.beginPath(); ctx.arc(px + 12, py + 12, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 16, py + 10, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 20, py + 12, 2, 0, Math.PI * 2); ctx.fill();
       }
     }
   }

@@ -69,7 +69,10 @@
         <div id="battle-player-name" class="combatant-name"></div>
         <div class="bar-track hp"><div id="battle-hp-fill" class="bar-fill"></div><span id="battle-hp-text" class="bar-text"></span></div>
         <div class="bar-track mp"><div id="battle-mp-fill" class="bar-fill"></div><span id="battle-mp-text" class="bar-text"></span></div>
-        <div id="player-sprite" class="sprite player-sprite"></div>
+        <div class="sprite-row">
+          <div id="player-sprite" class="sprite player-sprite"></div>
+          <div id="pet-sprite" class="sprite pet-sprite hidden"></div>
+        </div>
       </div>
     </div>
 
@@ -160,6 +163,16 @@
       <p class="modal-sub">Gold: <span id="mage-gold"></span></p>
       <div id="mage-list" class="shop-list"></div>
       <button id="btn-mage-back" class="btn btn-primary">Leave</button>
+    </div>
+  </div>
+
+  <!-- TAMER MODAL -->
+  <div id="modal-tamer" class="modal hidden">
+    <div class="modal-card">
+      <h2>The Pet Tamer</h2>
+      <p class="modal-sub">Gold: <span id="tamer-gold"></span></p>
+      <div id="tamer-list" class="shop-list"></div>
+      <button id="btn-tamer-back" class="btn btn-primary">Leave</button>
     </div>
   </div>
 

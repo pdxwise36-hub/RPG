@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, LEVEL_GROWTH } from './data.js';
+import { ITEMS, SKILLS, PETS, LEVEL_GROWTH } from './data.js';
 import { effectiveAtk, effectiveDef } from './state.js';
 
 function rand(min, max) {
@@ -47,14 +47,31 @@ function enemyStrikes(battle, state) {
   }
 }
 
-function afterPlayerAction(battle, state) {
+// Returns true (and finalizes the win) if the enemy is dead.
+function checkEnemyDefeated(battle) {
   if (battle.enemy.hp <= 0) {
     battle.enemy.hp = 0;
     battle.over = true;
     battle.result = 'win';
     pushLog(battle, `${battle.enemy.name} is defeated!`);
-    return;
+    return true;
   }
+  return false;
+}
+
+function petAttacks(battle, state) {
+  const player = state.player;
+  const pet = PETS[player.activePetKey];
+  if (!pet) return;
+  const dmg = Math.max(1, Math.round(effectiveAtk(player) * pet.power));
+  battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
+  pushLog(battle, `${pet.name} attacks ${battle.enemy.name} for ${dmg}!`);
+}
+
+function afterPlayerAction(battle, state) {
+  if (checkEnemyDefeated(battle)) return;
+  petAttacks(battle, state);
+  if (checkEnemyDefeated(battle)) return;
   enemyStrikes(battle, state);
 }
 

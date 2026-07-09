@@ -11,17 +11,19 @@ export const TILE = {
   PORTAL: 6,
   KNIGHT: 7,
   MAGE: 8,
+  TAMER: 9,
 };
 
 export const WALKABLE = new Set([
-  TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE,
+  TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE, TILE.TAMER,
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
 // 12 columns x 16 rows. A single path (col 5) runs from the town at the top
 // to the boss lair at the bottom; grass on either side is where random
 // encounters happen; water and stray trees just add texture/obstacles. The
-// Knight (col 2) and Master Mage (col 9) sit off the path in row 9.
+// Knight (col 2) and Master Mage (col 9) sit off the path in row 9; the
+// Pet Tamer sits at row 11, col 2.
 const OVERWORLD_GRID = [
   [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
   [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
@@ -34,7 +36,7 @@ const OVERWORLD_GRID = [
   [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
   [3, 0, 7, 0, 0, 1, 0, 0, 0, 8, 0, 3],
   [3, 0, 3, 0, 0, 1, 0, 0, 3, 0, 0, 3],
-  [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
+  [3, 0, 9, 0, 0, 1, 0, 0, 0, 0, 0, 3],
   [3, 0, 0, 3, 0, 1, 0, 3, 0, 0, 0, 3],
   [3, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3],
   [3, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 3],
@@ -51,6 +53,7 @@ function makeDungeonGrid() {
   grid[2][5] = TILE.PATH;
   grid[9][2] = TILE.GRASS;
   grid[9][9] = TILE.GRASS;
+  grid[11][2] = TILE.GRASS;
   return grid;
 }
 const DEPTHS_GRID = makeDungeonGrid();
@@ -76,10 +79,44 @@ export const ARMORS = {
 // vs "spell" is flavor only, not a separate stat.
 export const SKILLS = {
   fireball: { key: 'fireball', name: 'Fireball', mpCost: 5, power: 1.8, price: 0, vendor: null },
+
+  // Knight-taught physical skills, cheap/weak to expensive/strong.
+  shieldBash: { key: 'shieldBash', name: 'Shield Bash', mpCost: 3, power: 1.8, price: 30, vendor: 'knight' },
   powerStrike: { key: 'powerStrike', name: 'Power Strike', mpCost: 4, power: 2.2, price: 50, vendor: 'knight' },
+  piercingThrust: { key: 'piercingThrust', name: 'Piercing Thrust', mpCost: 5, power: 2.4, price: 70, vendor: 'knight' },
+  cleave: { key: 'cleave', name: 'Cleave', mpCost: 6, power: 2.6, price: 90, vendor: 'knight' },
+  counterStrike: { key: 'counterStrike', name: 'Counter Strike', mpCost: 6, power: 2.5, price: 100, vendor: 'knight' },
+  berserkerRage: { key: 'berserkerRage', name: "Berserker's Rage", mpCost: 7, power: 2.8, price: 110, vendor: 'knight' },
   whirlwind: { key: 'whirlwind', name: 'Whirlwind', mpCost: 8, power: 3.0, price: 150, vendor: 'knight' },
+  rendingSlash: { key: 'rendingSlash', name: 'Rending Slash', mpCost: 9, power: 3.2, price: 170, vendor: 'knight' },
+  earthbreaker: { key: 'earthbreaker', name: 'Earthbreaker', mpCost: 10, power: 3.4, price: 200, vendor: 'knight' },
+  bladeStorm: { key: 'bladeStorm', name: 'Blade Storm', mpCost: 12, power: 3.6, price: 240, vendor: 'knight' },
+  executionersEdge: { key: 'executionersEdge', name: "Executioner's Edge", mpCost: 14, power: 4.0, price: 300, vendor: 'knight' },
+  titansFury: { key: 'titansFury', name: "Titan's Fury", mpCost: 16, power: 4.4, price: 380, vendor: 'knight' },
+
+  // Mage-taught spells, same cheap-to-strong spread.
+  spark: { key: 'spark', name: 'Spark', mpCost: 3, power: 1.7, price: 25, vendor: 'mage' },
   iceShard: { key: 'iceShard', name: 'Ice Shard', mpCost: 6, power: 2.0, price: 60, vendor: 'mage' },
+  frostBolt: { key: 'frostBolt', name: 'Frost Bolt', mpCost: 5, power: 2.2, price: 65, vendor: 'mage' },
+  arcaneMissile: { key: 'arcaneMissile', name: 'Arcane Missile', mpCost: 6, power: 2.5, price: 85, vendor: 'mage' },
+  flameWave: { key: 'flameWave', name: 'Flame Wave', mpCost: 7, power: 2.7, price: 105, vendor: 'mage' },
+  lightningChain: { key: 'lightningChain', name: 'Lightning Chain', mpCost: 8, power: 2.9, price: 130, vendor: 'mage' },
   thunderbolt: { key: 'thunderbolt', name: 'Thunderbolt', mpCost: 10, power: 2.6, price: 140, vendor: 'mage' },
+  voidRay: { key: 'voidRay', name: 'Void Ray', mpCost: 9, power: 3.1, price: 160, vendor: 'mage' },
+  meteor: { key: 'meteor', name: 'Meteor', mpCost: 11, power: 3.5, price: 210, vendor: 'mage' },
+  blizzard: { key: 'blizzard', name: 'Blizzard', mpCost: 12, power: 3.7, price: 250, vendor: 'mage' },
+  hellfire: { key: 'hellfire', name: 'Hellfire', mpCost: 14, power: 4.1, price: 310, vendor: 'mage' },
+  starfall: { key: 'starfall', name: 'Starfall', mpCost: 16, power: 4.5, price: 390, vendor: 'mage' },
+};
+
+// Pets fight beside the player: each round, an equipped pet automatically
+// lands its own hit for atk*power damage right after the player's action,
+// no separate HP/AI — just a free extra hit each turn.
+export const PETS = {
+  wolfPup: { key: 'wolfPup', name: 'Wolf Pup', power: 0.4, price: 80, sprite: 'icons/sprites/wolfpup.png' },
+  hawk: { key: 'hawk', name: 'Hawk', power: 0.55, price: 150, sprite: 'icons/sprites/hawk.png' },
+  salamander: { key: 'salamander', name: 'Salamander', power: 0.7, price: 250, sprite: 'icons/sprites/salamander.png' },
+  babyGolem: { key: 'babyGolem', name: 'Baby Golem', power: 0.9, price: 400, sprite: 'icons/sprites/babygolem.png' },
 };
 
 export const PLAYER_BASE = {
@@ -99,6 +136,8 @@ export const PLAYER_BASE = {
   ownedWeapons: ['rustySword'],
   ownedArmors: ['clothTunic'],
   knownSkills: ['fireball'],
+  ownedPets: [],
+  activePetKey: null,
   inventory: { potion: 3, ether: 0 },
 };
 
