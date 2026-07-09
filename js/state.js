@@ -53,6 +53,21 @@ export function fromSaveObject(saved) {
     player.baseAtk = saved.player.atk;
     player.baseDef = saved.player.def;
   }
+  // Migrate pre-lockstep pet saves: old shape stored a flat cumulative XP
+  // number per pet (under petXp) on a flat +50/level curve instead of the
+  // current {level, xp, xpToNext} shape. Replay that cumulative total
+  // through the current shared curve so an already-leveled pet keeps its
+  // progress instead of getting quietly reset to level 1.
+  if (saved.player.petXp && Object.keys(saved.player.petXp).length > 0
+    && (!saved.player.petProgress || Object.keys(saved.player.petProgress).length === 0)) {
+    const migrated = {};
+    for (const [petKey, oldXp] of Object.entries(saved.player.petXp)) {
+      const progress = { level: 1, xp: oldXp, xpToNext: PLAYER_BASE.xpToNext };
+      applyLevelUps(progress);
+      migrated[petKey] = progress;
+    }
+    player.petProgress = migrated;
+  }
   return {
     player,
     // Older saves predate later zones/flags — default to the overworld.
