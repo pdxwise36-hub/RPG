@@ -1,15 +1,18 @@
 import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS } from './data.js';
-import { generateZoneGrid } from './mapgen.js';
+import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
-// needed. The overworld (your home town) is only ever generated once, on
-// New Game — everywhere past it is a "level" that gets a brand new random
-// layout each time you step into it (forceRegenerate), which is what makes
-// arriving somewhere fresh instead of memorizing a fixed corridor.
+// needed. Town's layout is fixed and never regenerates. Every other zone is
+// a "level" that gets a brand new random layout each time you step into it
+// (forceRegenerate), which is what makes arriving somewhere fresh instead of
+// memorizing a fixed corridor.
 export function ensureLayout(state, mapId, forceRegenerate = false) {
+  if (mapId === 'town') {
+    if (!state.layouts.town) state.layouts.town = getTownLayout();
+    return state.layouts.town;
+  }
   if (forceRegenerate || !state.layouts[mapId]) {
-    const map = MAPS[mapId];
-    state.layouts[mapId] = generateZoneGrid({ hasTown: !!map.hasTown, vendors: map.vendors || [] });
+    state.layouts[mapId] = generateZoneGrid();
   }
   return state.layouts[mapId];
 }
@@ -20,12 +23,16 @@ export function newGameState(heroName) {
   if (trimmed) player.name = trimmed.slice(0, 12);
   const state = {
     player,
-    mapId: 'overworld',
+    mapId: 'town',
     pos: { x: 0, y: 0 },
     flags: {},
     layouts: {},
+    // The level to return to when you exit town — town itself has no
+    // levels/boss, so this always points at whichever level you're
+    // actually progressing through.
+    currentLevelId: 'overworld',
   };
-  const layout = ensureLayout(state, 'overworld');
+  const layout = ensureLayout(state, 'town');
   state.pos = { ...layout.startPos };
   return state;
 }
@@ -37,6 +44,7 @@ export function toSaveObject(state) {
     pos: state.pos,
     flags: state.flags,
     layouts: state.layouts,
+    currentLevelId: state.currentLevelId,
   };
 }
 
@@ -75,6 +83,9 @@ export function fromSaveObject(saved) {
     pos: { ...saved.pos },
     flags: { ...saved.flags },
     layouts: { ...saved.layouts },
+    // Pre-town saves predate this field entirely — whatever level they were
+    // in (their old mapId) is exactly the level to remember returning to.
+    currentLevelId: saved.currentLevelId || saved.mapId || 'overworld',
   };
 }
 

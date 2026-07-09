@@ -113,11 +113,15 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'portal') {
-    // Every zone past the overworld gets a brand new random layout each
-    // time you step into it — arriving via a portal is always a fresh start.
+    // Every level gets a brand new random layout each time you step into
+    // it — arriving via a portal is always a fresh start. Town's layout is
+    // fixed and never regenerates.
     state.mapId = result.mapId;
-    const layout = ensureLayout(state, state.mapId, state.mapId !== 'overworld');
+    const layout = ensureLayout(state, state.mapId, state.mapId !== 'town');
     state.pos = { ...(result.target === 'boss' ? layout.bossPos : layout.startPos) };
+    // Remember the level we just arrived in, so town's exit (and Town
+    // Scrolls) can send us back to actual progress instead of level one.
+    if (state.mapId !== 'town') state.currentLevelId = state.mapId;
     autosave();
     goToMap();
     showToast(`You arrive in ${MAPS[state.mapId].name}.`, 2200);
@@ -219,8 +223,10 @@ function respawnAfterDefeat() {
   p.gold = Math.floor(p.gold * 0.8);
   p.hp = p.maxHp;
   p.mp = p.maxMp;
-  state.mapId = 'overworld';
-  state.pos = { ...state.layouts.overworld.startPos };
+  // currentLevelId is left untouched — dying doesn't lose your place, it
+  // just sends you back to town to patch up before trying that level again.
+  state.mapId = 'town';
+  state.pos = { ...ensureLayout(state, 'town').startPos };
   autosave();
   goToMap();
   showToast('You limp back to town, a little poorer.', 2400);
@@ -349,6 +355,45 @@ function buildStatusItemRow(itemKey) {
   return row;
 }
 
+// Teleports back to town — unlike potions/ethers this changes your
+// location, so using it also closes the Status screen. Disabled (rather
+// than hidden) while already in town, since there's nowhere to go.
+function buildTownScrollRow() {
+  const p = state.player;
+  const item = ITEMS.townScroll;
+  const count = p.inventory.townScroll || 0;
+  const inTown = state.mapId === 'town';
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">${item.desc} — Have ${count}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (inTown) {
+    btn.textContent = 'In Town';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Use';
+    btn.disabled = count <= 0;
+    btn.addEventListener('click', () => {
+      p.inventory.townScroll -= 1;
+      hideModal('modal-status');
+      state.mapId = 'town';
+      const layout = ensureLayout(state, 'town');
+      state.pos = { ...layout.startPos };
+      autosave();
+      goToMap();
+      showToast('You use a Town Scroll and return to town!', 2200);
+    });
+  }
+  row.appendChild(btn);
+  return row;
+}
+
 // Any owned weapon/armor can be equipped straight from here — no need to
 // visit the Armory once you already own the piece (e.g. from a chest drop).
 function buildStatusEquipRow(gearKey, slot) {
@@ -416,6 +461,7 @@ function renderStatus() {
   body.appendChild(sectionHeading('Items'));
   body.appendChild(buildStatusItemRow('potion'));
   body.appendChild(buildStatusItemRow('ether'));
+  body.appendChild(buildTownScrollRow());
 
   body.appendChild(sectionHeading('Weapons'));
   p.ownedWeapons.forEach((key) => body.appendChild(buildStatusEquipRow(key, 'weapon')));

@@ -9,8 +9,10 @@ export const heroImage = new Image();
 heroImage.src = HERO_SPRITE;
 
 // One boss portrait per map, preloaded so it can stand on its lair tile.
+// Town has no boss at all, so it's skipped here.
 export const bossImages = {};
 Object.values(MAPS).forEach((map) => {
+  if (!map.bossEnemy) return;
   const img = new Image();
   img.src = map.bossEnemy.sprite;
   bossImages[map.id] = img;
@@ -50,8 +52,18 @@ export function tryMove(state, dx, dy) {
     return { type: 'boss' };
   }
 
-  if (tile === TILE.PORTAL && map.portalTarget) {
-    return { type: 'portal', mapId: map.portalTarget.mapId, target: 'boss' };
+  if (tile === TILE.PORTAL) {
+    // Town's exit always leads back to whichever level you're actually
+    // progressing through, not a fixed target — that's what makes a Town
+    // Scroll (or just walking out) a real shortcut back to your progress
+    // instead of a walk back to level one.
+    if (state.mapId === 'town') {
+      return { type: 'portal', mapId: state.currentLevelId || 'overworld', target: 'start' };
+    }
+    if (map.portalTarget) {
+      const targetMap = MAPS[map.portalTarget.mapId];
+      return { type: 'portal', mapId: map.portalTarget.mapId, target: targetMap.bossEnemy ? 'boss' : 'start' };
+    }
   }
 
   if (ENCOUNTER_TILES.has(tile) && Math.random() < ENCOUNTER_CHANCE) return { type: 'encounter' };
@@ -78,6 +90,7 @@ function makeTheme({ grass, path, water, tree, boss, portal = '#3fd4c4' }) {
 }
 
 const PALETTES = {
+  town: makeTheme({ grass: '#8a7355', path: '#8a7355', water: '#2a5f8a', tree: '#1c3d21', boss: '#8a7355', portal: '#d4a840' }),
   overworld: makeTheme({ grass: '#2f6b3a', path: '#8a7355', water: '#2a5f8a', tree: '#1c3d21', boss: '#c94040', portal: '#7a3fae' }),
   depths: makeTheme({ grass: '#3a3550', path: '#57506e', water: '#120c1f', tree: '#241c3d', boss: '#8a2fae' }),
   frostreach: makeTheme({ grass: '#a8d4e8', path: '#cfe4ea', water: '#0c2436', tree: '#7ab8d0', boss: '#4fa8c9' }),
@@ -99,7 +112,7 @@ const PALETTES = {
 // reuse whichever mood fits their palette, since 14 fully bespoke decoration
 // sets would be a lot of near-duplicate canvas code for little visual gain.
 const THEME_MOOD = {
-  overworld: 'warm', depths: 'arcane', frostreach: 'frost', spire: 'ember',
+  town: 'warm', overworld: 'warm', depths: 'arcane', frostreach: 'frost', spire: 'ember',
   sunkenruins: 'arcane', whisperingwoods: 'warm', sandscar: 'ember', volcanic: 'ember',
   shatteredpeaks: 'frost', blightmarsh: 'arcane', crystalcaverns: 'frost',
   shadowfen: 'arcane', celestial: 'frost', voidrift: 'arcane',
@@ -268,7 +281,7 @@ export function drawMap(ctx, state) {
 
   // boss portrait — drawn as an overlay (not inline above) so its overflow
   // into neighboring tiles isn't painted over by tiles later in the loop
-  if (!state.flags[map.bossFlag]) {
+  if (map.bossEnemy && !state.flags[map.bossFlag]) {
     const bossImg = bossImages[map.id];
     if (bossImg && bossImg.complete && bossImg.naturalWidth > 0) {
       const bpx = layout.bossPos.x * TILE_SIZE;

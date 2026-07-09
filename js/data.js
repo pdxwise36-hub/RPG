@@ -271,11 +271,17 @@ export const WORLD_SERPENT = {
 // together by id only (positions resolve dynamically from the generated
 // layout of whichever zone you're arriving in).
 export const MAPS = {
+  // Town is a fixed, always-safe hub — no enemyPool/bossEnemy at all, so
+  // encounters and boss logic simply never trigger here. Its exit portal is
+  // resolved dynamically (see tryMove in map.js) to whichever level you were
+  // last in, rather than a fixed portalTarget.
+  town: {
+    id: 'town', name: 'Emberfall', theme: 'town',
+  },
   overworld: {
-    id: 'overworld', name: 'Emberfall', theme: 'overworld', depth: 0,
-    hasTown: true, vendors: [TILE.KNIGHT, TILE.MAGE, TILE.TAMER],
+    id: 'overworld', name: 'The Emberfall Outskirts', theme: 'overworld', depth: 0,
     bossEnemy: BOSS, bossFlag: 'bossDefeated', enemyPool: ENEMIES,
-    nextMap: { mapId: 'depths' },
+    portalTarget: { mapId: 'town' }, nextMap: { mapId: 'depths' },
   },
   depths: {
     id: 'depths', name: 'The Ember Depths', theme: 'depths', depth: 1,
@@ -348,6 +354,7 @@ export const MAPS = {
 export const ITEMS = {
   potion: { key: 'potion', name: 'Potion', desc: 'Restores 20 HP', price: 8, heal: 20 },
   ether: { key: 'ether', name: 'Ether', desc: 'Restores 10 MP', price: 10, mp: 10 },
+  townScroll: { key: 'townScroll', name: 'Town Scroll', desc: 'Teleports you back to town', price: 25 },
 };
 
 export const SAVE_KEY = 'emberfall-save-v1';

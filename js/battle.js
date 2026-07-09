@@ -225,7 +225,8 @@ export function rollChest(state) {
   }
 
   if (roll < 0.55) {
-    const itemKey = Math.random() < 0.6 ? 'potion' : 'ether';
+    const itemRoll = Math.random();
+    const itemKey = itemRoll < 0.5 ? 'potion' : itemRoll < 0.8 ? 'ether' : 'townScroll';
     player.inventory[itemKey] = (player.inventory[itemKey] || 0) + 1;
     return { type: 'item', itemKey };
   }
