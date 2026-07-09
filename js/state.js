@@ -86,3 +86,14 @@ export function petEffectivePower(player, petKey) {
   const level = petLevel(player, petKey);
   return pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
 }
+
+// Progress toward the pet's next level, for rendering an XP bar. At max
+// level there's nowhere left to progress to, so the bar just reads full.
+export function petXpProgress(player, petKey) {
+  const xp = (player.petXp && player.petXp[petKey]) || 0;
+  const level = petLevel(player, petKey);
+  if (level >= PET_MAX_LEVEL) {
+    return { level, xpIntoLevel: PET_XP_PER_LEVEL, xpNeeded: PET_XP_PER_LEVEL, isMax: true };
+  }
+  return { level, xpIntoLevel: xp - (level - 1) * PET_XP_PER_LEVEL, xpNeeded: PET_XP_PER_LEVEL, isMax: false };
+}

@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower } from './state.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem } from './battle.js';
@@ -384,6 +384,15 @@ function renderStatus() {
   const armor = ARMORS[p.armorKey];
   el('status-name').textContent = `${p.name} — Lv. ${p.level}`;
   const body = el('status-body');
+
+  const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
+  const petBar = petProgress ? `
+    <div class="bar-track pet-xp">
+      <div class="bar-fill" style="width:${Math.round((petProgress.xpIntoLevel / petProgress.xpNeeded) * 100)}%"></div>
+      <span class="bar-text">${petProgress.isMax ? 'MAX LEVEL' : `${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP`}</span>
+    </div>
+  ` : '';
+
   body.innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
@@ -393,6 +402,7 @@ function renderStatus() {
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
+    ${petBar}
   `;
 
   body.appendChild(sectionHeading('Items'));

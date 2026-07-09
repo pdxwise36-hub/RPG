@@ -115,6 +115,8 @@ html, body {
 .bar-fill { height: 100%; width: 100%; transition: width 0.25s ease; }
 .bar-track.hp .bar-fill { background: linear-gradient(90deg, #8a1f2b, var(--hp)); }
 .bar-track.mp .bar-fill { background: linear-gradient(90deg, #1f4f8a, var(--mp)); }
+.bar-track.pet-xp { height: 14px; margin-top: 4px; }
+.bar-track.pet-xp .bar-fill { background: linear-gradient(90deg, #6a4a1f, var(--gold)); }
 .bar-text {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
