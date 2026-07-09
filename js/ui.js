@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef } from './state.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest } from './battle.js';
@@ -300,6 +300,9 @@ function renderChest(chest) {
     desc = `You found ${chest.amount} gold!`;
   } else if (chest.type === 'item') {
     desc = `You found a ${ITEMS[chest.itemKey].name}!`;
+  } else if (chest.type === 'gear') {
+    const gear = chest.slot === 'weapon' ? WEAPONS[chest.key] : ARMORS[chest.key];
+    desc = `You found a ${gear.name}!`;
   } else {
     desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
   }
@@ -324,7 +327,7 @@ function renderStatus() {
     <div class="status-row"><span>Potions</span><span>${p.inventory.potion || 0}</span></div>
     <div class="status-row"><span>Ethers</span><span>${p.inventory.ether || 0}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
-    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? PETS[p.activePetKey].name : 'None'}</span></div>
+    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
   `;
 }
 
@@ -422,13 +425,18 @@ function buildTamerRow(pet) {
   const p = state.player;
   const owned = p.ownedPets.includes(pet.key);
   const isActive = p.activePetKey === pet.key;
+  const level = petLevel(p, pet.key);
+  const powerPct = Math.round(petEffectivePower(p, pet.key) * 100);
+  const statLabel = owned
+    ? `Lv. ${level} — +${powerPct}% ATK per turn`
+    : `+${Math.round(pet.power * 100)}% ATK per turn`;
 
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
     <div class="shop-item-info">
       <span class="shop-item-name">${pet.name}</span>
-      <span class="shop-item-desc">+${Math.round(pet.power * 100)}% ATK per turn — ${owned ? 'Owned' : pet.price + 'G'}</span>
+      <span class="shop-item-desc">${statLabel} — ${owned ? 'Owned' : pet.price + 'G'}</span>
     </div>
   `;
   const btn = document.createElement('button');

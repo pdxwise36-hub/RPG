@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, PETS, LEVEL_GROWTH } from './data.js';
-import { effectiveAtk, effectiveDef } from './state.js';
+import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, WEAPON_ORDER, ARMOR_ORDER } from './data.js';
+import { effectiveAtk, effectiveDef, petLevel, petEffectivePower } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -61,11 +61,19 @@ function checkEnemyDefeated(battle) {
 
 function petAttacks(battle, state) {
   const player = state.player;
-  const pet = PETS[player.activePetKey];
+  const petKey = player.activePetKey;
+  const pet = PETS[petKey];
   if (!pet) return;
-  const dmg = Math.max(1, Math.round(effectiveAtk(player) * pet.power));
+  const levelBefore = petLevel(player, petKey);
+  const dmg = Math.max(1, Math.round(effectiveAtk(player) * petEffectivePower(player, petKey)));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${pet.name} attacks ${battle.enemy.name} for ${dmg}!`);
+
+  player.petXp[petKey] = (player.petXp[petKey] || 0) + rand(2, 5);
+  const levelAfter = petLevel(player, petKey);
+  if (levelAfter > levelBefore) {
+    pushLog(battle, `${pet.name} leveled up! Now Lv. ${levelAfter}.`);
+  }
 }
 
 function afterPlayerAction(battle, state) {
@@ -157,33 +165,68 @@ export function grantRewards(state, enemyDef) {
 
 const CHEST_CHANCE = 0.25;
 
+// Chest gold scales with how deep the current zone is in the chain (0 =
+// overworld, 13 = the Void Rift) — the same "found 15-40 gold" roll is worth
+// noticeably more once you're deep in.
+function goldDrop(state, depth) {
+  const amount = Math.round(rand(15, 40) * (1 + depth * 0.2));
+  state.player.gold += amount;
+  return amount;
+}
+
+// Picks an unowned weapon or armor piece, anchored to the current zone's
+// depth so early chests don't hand out endgame gear (or waste a drop on
+// something already outclassed). Searches outward from the anchor tier for
+// the nearest unowned piece; returns null only if every tier in that slot
+// is already owned.
+function rollGear(state, depth) {
+  const player = state.player;
+  const isWeapon = Math.random() < 0.5;
+  const order = isWeapon ? WEAPON_ORDER : ARMOR_ORDER;
+  const owned = isWeapon ? player.ownedWeapons : player.ownedArmors;
+  const anchor = Math.max(0, Math.min(order.length - 1, depth + rand(-1, 1)));
+  let key = null;
+  for (let offset = 0; offset < order.length && !key; offset++) {
+    for (const candidate of [anchor + offset, anchor - offset]) {
+      if (candidate < 0 || candidate >= order.length) continue;
+      if (!owned.includes(order[candidate])) { key = order[candidate]; break; }
+    }
+  }
+  if (!key) return null;
+  owned.push(key);
+  return { type: 'gear', slot: isWeapon ? 'weapon' : 'armor', key };
+}
+
 // Rolls a chest drop after a non-boss win. Mutates player state directly
 // (same pattern as grantRewards) and returns a description of the loot, or
 // null if no chest appeared.
 export function rollChest(state) {
   if (Math.random() >= CHEST_CHANCE) return null;
   const player = state.player;
+  const depth = (MAPS[state.mapId] && MAPS[state.mapId].depth) || 0;
   const roll = Math.random();
 
-  if (roll < 0.4) {
-    const amount = rand(15, 40);
-    player.gold += amount;
-    return { type: 'gold', amount };
+  if (roll < 0.3) {
+    return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.75) {
+  if (roll < 0.55) {
     const itemKey = Math.random() < 0.6 ? 'potion' : 'ether';
     player.inventory[itemKey] = (player.inventory[itemKey] || 0) + 1;
     return { type: 'item', itemKey };
+  }
+
+  if (roll < 0.8) {
+    const gear = rollGear(state, depth);
+    if (gear) return gear;
+    return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
   const learnable = Object.values(SKILLS).filter(
     (s) => s.key !== 'fireball' && !player.knownSkills.includes(s.key)
   );
   if (learnable.length === 0) {
-    const amount = rand(15, 40);
-    player.gold += amount;
-    return { type: 'gold', amount };
+    return { type: 'gold', amount: goldDrop(state, depth) };
   }
   const skill = learnable[Math.floor(Math.random() * learnable.length)];
   player.knownSkills.push(skill.key);

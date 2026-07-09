@@ -48,6 +48,11 @@ export const ARMORS = {
   celestialAegis: { key: 'celestialAegis', name: 'Celestial Aegis', defBonus: 64, price: 1280 },
 };
 
+// Tier-ordered key lists so chest gear drops can be anchored to how deep the
+// player has traveled (insertion order already runs weak -> strong).
+export const WEAPON_ORDER = Object.keys(WEAPONS);
+export const ARMOR_ORDER = Object.keys(ARMORS);
+
 // Both the Knight and the Master Mage teach permanent skills for gold — they
 // share one mechanic (spend MP, hit for atk*power - def) so "physical skill"
 // vs "spell" is flavor only, not a separate stat.
@@ -100,6 +105,13 @@ export const PETS = {
   dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.png' },
 };
 
+// Pets level up from cumulative XP earned while active in battle (see
+// petLevel/petEffectivePower in state.js) — each level adds a flat bonus to
+// the pet's damage multiplier, capped at PET_MAX_LEVEL.
+export const PET_XP_PER_LEVEL = 50;
+export const PET_MAX_LEVEL = 10;
+export const PET_LEVEL_POWER_BONUS = 0.15;
+
 export const PLAYER_BASE = {
   name: 'Kael',
   level: 1,
@@ -119,6 +131,7 @@ export const PLAYER_BASE = {
   knownSkills: ['fireball'],
   ownedPets: [],
   activePetKey: null,
+  petXp: {},
   inventory: { potion: 3, ether: 0 },
 };
 
@@ -250,73 +263,73 @@ export const WORLD_SERPENT = {
 // layout of whichever zone you're arriving in).
 export const MAPS = {
   overworld: {
-    id: 'overworld', name: 'Emberfall', theme: 'overworld',
+    id: 'overworld', name: 'Emberfall', theme: 'overworld', depth: 0,
     hasTown: true, vendors: [TILE.KNIGHT, TILE.MAGE, TILE.TAMER],
     bossEnemy: BOSS, bossFlag: 'bossDefeated', enemyPool: ENEMIES,
     nextMap: { mapId: 'depths' },
   },
   depths: {
-    id: 'depths', name: 'The Ember Depths', theme: 'depths',
+    id: 'depths', name: 'The Ember Depths', theme: 'depths', depth: 1,
     bossEnemy: LICH, bossFlag: 'lichDefeated', enemyPool: DEPTHS_ENEMIES,
     portalTarget: { mapId: 'overworld' }, nextMap: { mapId: 'frostreach' },
   },
   frostreach: {
-    id: 'frostreach', name: 'The Frostreach', theme: 'frostreach',
+    id: 'frostreach', name: 'The Frostreach', theme: 'frostreach', depth: 2,
     bossEnemy: GLACIAL_TITAN, bossFlag: 'titanDefeated', enemyPool: FROSTREACH_ENEMIES,
     portalTarget: { mapId: 'depths' }, nextMap: { mapId: 'spire' },
   },
   spire: {
-    id: 'spire', name: "The Dragon's Spire", theme: 'spire',
+    id: 'spire', name: "The Dragon's Spire", theme: 'spire', depth: 3,
     bossEnemy: ANCIENT_DRAGON, bossFlag: 'dragonDefeated', enemyPool: SPIRE_ENEMIES,
     portalTarget: { mapId: 'frostreach' }, nextMap: { mapId: 'sunkenruins' },
   },
   sunkenruins: {
-    id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins',
+    id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins', depth: 4,
     bossEnemy: DROWNED_QUEEN, bossFlag: 'drownedQueenDefeated', enemyPool: SUNKENRUINS_ENEMIES,
     portalTarget: { mapId: 'spire' }, nextMap: { mapId: 'whisperingwoods' },
   },
   whisperingwoods: {
-    id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods',
+    id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods', depth: 5,
     bossEnemy: ELDER_ENT, bossFlag: 'elderEntDefeated', enemyPool: WHISPERINGWOODS_ENEMIES,
     portalTarget: { mapId: 'sunkenruins' }, nextMap: { mapId: 'sandscar' },
   },
   sandscar: {
-    id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar',
+    id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar', depth: 6,
     bossEnemy: SAND_REAVER, bossFlag: 'sandReaverDefeated', enemyPool: SANDSCAR_ENEMIES,
     portalTarget: { mapId: 'whisperingwoods' }, nextMap: { mapId: 'volcanic' },
   },
   volcanic: {
-    id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic',
+    id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic', depth: 7,
     bossEnemy: MOLTEN_WYRM, bossFlag: 'moltenWyrmDefeated', enemyPool: VOLCANIC_ENEMIES,
     portalTarget: { mapId: 'sandscar' }, nextMap: { mapId: 'shatteredpeaks' },
   },
   shatteredpeaks: {
-    id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks',
+    id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks', depth: 8,
     bossEnemy: STORMGUARD_TITAN, bossFlag: 'stormguardTitanDefeated', enemyPool: SHATTEREDPEAKS_ENEMIES,
     portalTarget: { mapId: 'volcanic' }, nextMap: { mapId: 'blightmarsh' },
   },
   blightmarsh: {
-    id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh',
+    id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh', depth: 9,
     bossEnemy: ROTLORD, bossFlag: 'rotlordDefeated', enemyPool: BLIGHTMARSH_ENEMIES,
     portalTarget: { mapId: 'shatteredpeaks' }, nextMap: { mapId: 'crystalcaverns' },
   },
   crystalcaverns: {
-    id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns',
+    id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns', depth: 10,
     bossEnemy: PRISM_COLOSSUS, bossFlag: 'prismColossusDefeated', enemyPool: CRYSTALCAVERNS_ENEMIES,
     portalTarget: { mapId: 'blightmarsh' }, nextMap: { mapId: 'shadowfen' },
   },
   shadowfen: {
-    id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen',
+    id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen', depth: 11,
     bossEnemy: NIGHTMARE_DRAKE, bossFlag: 'nightmareDrakeDefeated', enemyPool: SHADOWFEN_ENEMIES,
     portalTarget: { mapId: 'crystalcaverns' }, nextMap: { mapId: 'celestial' },
   },
   celestial: {
-    id: 'celestial', name: 'The Celestial Spire', theme: 'celestial',
+    id: 'celestial', name: 'The Celestial Spire', theme: 'celestial', depth: 12,
     bossEnemy: ASTRAL_GUARDIAN, bossFlag: 'astralGuardianDefeated', enemyPool: CELESTIAL_ENEMIES,
     portalTarget: { mapId: 'shadowfen' }, nextMap: { mapId: 'voidrift' },
   },
   voidrift: {
-    id: 'voidrift', name: 'The Void Rift', theme: 'voidrift',
+    id: 'voidrift', name: 'The Void Rift', theme: 'voidrift', depth: 13,
     bossEnemy: WORLD_SERPENT, bossFlag: 'worldSerpentDefeated', enemyPool: VOIDRIFT_ENEMIES,
     portalTarget: { mapId: 'celestial' },
     // No nextMap — defeating the World Serpent is the true ending.

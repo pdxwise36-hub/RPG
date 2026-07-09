@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, MAPS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, PET_XP_PER_LEVEL, PET_MAX_LEVEL, PET_LEVEL_POWER_BONUS } from './data.js';
 import { generateZoneGrid } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -71,4 +71,18 @@ export function effectiveAtk(player) {
 export function effectiveDef(player) {
   const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
   return player.baseDef + armor.defBonus;
+}
+
+// Pet level is purely derived from cumulative XP earned while that pet was
+// active — no separate stored level field, so there's nothing to desync.
+export function petLevel(player, petKey) {
+  const xp = (player.petXp && player.petXp[petKey]) || 0;
+  return Math.min(PET_MAX_LEVEL, 1 + Math.floor(xp / PET_XP_PER_LEVEL));
+}
+
+export function petEffectivePower(player, petKey) {
+  const pet = PETS[petKey];
+  if (!pet) return 0;
+  const level = petLevel(player, petKey);
+  return pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
 }
