@@ -261,8 +261,8 @@ export function drawMap(ctx, state) {
     if (bossImg && bossImg.complete && bossImg.naturalWidth > 0) {
       const bpx = map.bossPos.x * TILE_SIZE;
       const bpy = map.bossPos.y * TILE_SIZE;
-      const size = TILE_SIZE * 2.2;
-      ctx.drawImage(bossImg, bpx + (TILE_SIZE - size) / 2, bpy + TILE_SIZE - size * 0.85, size, size);
+      const size = TILE_SIZE * 1.5;
+      ctx.drawImage(bossImg, bpx + (TILE_SIZE - size) / 2, bpy + TILE_SIZE - size, size, size);
     }
   }
 
