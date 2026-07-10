@@ -45,11 +45,15 @@ export function tryMove(state, dx, dy) {
   if (tile === TILE.ARENA) return { type: 'arena' };
 
   if (tile === TILE.BOSS) {
-    if (state.flags[map.bossFlag]) {
-      if (map.nextMap) return { type: 'portal', mapId: map.nextMap.mapId };
-      return { type: 'moved' };
-    }
+    // The boss is a permanent, repeatable fight spot — it never turns into
+    // a portal itself. The way onward lives in a separate tile beside it.
     return { type: 'boss' };
+  }
+
+  if (tile === TILE.NEXT_PORTAL) {
+    if (!map.nextMap) return { type: 'moved' };
+    if (!state.flags[map.bossFlag]) return { type: 'locked' };
+    return { type: 'portal', mapId: map.nextMap.mapId };
   }
 
   if (tile === TILE.PORTAL) {
@@ -81,6 +85,7 @@ function makeTheme({ grass, path, water, tree, boss, portal = '#3fd4c4' }) {
     [TILE.TOWN]: '#b08a3e',
     [TILE.BOSS]: boss,
     [TILE.PORTAL]: portal,
+    [TILE.NEXT_PORTAL]: portal,
     [TILE.KNIGHT]: grass,
     [TILE.MAGE]: grass,
     [TILE.TAMER]: grass,
@@ -125,6 +130,7 @@ const THEME_MOOD = {
 };
 
 const BOSS_CLEARED_COLOR = '#caa53d';
+const SEALED_PORTAL_COLOR = '#3a3a42';
 
 export function drawMap(ctx, state) {
   const map = MAPS[state.mapId];
@@ -143,7 +149,9 @@ export function drawMap(ctx, state) {
       const tile = grid[y][x];
       const px = x * TILE_SIZE;
       const py = y * TILE_SIZE;
-      ctx.fillStyle = tile === TILE.BOSS && state.flags[map.bossFlag] ? BOSS_CLEARED_COLOR : palette[tile];
+      ctx.fillStyle = tile === TILE.BOSS && state.flags[map.bossFlag] ? BOSS_CLEARED_COLOR
+        : tile === TILE.NEXT_PORTAL && !state.flags[map.bossFlag] ? SEALED_PORTAL_COLOR
+        : palette[tile];
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
       if (tile === TILE.GRASS) {
@@ -219,28 +227,16 @@ export function drawMap(ctx, state) {
         ctx.closePath();
         ctx.fill();
       } else if (tile === TILE.BOSS) {
-        if (state.flags[map.bossFlag]) {
-          // cleared — reads the same as a portal, since that's what it now is
-          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        // Farmable — the boss stays on its tile forever, defeated or not.
+        // Fallback marker in case the boss portrait hasn't loaded yet; the
+        // real portrait is drawn afterward as an overlay so its overflow
+        // into neighboring tiles isn't painted over below.
+        const bossImg = bossImages[map.id];
+        if (!(bossImg && bossImg.complete && bossImg.naturalWidth > 0)) {
+          ctx.fillStyle = '#5a1f3a';
           ctx.beginPath();
-          ctx.arc(px + 16, py + 16, 7, 0, Math.PI * 2);
+          ctx.arc(px + 16, py + 16, 10, 0, Math.PI * 2);
           ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
-          ctx.stroke();
-        } else {
-          // fallback marker in case the boss portrait hasn't loaded yet —
-          // the real portrait is drawn afterward as an overlay so its
-          // overflow into neighboring tiles isn't painted over below.
-          const bossImg = bossImages[map.id];
-          if (!(bossImg && bossImg.complete && bossImg.naturalWidth > 0)) {
-            ctx.fillStyle = '#5a1f3a';
-            ctx.beginPath();
-            ctx.arc(px + 16, py + 16, 10, 0, Math.PI * 2);
-            ctx.fill();
-          }
         }
       } else if (tile === TILE.PORTAL) {
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
@@ -252,6 +248,28 @@ export function drawMap(ctx, state) {
         ctx.beginPath();
         ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
         ctx.stroke();
+      } else if (tile === TILE.NEXT_PORTAL) {
+        if (state.flags[map.bossFlag]) {
+          // open — same glow as any other portal
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.beginPath();
+          ctx.arc(px + 16, py + 16, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          // sealed — a dim ring with no glow, reads as "not yet"
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px + 16, py + 16, 9, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          ctx.fillRect(px + 13, py + 14, 6, 6);
+        }
       } else if (tile === TILE.KNIGHT) {
         ctx.fillStyle = '#8a8a92';
         ctx.fillRect(px + 6, py + 10, 20, 18);
@@ -297,8 +315,9 @@ export function drawMap(ctx, state) {
   }
 
   // boss portrait — drawn as an overlay (not inline above) so its overflow
-  // into neighboring tiles isn't painted over by tiles later in the loop
-  if (map.bossEnemy && !state.flags[map.bossFlag]) {
+  // into neighboring tiles isn't painted over by tiles later in the loop.
+  // Shown every visit, defeated or not — the boss is a permanent fight spot.
+  if (map.bossEnemy) {
     const bossImg = bossImages[map.id];
     if (bossImg && bossImg.complete && bossImg.naturalWidth > 0) {
       const bpx = layout.bossPos.x * TILE_SIZE;

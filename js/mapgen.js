@@ -36,7 +36,7 @@ function isReachable(grid, start, target) {
   return false;
 }
 
-function buildOnce(obstacleChance) {
+function buildOnce(obstacleChance, hasNextLevel) {
   const grid = Array.from({ length: MAP_ROWS }, () => Array(MAP_COLS).fill(TILE.TREE));
   for (let y = 1; y < MAP_ROWS - 1; y++) {
     for (let x = 1; x < MAP_COLS - 1; x++) {
@@ -57,18 +57,36 @@ function buildOnce(obstacleChance) {
   const bossPos = path[path.length - 1];
   grid[bossPos.y][bossPos.x] = TILE.BOSS;
 
-  return { grid, startPos: { x: ENTRY_COL, y: ENTRY_ROW }, bossPos };
+  // The portal onward sits beside the boss (not inside it) so the boss stays
+  // a repeatable fight — whichever orthogonal neighbor is in bounds first.
+  let nextPortalPos = null;
+  if (hasNextLevel) {
+    const sides = [
+      { x: bossPos.x + 1, y: bossPos.y },
+      { x: bossPos.x - 1, y: bossPos.y },
+      { x: bossPos.x, y: bossPos.y - 1 },
+      { x: bossPos.x, y: bossPos.y + 1 },
+    ].filter((p) => p.x >= 1 && p.x <= MAP_COLS - 2 && p.y >= 1 && p.y <= MAP_ROWS - 2);
+    if (sides.length > 0) {
+      nextPortalPos = sides[0];
+      grid[nextPortalPos.y][nextPortalPos.x] = TILE.NEXT_PORTAL;
+    }
+  }
+
+  return { grid, startPos: { x: ENTRY_COL, y: ENTRY_ROW }, bossPos, nextPortalPos };
 }
 
-// Builds a random layout for one of the 14 monster levels. Retries a few
-// times if a rare bad roll walls off the boss, falling back to an
-// obstacle-free layout (always trivially reachable) if that keeps failing.
-export function generateZoneGrid() {
+// Builds a random layout for one of the monster levels. Retries a few times
+// if a rare bad roll walls off the boss, falling back to an obstacle-free
+// layout (always trivially reachable) if that keeps failing. hasNextLevel
+// controls whether a next-level portal is placed beside the boss at all —
+// the final level's boss has nowhere onward to send you.
+export function generateZoneGrid(hasNextLevel = true) {
   for (let attempt = 0; attempt < 8; attempt++) {
-    const layout = buildOnce(0.15);
+    const layout = buildOnce(0.15, hasNextLevel);
     if (isReachable(layout.grid, layout.startPos, layout.bossPos)) return layout;
   }
-  return buildOnce(0);
+  return buildOnce(0, hasNextLevel);
 }
 
 // Town's fixed grid — same every playthrough, every visit. No grass tiles

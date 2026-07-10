@@ -14,10 +14,16 @@ export const TILE = {
   MAGE: 8,
   TAMER: 9,
   ARENA: 10,
+  // The portal onward to the next level — placed beside the boss instead of
+  // the boss tile itself becoming a portal, so the boss stays a permanent,
+  // repeatable fight spot. Sealed (blocked with a toast) until the boss has
+  // been beaten at least once, then stays open forever after.
+  NEXT_PORTAL: 11,
 };
 
 export const WALKABLE = new Set([
   TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE, TILE.TAMER, TILE.ARENA,
+  TILE.NEXT_PORTAL,
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 

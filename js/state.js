@@ -12,7 +12,8 @@ export function ensureLayout(state, mapId, forceRegenerate = false) {
     return state.layouts.town;
   }
   if (forceRegenerate || !state.layouts[mapId]) {
-    state.layouts[mapId] = generateZoneGrid();
+    const hasNextLevel = !!(MAPS[mapId] && MAPS[mapId].nextMap);
+    state.layouts[mapId] = generateZoneGrid(hasNextLevel);
   }
   return state.layouts[mapId];
 }

@@ -93,8 +93,19 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'boss') {
-    el('boss-modal-title').textContent = `${MAPS[state.mapId].bossEnemy.name} blocks the way`;
+    const map = MAPS[state.mapId];
+    const alreadyBeaten = !!state.flags[map.bossFlag];
+    el('boss-modal-title').textContent = alreadyBeaten
+      ? `${map.bossEnemy.name} awaits a rematch`
+      : `${map.bossEnemy.name} blocks the way`;
+    el('boss-modal-sub').textContent = alreadyBeaten
+      ? 'Already beaten once — fight again for more loot and XP?'
+      : 'There is no running from this fight. Are you ready?';
     showModal('modal-boss');
+    return;
+  }
+  if (result.type === 'locked') {
+    showToast('The way onward is sealed — defeat the boss first.', 2200);
     return;
   }
   if (result.type === 'knight') {
@@ -205,15 +216,24 @@ function resolveBattleEnd() {
     }
     if (battle.isBoss) {
       const map = MAPS[state.mapId];
+      // Bosses are farmable — the flag only gates the one-time unlock/
+      // victory beat, never the fight itself, which is why we check it
+      // before setting it just below.
+      const firstTime = !state.flags[map.bossFlag];
       state.flags[map.bossFlag] = true;
       autosave();
-      if (map.nextMap) {
-        // A path onward opens — no full "the end" screen yet.
-        showToast(`${msg} The way onward has opened!`, 2800);
-        goToMap();
+      if (firstTime) {
+        if (map.nextMap) {
+          // A path onward opens beside the boss — no full "the end" screen yet.
+          showToast(`${msg} The way onward has opened!`, 2800);
+          goToMap();
+        } else {
+          el('victory-title').textContent = `${battle.enemy.name} falls!`;
+          showScreen('victory');
+        }
       } else {
-        el('victory-title').textContent = `${battle.enemy.name} falls!`;
-        showScreen('victory');
+        showToast(msg, 2400);
+        goToMap();
       }
       return;
     }
