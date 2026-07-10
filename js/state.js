@@ -35,8 +35,9 @@ export function newGameState(heroName) {
     // Every level id ever set foot in — lets the Town portal offer a Travel
     // menu to any of them, not just whichever one is "current."
     reachedLevels: ['overworld'],
-    // Current Arena run — resets to 1 on a loss or on leaving; the best
-    // wave ever reached is tracked separately on the player (persists).
+    // Next Arena wave to fight. A loss or leaving both pick back up just
+    // past your best cleared wave (player.arenaBestWave) rather than
+    // resetting all the way to 1 — only the in-progress attempt is lost.
     arenaWave: 1,
   };
   const layout = ensureLayout(state, 'town');

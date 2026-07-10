@@ -259,7 +259,10 @@ function resolveBattleEnd() {
       showModal('modal-chest');
     }
   } else if (battle.result === 'lose') {
-    if (battle.isArena) state.arenaWave = 1;
+    // A loss only costs you the in-progress attempt, not your progress —
+    // next time you fight, you pick back up just past your best cleared
+    // wave instead of re-grinding from wave 1 every time.
+    if (battle.isArena) state.arenaWave = p.arenaBestWave + 1;
     showScreen('gameover');
   } else {
     goToMap();
@@ -876,7 +879,9 @@ function wireEvents() {
     startBattle(pickArenaEnemy(state.arenaWave), false, true);
   });
   el('btn-arena-leave').addEventListener('click', () => {
-    state.arenaWave = 1;
+    // Banking out preserves progress — next visit still starts just past
+    // your best cleared wave, same as a loss does, instead of wave 1.
+    state.arenaWave = state.player.arenaBestWave + 1;
     hideModal('modal-arena');
     autosave();
     updateHud();
