@@ -86,9 +86,7 @@
     </div>
 
     <div id="battle-menu-items" class="battle-menu hidden">
-      <button id="btn-item-potion" class="btn btn-battle"></button>
-      <button id="btn-item-ether" class="btn btn-battle"></button>
-      <button id="btn-item-back" class="btn btn-battle">Back</button>
+      <!-- populated dynamically from CONSUMABLE_ITEMS -->
     </div>
 
     <div id="battle-menu-skills" class="battle-menu hidden">
@@ -109,7 +107,10 @@
   <section id="screen-victory" class="screen hidden">
     <h2 id="victory-title">Victory!</h2>
     <p>Emberfall is safe at last — thanks for playing!</p>
-    <button id="btn-victory-continue" class="btn btn-primary">Keep Exploring</button>
+    <div class="menu-stack">
+      <button id="btn-victory-continue" class="btn btn-primary">Keep Exploring</button>
+      <button id="btn-victory-ngplus" class="btn">Start New Game+</button>
+    </div>
   </section>
 
   <!-- TOWN MODAL -->
@@ -121,6 +122,8 @@
         <button id="btn-town-rest" class="btn">Rest (heal HP &amp; MP)</button>
         <button id="btn-town-shop" class="btn">Shop</button>
         <button id="btn-town-armory" class="btn">Armory</button>
+        <button id="btn-town-bounty" class="btn">Bounty Board</button>
+        <button id="btn-town-ngplus" class="btn hidden">Start New Game+</button>
         <button id="btn-town-leave" class="btn btn-primary">Leave Town</button>
       </div>
     </div>
@@ -176,6 +179,16 @@
     </div>
   </div>
 
+  <!-- DECKARD CAIN MODAL -->
+  <div id="modal-cain" class="modal hidden">
+    <div class="modal-card">
+      <h2>Deckard Cain</h2>
+      <p class="modal-sub">Gold: <span id="cain-gold"></span> — "Stay a while, and listen."</p>
+      <div id="cain-list" class="shop-list"></div>
+      <button id="btn-cain-back" class="btn btn-primary">Leave</button>
+    </div>
+  </div>
+
   <!-- CHEST MODAL -->
   <div id="modal-chest" class="modal hidden">
     <div class="modal-card chest-card">
@@ -193,10 +206,46 @@
       <div class="status-tabs">
         <button id="tab-status" class="btn btn-small tab-active">Status</button>
         <button id="tab-bestiary" class="btn btn-small">Bestiary</button>
+        <button id="tab-achievements" class="btn btn-small">Achievements</button>
       </div>
       <div id="status-body" class="status-body"></div>
       <div id="bestiary-body" class="status-body hidden"></div>
+      <div id="achievements-body" class="status-body hidden"></div>
       <button id="btn-status-close" class="btn btn-primary">Close</button>
+    </div>
+  </div>
+
+  <!-- BOUNTY BOARD MODAL -->
+  <div id="modal-bounty" class="modal hidden">
+    <div class="modal-card">
+      <h2>Bounty Board</h2>
+      <p class="modal-sub">Three objectives, fresh every day.</p>
+      <div id="bounty-list" class="shop-list"></div>
+      <button id="btn-bounty-back" class="btn btn-primary">Back</button>
+    </div>
+  </div>
+
+  <!-- BOSS RUSH MODAL -->
+  <div id="modal-bossrush" class="modal hidden">
+    <div class="modal-card">
+      <h2>Boss Rush</h2>
+      <p id="bossrush-sub" class="modal-sub"></p>
+      <div class="menu-stack">
+        <button id="btn-bossrush-start" class="btn btn-primary">Start</button>
+        <button id="btn-bossrush-back" class="btn">Leave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW GAME+ CONFIRM MODAL -->
+  <div id="modal-ngplus-confirm" class="modal hidden">
+    <div class="modal-card">
+      <h2>Start New Game+?</h2>
+      <p class="modal-sub">Every level's progress resets and you'll walk the chain again from the outskirts, with tougher monsters and bigger rewards. Your character — level, gear, pets, skills, gold, and collection progress — carries over untouched.</p>
+      <div class="menu-stack">
+        <button id="btn-ngplus-confirm" class="btn btn-primary">Begin New Game+</button>
+        <button id="btn-ngplus-cancel" class="btn">Not Yet</button>
+      </div>
     </div>
   </div>
 

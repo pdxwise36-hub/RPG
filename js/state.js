@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -40,6 +40,26 @@ export function newGameState(heroName) {
     // resetting all the way to 1 — only the in-progress attempt is lost.
     arenaWave: 1,
   };
+  const layout = ensureLayout(state, 'town');
+  state.pos = { ...layout.startPos };
+  return state;
+}
+
+// Starts a fresh New Game+ cycle: the level chain resets (flags, layouts,
+// progress) so you walk it again from the outskirts, but the character
+// itself — level, gear, pets, skills, gold, bestiary, achievements,
+// enchants, bounty progress — carries over untouched. Enemy/boss stats
+// (and their payout) scale up further with each cycle via ngPlusMultiplier.
+export function startNewGamePlus(state) {
+  const player = state.player;
+  player.ngPlusLevel = (player.ngPlusLevel || 0) + 1;
+  player.hp = player.maxHp;
+  player.mp = player.maxMp;
+  state.flags = {};
+  state.layouts = {};
+  state.mapId = 'town';
+  state.currentLevelId = 'overworld';
+  state.reachedLevels = ['overworld'];
   const layout = ensureLayout(state, 'town');
   state.pos = { ...layout.startPos };
   return state;
@@ -113,12 +133,16 @@ function reachedLevelsUpTo(mapId) {
 
 export function effectiveAtk(player) {
   const weapon = WEAPONS[player.weaponKey] || WEAPONS.rustySword;
-  return player.baseAtk + weapon.atkBonus;
+  return player.baseAtk + weapon.atkBonus + enchantLevel(player, 'weapon', player.weaponKey) * ENCHANT_BONUS_PER_LEVEL;
 }
 
 export function effectiveDef(player) {
   const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
-  return player.baseDef + armor.defBonus;
+  return player.baseDef + armor.defBonus + enchantLevel(player, 'armor', player.armorKey) * ENCHANT_BONUS_PER_LEVEL;
+}
+
+export function enchantLevel(player, slot, key) {
+  return (player.enchantLevels && player.enchantLevels[slot] && player.enchantLevels[slot][key]) || 0;
 }
 
 // Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the

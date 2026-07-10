@@ -93,8 +93,9 @@ export function generateZoneGrid(hasNextLevel = true) {
 // at all, so no random encounters are even possible here. Buildings sit at
 // hand-picked spots: the Town Center (rest/shop/armory hub) just below the
 // entrance, Knight and Master Mage flanking a bit further down, the Pet
-// Tamer and the Arena further still (mirrored on either side), and the exit
-// portal (back to whichever level you were in) at the bottom.
+// Tamer and the Arena further still (mirrored on either side), the Boss
+// Rush gate and Deckard Cain's tent near the bottom (also mirrored), and
+// the exit portal (back to whichever level you were in) at the bottom.
 function buildTownGrid() {
   const grid = Array.from({ length: MAP_ROWS }, () => Array(MAP_COLS).fill(TILE.TREE));
   for (let y = 1; y < MAP_ROWS - 1; y++) {
@@ -107,6 +108,8 @@ function buildTownGrid() {
   grid[9][9] = TILE.MAGE;
   grid[11][2] = TILE.TAMER;
   grid[11][9] = TILE.ARENA;
+  grid[13][2] = TILE.BOSSRUSH;
+  grid[13][9] = TILE.IDENTIFIER;
   grid[14][ENTRY_COL] = TILE.PORTAL;
   return grid;
 }

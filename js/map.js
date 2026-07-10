@@ -43,6 +43,8 @@ export function tryMove(state, dx, dy) {
   if (tile === TILE.MAGE) return { type: 'mage' };
   if (tile === TILE.TAMER) return { type: 'tamer' };
   if (tile === TILE.ARENA) return { type: 'arena' };
+  if (tile === TILE.BOSSRUSH) return { type: 'bossrush' };
+  if (tile === TILE.IDENTIFIER) return { type: 'identifier' };
 
   if (tile === TILE.BOSS) {
     // The boss is a permanent, repeatable fight spot — it never turns into
@@ -90,6 +92,8 @@ function makeTheme({ grass, path, water, tree, boss, portal = '#3fd4c4' }) {
     [TILE.MAGE]: grass,
     [TILE.TAMER]: grass,
     [TILE.ARENA]: grass,
+    [TILE.BOSSRUSH]: grass,
+    [TILE.IDENTIFIER]: grass,
   };
 }
 
@@ -309,6 +313,24 @@ export function drawMap(ctx, state) {
         ctx.beginPath();
         ctx.moveTo(px + 11, py + 12); ctx.lineTo(px + 21, py + 22);
         ctx.moveTo(px + 21, py + 12); ctx.lineTo(px + 11, py + 22);
+        ctx.stroke();
+      } else if (tile === TILE.BOSSRUSH) {
+        // a row of small skull markers — "many bosses, one gate"
+        ctx.fillStyle = '#3a1424';
+        ctx.beginPath(); ctx.arc(px + 10, py + 18, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 16, py + 14, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 22, py + 18, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e8d9a8';
+        ctx.fillRect(px + 14, py + 12, 1.5, 1.5);
+        ctx.fillRect(px + 17.5, py + 12, 1.5, 1.5);
+      } else if (tile === TILE.IDENTIFIER) {
+        // a magnifying glass — Deckard Cain identifies unidentified gear
+        ctx.strokeStyle = '#c8d4e0';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(px + 14, py + 13, 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px + 18.5, py + 17.5);
+        ctx.lineTo(px + 23, py + 22);
         ctx.stroke();
       }
     }

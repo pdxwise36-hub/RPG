@@ -19,11 +19,13 @@ export const TILE = {
   // repeatable fight spot. Sealed (blocked with a toast) until the boss has
   // been beaten at least once, then stays open forever after.
   NEXT_PORTAL: 11,
+  BOSSRUSH: 12,
+  IDENTIFIER: 13,
 };
 
 export const WALKABLE = new Set([
   TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE, TILE.TAMER, TILE.ARENA,
-  TILE.NEXT_PORTAL,
+  TILE.NEXT_PORTAL, TILE.BOSSRUSH, TILE.IDENTIFIER,
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
@@ -144,7 +146,28 @@ export const PLAYER_BASE = {
   // Marks an enemy key true the first time it's ever been defeated, so the
   // Bestiary can show which monsters in each level you've already killed.
   bestiary: {},
+  // Marks an achievement key true the first time its condition is met —
+  // permanent once earned, checked on every autosave.
+  achievements: {},
+  // Per-gear-key enchant levels, e.g. { weapon: { rustySword: 2 }, armor: {} }
+  // — an extra flat stat bonus on top of the gear's own atkBonus/defBonus,
+  // bought repeatedly at the Armory regardless of which piece is equipped.
+  enchantLevels: { weapon: {}, armor: {} },
+  // Today's 3 Bounty Board objectives and progress toward them; regenerated
+  // whenever the real-world date changes. bountyDate is a toDateString().
+  bountyDate: null,
+  bounties: [],
+  bountyProgress: { kills: 0, gold: 0, arenaWins: 0, bossWins: 0 },
+  // How many times New Game+ has been started — each cycle scales enemy
+  // stats and rewards up further.
+  ngPlusLevel: 0,
+  // Gear chest drops land here as { slot, key } instead of going straight
+  // into ownedWeapons/ownedArmors — Deckard Cain in Town identifies them
+  // (for a fee) before you learn what they are and can equip them.
+  unidentifiedItems: [],
 };
+
+export const IDENTIFY_COST = 15;
 
 // xpFactor compounds level-to-level below xpFactorCapLevel — this is the
 // original curve, unchanged since the game's first build. Beyond that level
@@ -438,10 +461,94 @@ export const LEVEL_CHAIN = (() => {
   return order;
 })();
 
+// Permanent milestones, checked on every autosave (see checkAchievements in
+// ui.js). Each `check` reads live state; once earned, state.player.achievements
+// stays true forever regardless of whether the condition still holds (e.g.
+// gold spent after "Rich and Famous" doesn't un-earn it).
+export const ACHIEVEMENTS = [
+  {
+    key: 'firstBlood', name: 'First Blood', desc: 'Defeat your first enemy.', rewardGold: 20,
+    check: (state) => Object.keys(state.player.bestiary).length > 0,
+  },
+  {
+    key: 'levelTen', name: 'Rising Hero', desc: 'Reach character level 10.', rewardGold: 50,
+    check: (state) => state.player.level >= 10,
+  },
+  {
+    key: 'levelFifty', name: 'Legend', desc: 'Reach character level 50.', rewardGold: 300,
+    check: (state) => state.player.level >= 50,
+  },
+  {
+    key: 'allBossesDefeated', name: 'Boss Slayer', desc: 'Defeat every boss in the realm.', rewardGold: 1000,
+    check: (state) => LEVEL_CHAIN.every((id) => state.flags[MAPS[id].bossFlag]),
+  },
+  {
+    key: 'trueEnding', name: 'Savior of Emberfall', desc: 'Defeat the Eternal Sovereign.', rewardGold: 500,
+    check: (state) => !!state.flags.eternalSovereignDefeated,
+  },
+  {
+    key: 'petCollector', name: 'Pet Collector', desc: 'Adopt all 10 pets.', rewardGold: 200,
+    check: (state) => state.player.ownedPets.length >= Object.keys(PETS).length,
+  },
+  {
+    key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the Celestial Edge and Celestial Aegis.', rewardGold: 300,
+    check: (state) => state.player.ownedWeapons.includes(WEAPON_ORDER[WEAPON_ORDER.length - 1])
+      && state.player.ownedArmors.includes(ARMOR_ORDER[ARMOR_ORDER.length - 1]),
+  },
+  {
+    key: 'bestiaryComplete', name: 'Monster Hunter', desc: 'Defeat every kind of monster and every boss.', rewardGold: 750,
+    check: (state) => LEVEL_CHAIN.every((id) => {
+      const map = MAPS[id];
+      return Object.keys(map.enemyPool).every((k) => state.player.bestiary[k]) && state.flags[map.bossFlag];
+    }),
+  },
+  {
+    key: 'arenaChampion', name: 'Arena Champion', desc: 'Reach Arena wave 20.', rewardGold: 400,
+    check: (state) => state.player.arenaBestWave >= 20,
+  },
+  {
+    key: 'richAndFamous', name: 'Rich and Famous', desc: 'Amass 10,000 gold at once.', rewardGold: 0,
+    check: (state) => state.player.gold >= 10000,
+  },
+];
+
+// Enchanting adds a flat stat bonus per gear key, bought repeatedly at the
+// Armory regardless of which piece is currently equipped — a gold sink and
+// a reason to keep favorite gear instead of only ever buying the next tier.
+export const ENCHANT_MAX_LEVEL = 10;
+export const ENCHANT_BONUS_PER_LEVEL = 2;
+export const ENCHANT_BASE_COST = 40;
+export function enchantCost(level) {
+  return ENCHANT_BASE_COST * (level + 1);
+}
+
+// Bounty Board objective templates — 3 are rolled fresh each real-world day.
+// `progressKey` names which counter in player.bountyProgress to read.
+export const BOUNTY_TEMPLATES = [
+  { type: 'kills', label: (n) => `Defeat ${n} enemies`, targets: [5, 8, 12], rewardGold: (n) => n * 8 },
+  { type: 'gold', label: (n) => `Earn ${n} gold`, targets: [100, 200, 350], rewardGold: (n) => Math.round(n * 0.4) },
+  { type: 'arenaWins', label: (n) => `Clear ${n} Arena waves`, targets: [3, 5, 8], rewardGold: (n) => n * 30 },
+  { type: 'bossWins', label: (n) => `Win ${n} boss fights`, targets: [1, 2, 3], rewardGold: (n) => n * 100 },
+];
+
+// Each New Game+ cycle scales enemy/boss stats (and their gold/XP payout)
+// up further, while your character, gear, and collection progress persist.
+export const NG_PLUS_SCALING_PER_LEVEL = 0.5;
+export function ngPlusMultiplier(ngPlusLevel) {
+  return 1 + (ngPlusLevel || 0) * NG_PLUS_SCALING_PER_LEVEL;
+}
+
 export const ITEMS = {
   potion: { key: 'potion', name: 'Potion', desc: 'Restores 20 HP', price: 8, heal: 20 },
   ether: { key: 'ether', name: 'Ether', desc: 'Restores 10 MP', price: 10, mp: 10 },
+  greaterPotion: { key: 'greaterPotion', name: 'Greater Potion', desc: 'Restores 60 HP', price: 24, heal: 60 },
+  greaterEther: { key: 'greaterEther', name: 'Greater Ether', desc: 'Restores 30 MP', price: 30, mp: 30 },
   townScroll: { key: 'townScroll', name: 'Town Scroll', desc: 'Teleports you back to town', price: 25 },
 };
+
+// Any item with a heal or mp field is a usable consumable — shown in the
+// battle Item submenu and the Status screen's Items section alike, so a
+// new potion/ether tier never needs its own hardcoded button.
+export const CONSUMABLE_ITEMS = Object.values(ITEMS).filter((item) => item.heal || item.mp);
 
 export const SAVE_KEY = 'emberfall-save-v1';

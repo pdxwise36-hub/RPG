@@ -324,11 +324,12 @@ html, body {
 .status-row { display: flex; justify-content: space-between; }
 .status-row span:first-child { color: var(--text-dim); }
 
-.status-tabs { display: flex; gap: 8px; }
-.status-tabs .btn { flex: 1; }
+.status-tabs { display: flex; gap: 6px; }
+.status-tabs .btn { flex: 1; font-size: 0.75rem; padding: 6px 4px; min-height: 34px; }
 .status-tabs .tab-active { background: var(--gold); color: #2a1e0a; border-color: var(--gold); }
 
 .bestiary-killed { text-decoration: line-through; color: var(--text-dim); opacity: 0.6; }
+.achievement-status { font-size: 0.8rem; color: var(--text-dim); white-space: nowrap; }
 
 @media (min-width: 480px) {
   .title-logo { font-size: 3.2rem; }

@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, WEAPON_ORDER, ARMOR_ORDER } from './data.js';
+import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, WEAPON_ORDER, ARMOR_ORDER, ngPlusMultiplier } from './data.js';
 import { effectiveAtk, effectiveDef, petEffectivePower, applyLevelUps, ensurePetProgress } from './state.js';
 
 function rand(min, max) {
@@ -39,6 +39,22 @@ export function pickArenaEnemy(wave) {
     xp: Math.round(base.xp * mult * 1.5),
     goldMin: Math.round(base.goldMin * mult * 1.5),
     goldMax: Math.round(base.goldMax * mult * 1.5),
+  };
+}
+
+// Scales an enemy/boss def up for New Game+ — every cycle raises stats and
+// payout together so pushing through the chain again stays worthwhile.
+export function scaleForNGPlus(enemyDef, ngPlusLevel) {
+  const mult = ngPlusMultiplier(ngPlusLevel);
+  if (mult === 1) return enemyDef;
+  return {
+    ...enemyDef,
+    maxHp: Math.round(enemyDef.maxHp * mult),
+    atk: Math.round(enemyDef.atk * mult),
+    def: Math.round(enemyDef.def * mult),
+    xp: Math.round(enemyDef.xp * mult),
+    goldMin: Math.round(enemyDef.goldMin * mult),
+    goldMax: Math.round(enemyDef.goldMax * mult),
   };
 }
 
@@ -176,6 +192,8 @@ export function grantRewards(state, enemyDef) {
   player.gold += goldWon;
   player.xp += enemyDef.xp;
   if (enemyDef.key) player.bestiary[enemyDef.key] = true;
+  player.bountyProgress.kills += 1;
+  player.bountyProgress.gold += goldWon;
   const levels = applyLevelUps(player);
   if (levels > 0) {
     player.maxHp += LEVEL_GROWTH.hp * levels;
@@ -216,22 +234,29 @@ function goldDrop(state, depth) {
 // something already outclassed). Searches outward from the anchor tier for
 // the nearest unowned piece; returns null only if every tier in that slot
 // is already owned.
+// Gear chests drop unidentified — the roll picks a real, specific item right
+// now (same anchored-to-depth logic as always), but it lands in
+// unidentifiedItems instead of ownedWeapons/ownedArmors. Deckard Cain
+// reveals (and grants ownership of) it later, for a fee.
 function rollGear(state, depth) {
   const player = state.player;
   const isWeapon = Math.random() < 0.5;
+  const slot = isWeapon ? 'weapon' : 'armor';
   const order = isWeapon ? WEAPON_ORDER : ARMOR_ORDER;
   const owned = isWeapon ? player.ownedWeapons : player.ownedArmors;
+  const pending = player.unidentifiedItems.filter((u) => u.slot === slot).map((u) => u.key);
   const anchor = Math.max(0, Math.min(order.length - 1, depth + rand(-1, 1)));
   let key = null;
   for (let offset = 0; offset < order.length && !key; offset++) {
     for (const candidate of [anchor + offset, anchor - offset]) {
       if (candidate < 0 || candidate >= order.length) continue;
-      if (!owned.includes(order[candidate])) { key = order[candidate]; break; }
+      const candidateKey = order[candidate];
+      if (!owned.includes(candidateKey) && !pending.includes(candidateKey)) { key = candidateKey; break; }
     }
   }
   if (!key) return null;
-  owned.push(key);
-  return { type: 'gear', slot: isWeapon ? 'weapon' : 'armor', key };
+  player.unidentifiedItems.push({ slot, key });
+  return { type: 'gear', slot, key };
 }
 
 // Rolls a chest drop after a non-boss win. Mutates player state directly
@@ -248,8 +273,14 @@ export function rollChest(state) {
   }
 
   if (roll < 0.55) {
+    // Deeper zones have a rising chance of the Greater tier instead of the
+    // basic potion/ether — same "deeper = better loot" pattern as gold/gear.
+    const greaterChance = Math.min(0.5, depth * 0.04);
     const itemRoll = Math.random();
-    const itemKey = itemRoll < 0.5 ? 'potion' : itemRoll < 0.8 ? 'ether' : 'townScroll';
+    let itemKey;
+    if (itemRoll < 0.4) itemKey = Math.random() < greaterChance ? 'greaterPotion' : 'potion';
+    else if (itemRoll < 0.7) itemKey = Math.random() < greaterChance ? 'greaterEther' : 'ether';
+    else itemKey = 'townScroll';
     player.inventory[itemKey] = (player.inventory[itemKey] || 0) + 1;
     return { type: 'item', itemKey };
   }

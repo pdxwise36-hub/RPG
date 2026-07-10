@@ -1,12 +1,13 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress, enchantLevel, startNewGamePlus } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
 
 let state = null;
 let battle = null;
 let prevPos = null;
+let bossRush = null;
 
 const el = (id) => document.getElementById(id);
 
@@ -75,7 +76,21 @@ function goToMap() {
 }
 
 function autosave() {
+  checkAchievements();
   writeSave(toSaveObject(state));
+}
+
+// Runs on every autosave — permanent once earned, so a later state change
+// (spending gold, losing a fight) never un-earns anything.
+function checkAchievements() {
+  const p = state.player;
+  ACHIEVEMENTS.forEach((ach) => {
+    if (p.achievements[ach.key]) return;
+    if (!ach.check(state)) return;
+    p.achievements[ach.key] = true;
+    if (ach.rewardGold > 0) p.gold += ach.rewardGold;
+    showToast(`Achievement unlocked: ${ach.name}!${ach.rewardGold > 0 ? ` +${ach.rewardGold}G` : ''}`, 3200);
+  });
 }
 
 function handleMove(dir) {
@@ -89,6 +104,7 @@ function handleMove(dir) {
   if (result.type === 'moved') return;
   if (result.type === 'town') {
     autosave();
+    el('btn-town-ngplus').classList.toggle('hidden', !state.player.achievements.trueEnding);
     showModal('modal-town');
     return;
   }
@@ -128,6 +144,16 @@ function handleMove(dir) {
     showModal('modal-arena');
     return;
   }
+  if (result.type === 'bossrush') {
+    renderBossRush();
+    showModal('modal-bossrush');
+    return;
+  }
+  if (result.type === 'identifier') {
+    renderCain();
+    showModal('modal-cain');
+    return;
+  }
   if (result.type === 'townExit') {
     renderLevelSelect();
     showModal('modal-levelselect');
@@ -152,7 +178,7 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'encounter') {
-    startBattle(pickRandomEnemy(MAPS[state.mapId].enemyPool), false);
+    startBattle(scaleForNGPlus(pickRandomEnemy(MAPS[state.mapId].enemyPool), state.player.ngPlusLevel), false);
   }
 }
 
@@ -194,9 +220,10 @@ function renderBattle() {
   }
 }
 
-function startBattle(enemyDef, isBoss, isArena = false) {
+function startBattle(enemyDef, isBoss, isArena = false, isBossRush = false) {
   battle = createBattle(enemyDef, isBoss);
   battle.isArena = isArena;
+  battle.isBossRush = isBossRush;
   el('battle-menu-main').classList.remove('hidden');
   el('battle-menu-items').classList.add('hidden');
   el('battle-menu-skills').classList.add('hidden');
@@ -214,6 +241,27 @@ function resolveBattleEnd() {
       const pet = PETS[p.activePetKey];
       msg += ` ${pet.name} is now Lv. ${petLevel(p, p.activePetKey)}!`;
     }
+    if (battle.isBossRush) {
+      // Boss Rush reuses boss defs but skips per-level unlock/victory logic
+      // entirely — it's a separate challenge mode, not real progression.
+      p.bountyProgress.bossWins += 1;
+      bossRush.index += 1;
+      if (bossRush.index >= bossRush.order.length) {
+        const bonus = Math.round(bossRush.order.length * 250 * ngPlusMultiplier(p.ngPlusLevel));
+        p.gold += bonus;
+        bossRush = null;
+        autosave();
+        showToast(`${msg} Boss Rush complete! Bonus: ${bonus}G!`, 3600);
+        goToMap();
+      } else {
+        p.hp = p.maxHp;
+        p.mp = p.maxMp;
+        const nextMapId = bossRush.order[bossRush.index];
+        showToast(`${msg} ${bossRush.index}/${bossRush.order.length} bosses down!`, 2600);
+        startBattle(scaleForNGPlus(MAPS[nextMapId].bossEnemy, p.ngPlusLevel), true, false, true);
+      }
+      return;
+    }
     if (battle.isBoss) {
       const map = MAPS[state.mapId];
       // Bosses are farmable — the flag only gates the one-time unlock/
@@ -221,6 +269,7 @@ function resolveBattleEnd() {
       // before setting it just below.
       const firstTime = !state.flags[map.bossFlag];
       state.flags[map.bossFlag] = true;
+      p.bountyProgress.bossWins += 1;
       autosave();
       if (firstTime) {
         if (map.nextMap) {
@@ -238,6 +287,7 @@ function resolveBattleEnd() {
       return;
     }
     if (battle.isArena) {
+      p.bountyProgress.arenaWins += 1;
       // No chest roll here — the Arena already pays out extra gold/XP per
       // wave. Winning re-opens the Arena modal for the next wave instead of
       // returning to free-roam, keeping the "how far can you go" loop tight.
@@ -263,6 +313,9 @@ function resolveBattleEnd() {
     // next time you fight, you pick back up just past your best cleared
     // wave instead of re-grinding from wave 1 every time.
     if (battle.isArena) state.arenaWave = p.arenaBestWave + 1;
+    // A Boss Rush loss ends the run with no completion bonus — you keep
+    // whatever gold/XP each individual boss along the way already paid out.
+    if (battle.isBossRush) bossRush = null;
     showScreen('gameover');
   } else {
     goToMap();
@@ -286,12 +339,29 @@ function respawnAfterDefeat() {
 // ---------- Item submenu ----------
 function renderItemMenu() {
   const p = state.player;
-  const potionBtn = el('btn-item-potion');
-  const etherBtn = el('btn-item-ether');
-  potionBtn.textContent = `${ITEMS.potion.name} (${p.inventory.potion || 0})`;
-  potionBtn.disabled = !(p.inventory.potion > 0);
-  etherBtn.textContent = `${ITEMS.ether.name} (${p.inventory.ether || 0})`;
-  etherBtn.disabled = !(p.inventory.ether > 0);
+  const menu = el('battle-menu-items');
+  menu.innerHTML = '';
+  CONSUMABLE_ITEMS.forEach((item) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-battle';
+    btn.textContent = `${item.name} (${p.inventory[item.key] || 0})`;
+    btn.disabled = !(p.inventory[item.key] > 0);
+    btn.addEventListener('click', () => {
+      playerItem(battle, state, item.key);
+      menu.classList.add('hidden');
+      el('battle-menu-main').classList.remove('hidden');
+      renderBattle();
+    });
+    menu.appendChild(btn);
+  });
+  const backBtn = document.createElement('button');
+  backBtn.className = 'btn btn-battle';
+  backBtn.textContent = 'Back';
+  backBtn.addEventListener('click', () => {
+    menu.classList.add('hidden');
+    el('battle-menu-main').classList.remove('hidden');
+  });
+  menu.appendChild(backBtn);
 }
 
 // ---------- Skill submenu (battle) ----------
@@ -362,8 +432,8 @@ function renderChest(chest) {
   } else if (chest.type === 'item') {
     desc = `You found a ${ITEMS[chest.itemKey].name}!`;
   } else if (chest.type === 'gear') {
-    const gear = chest.slot === 'weapon' ? WEAPONS[chest.key] : ARMORS[chest.key];
-    desc = `You found a ${gear.name}!`;
+    const slotLabel = chest.slot === 'weapon' ? 'Weapon' : 'Armor Piece';
+    desc = `You found an Unidentified ${slotLabel}! Bring it to Deckard Cain in Town to find out what it is.`;
   } else {
     desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
   }
@@ -376,6 +446,16 @@ function sectionHeading(text) {
   h.className = 'armory-section';
   h.textContent = text;
   return h;
+}
+
+const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body' };
+function showStatusTab(tab) {
+  Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
+    el(`tab-${key}`).classList.toggle('tab-active', key === tab);
+    el(bodyId).classList.toggle('hidden', key !== tab);
+  });
+  if (tab === 'bestiary') renderBestiary();
+  if (tab === 'achievements') renderAchievements();
 }
 
 // Items are usable right here — no need to be in battle or visit town.
@@ -503,6 +583,7 @@ function renderStatus() {
     <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
+    <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
@@ -511,8 +592,7 @@ function renderStatus() {
   `;
 
   body.appendChild(sectionHeading('Items'));
-  body.appendChild(buildStatusItemRow('potion'));
-  body.appendChild(buildStatusItemRow('ether'));
+  CONSUMABLE_ITEMS.forEach((item) => body.appendChild(buildStatusItemRow(item.key)));
   body.appendChild(buildTownScrollRow());
 
   body.appendChild(sectionHeading('Weapons'));
@@ -546,6 +626,25 @@ function renderBestiary() {
   });
 }
 
+function renderAchievements() {
+  const p = state.player;
+  const body = el('achievements-body');
+  body.innerHTML = '';
+  ACHIEVEMENTS.forEach((ach) => {
+    const unlocked = !!p.achievements[ach.key];
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name ${unlocked ? 'bestiary-killed' : ''}">${ach.name}</span>
+        <span class="shop-item-desc">${ach.desc}${ach.rewardGold > 0 ? ` — Reward: ${ach.rewardGold}G` : ''}</span>
+      </div>
+      <span class="achievement-status">${unlocked ? 'Unlocked' : 'Locked'}</span>
+    `;
+    body.appendChild(row);
+  });
+}
+
 // ---------- Armory ----------
 function renderArmory() {
   el('armory-gold').textContent = state.player.gold;
@@ -557,6 +656,50 @@ function renderArmory() {
   armorHeading.textContent = 'Armor';
   list.appendChild(armorHeading);
   Object.values(ARMORS).forEach((a) => list.appendChild(buildArmoryRow(a, 'armor', '+' + a.defBonus + ' DEF')));
+
+  const p = state.player;
+  if (p.ownedWeapons.length > 0 || p.ownedArmors.length > 0) {
+    list.appendChild(sectionHeading('Enchant'));
+    p.ownedWeapons.forEach((key) => list.appendChild(buildEnchantRow(WEAPONS[key], 'weapon')));
+    p.ownedArmors.forEach((key) => list.appendChild(buildEnchantRow(ARMORS[key], 'armor')));
+  }
+}
+
+// A flat stat bonus per owned gear key, stacked regardless of which piece
+// is currently equipped — a gold sink and a reason to keep favorite gear.
+function buildEnchantRow(item, slot) {
+  const p = state.player;
+  const level = enchantLevel(p, slot, item.key);
+  const maxed = level >= ENCHANT_MAX_LEVEL;
+  const statLabel = slot === 'weapon' ? 'ATK' : 'DEF';
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">+${level * ENCHANT_BONUS_PER_LEVEL} ${statLabel} (${level}/${ENCHANT_MAX_LEVEL})</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (maxed) {
+    btn.textContent = 'Maxed';
+    btn.disabled = true;
+  } else {
+    const cost = enchantCost(level);
+    btn.textContent = `Enchant (${cost}G)`;
+    btn.disabled = p.gold < cost;
+    btn.addEventListener('click', () => {
+      if (p.gold < cost) return;
+      p.gold -= cost;
+      p.enchantLevels[slot][item.key] = level + 1;
+      autosave();
+      renderArmory();
+    });
+  }
+  row.appendChild(btn);
+  return row;
 }
 
 function buildArmoryRow(item, slot, statLabel) {
@@ -602,11 +745,144 @@ function buildArmoryRow(item, slot, statLabel) {
   return row;
 }
 
+// ---------- Deckard Cain (item identification) ----------
+// Gear chests drop unidentified — this is where you learn (and finally own)
+// what you actually found, for a flat fee per item.
+function renderCain() {
+  const p = state.player;
+  el('cain-gold').textContent = p.gold;
+  const list = el('cain-list');
+  list.innerHTML = '';
+  if (p.unidentifiedItems.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'modal-sub';
+    empty.textContent = 'Nothing to identify right now — go find some chests.';
+    list.appendChild(empty);
+    return;
+  }
+  p.unidentifiedItems.forEach((unident, idx) => {
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    const slotLabel = unident.slot === 'weapon' ? 'Weapon' : 'Armor Piece';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">Unidentified ${slotLabel}</span>
+        <span class="shop-item-desc">${IDENTIFY_COST}G to identify</span>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    btn.textContent = 'Identify';
+    btn.disabled = p.gold < IDENTIFY_COST;
+    btn.addEventListener('click', () => {
+      if (p.gold < IDENTIFY_COST) return;
+      p.gold -= IDENTIFY_COST;
+      p.unidentifiedItems.splice(idx, 1);
+      const gear = unident.slot === 'weapon' ? WEAPONS[unident.key] : ARMORS[unident.key];
+      if (unident.slot === 'weapon') p.ownedWeapons.push(unident.key);
+      else p.ownedArmors.push(unident.key);
+      autosave();
+      showToast(`It's a ${gear.name}!`, 2600);
+      renderCain();
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
 // ---------- Arena ----------
 function renderArena() {
   const p = state.player;
   el('arena-sub').textContent = `Wave ${state.arenaWave} — Best: Wave ${p.arenaBestWave}`;
   el('btn-arena-fight').textContent = `Fight Wave ${state.arenaWave}`;
+}
+
+// ---------- Boss Rush ----------
+// Fights every boss you've already beaten at least once, back-to-back, with
+// a full heal between each — an endurance tour rather than a hard grind,
+// paying a single big bonus only on a full clear.
+function renderBossRush() {
+  const order = LEVEL_CHAIN.filter((id) => state.flags[MAPS[id].bossFlag]);
+  const startBtn = el('btn-bossrush-start');
+  if (order.length === 0) {
+    el('bossrush-sub').textContent = 'Defeat at least one boss first to unlock the Rush.';
+    startBtn.disabled = true;
+    startBtn.textContent = 'Start';
+  } else {
+    el('bossrush-sub').textContent = `Fight all ${order.length} bosses you've beaten, back-to-back, with a full heal between each. Full clear pays a big bonus.`;
+    startBtn.disabled = false;
+    startBtn.textContent = `Start (${order.length} bosses)`;
+  }
+}
+
+function startBossRush() {
+  const order = LEVEL_CHAIN.filter((id) => state.flags[MAPS[id].bossFlag]);
+  if (order.length === 0) return;
+  bossRush = { order, index: 0 };
+  hideModal('modal-bossrush');
+  startBattle(scaleForNGPlus(MAPS[order[0]].bossEnemy, state.player.ngPlusLevel), true, false, true);
+}
+
+// ---------- Bounty Board ----------
+// Three objectives roll fresh every real-world day. Progress is tracked in
+// player.bountyProgress (incremented in battle.js/resolveBattleEnd) and
+// compared against each bounty's own frozen target at render time.
+function todayString() {
+  return new Date().toDateString();
+}
+
+function ensureBounties() {
+  const p = state.player;
+  if (p.bountyDate === todayString() && p.bounties.length > 0) return;
+  p.bountyDate = todayString();
+  p.bountyProgress = { kills: 0, gold: 0, arenaWins: 0, bossWins: 0 };
+  const templates = [...BOUNTY_TEMPLATES].sort(() => Math.random() - 0.5).slice(0, 3);
+  p.bounties = templates.map((t) => {
+    const target = t.targets[Math.floor(Math.random() * t.targets.length)];
+    return { type: t.type, target, label: t.label(target), rewardGold: t.rewardGold(target), claimed: false };
+  });
+  // Persist immediately — otherwise a fresh board generated this visit could
+  // be lost (and silently re-rolled) if the app closes before anything else
+  // triggers an autosave.
+  autosave();
+}
+
+function renderBounty() {
+  ensureBounties();
+  const p = state.player;
+  const list = el('bounty-list');
+  list.innerHTML = '';
+  p.bounties.forEach((bounty, idx) => {
+    const progress = Math.min(bounty.target, p.bountyProgress[bounty.type] || 0);
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">${bounty.label}</span>
+        <span class="shop-item-desc">${bounty.claimed ? 'Completed' : `${progress}/${bounty.target}`} — Reward: ${bounty.rewardGold}G</span>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    if (bounty.claimed) {
+      btn.textContent = 'Claimed';
+      btn.disabled = true;
+    } else if (progress >= bounty.target) {
+      btn.textContent = 'Claim';
+      btn.addEventListener('click', () => {
+        bounty.claimed = true;
+        p.gold += bounty.rewardGold;
+        autosave();
+        updateHud();
+        renderBounty();
+      });
+    } else {
+      btn.textContent = 'Claim';
+      btn.disabled = true;
+    }
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
 }
 
 // ---------- Travel (level select) ----------
@@ -799,26 +1075,13 @@ function wireEvents() {
 
   el('btn-status').addEventListener('click', () => {
     renderStatus();
-    el('tab-status').classList.add('tab-active');
-    el('tab-bestiary').classList.remove('tab-active');
-    el('status-body').classList.remove('hidden');
-    el('bestiary-body').classList.add('hidden');
+    showStatusTab('status');
     showModal('modal-status');
   });
   el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
-  el('tab-status').addEventListener('click', () => {
-    el('tab-status').classList.add('tab-active');
-    el('tab-bestiary').classList.remove('tab-active');
-    el('status-body').classList.remove('hidden');
-    el('bestiary-body').classList.add('hidden');
-  });
-  el('tab-bestiary').addEventListener('click', () => {
-    renderBestiary();
-    el('tab-bestiary').classList.add('tab-active');
-    el('tab-status').classList.remove('tab-active');
-    el('bestiary-body').classList.remove('hidden');
-    el('status-body').classList.add('hidden');
-  });
+  el('tab-status').addEventListener('click', () => showStatusTab('status'));
+  el('tab-bestiary').addEventListener('click', () => showStatusTab('bestiary'));
+  el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
 
   el('btn-levelselect-back').addEventListener('click', () => hideModal('modal-levelselect'));
 
@@ -844,6 +1107,15 @@ function wireEvents() {
     hideModal('modal-town');
     renderArmory();
     showModal('modal-armory');
+  });
+  el('btn-town-bounty').addEventListener('click', () => {
+    hideModal('modal-town');
+    renderBounty();
+    showModal('modal-bounty');
+  });
+  el('btn-town-ngplus').addEventListener('click', () => {
+    hideModal('modal-town');
+    showModal('modal-ngplus-confirm');
   });
   el('btn-town-leave').addEventListener('click', () => {
     hideModal('modal-town');
@@ -876,7 +1148,7 @@ function wireEvents() {
   // Arena
   el('btn-arena-fight').addEventListener('click', () => {
     hideModal('modal-arena');
-    startBattle(pickArenaEnemy(state.arenaWave), false, true);
+    startBattle(scaleForNGPlus(pickArenaEnemy(state.arenaWave), state.player.ngPlusLevel), false, true);
   });
   el('btn-arena-leave').addEventListener('click', () => {
     // Banking out preserves progress — next visit still starts just past
@@ -890,12 +1162,39 @@ function wireEvents() {
   // Boss modal
   el('btn-boss-fight').addEventListener('click', () => {
     hideModal('modal-boss');
-    startBattle(MAPS[state.mapId].bossEnemy, true);
+    startBattle(scaleForNGPlus(MAPS[state.mapId].bossEnemy, state.player.ngPlusLevel), true);
   });
   el('btn-boss-retreat').addEventListener('click', () => {
     hideModal('modal-boss');
     if (prevPos) { state.pos = { ...prevPos }; redrawMap(); }
   });
+
+  // Boss Rush
+  el('btn-bossrush-start').addEventListener('click', () => startBossRush());
+  el('btn-bossrush-back').addEventListener('click', () => hideModal('modal-bossrush'));
+
+  // Deckard Cain
+  el('btn-cain-back').addEventListener('click', () => hideModal('modal-cain'));
+
+  // Bounty Board
+  el('btn-bounty-back').addEventListener('click', () => {
+    hideModal('modal-bounty');
+    showModal('modal-town');
+  });
+
+  // New Game+
+  el('btn-victory-ngplus').addEventListener('click', () => {
+    showScreen('map'); // underlying screen for the confirm modal to sit over
+    showModal('modal-ngplus-confirm');
+  });
+  el('btn-ngplus-confirm').addEventListener('click', () => {
+    hideModal('modal-ngplus-confirm');
+    startNewGamePlus(state);
+    autosave();
+    goToMap();
+    showToast(`New Game+ ${state.player.ngPlusLevel} begins — everything hits harder, and pays more.`, 3200);
+  });
+  el('btn-ngplus-cancel').addEventListener('click', () => hideModal('modal-ngplus-confirm'));
 
   // Battle menu
   el('btn-attack').addEventListener('click', () => { playerAttack(battle, state); renderBattle(); });
@@ -909,22 +1208,6 @@ function wireEvents() {
     renderItemMenu();
     el('battle-menu-main').classList.add('hidden');
     el('battle-menu-items').classList.remove('hidden');
-  });
-  el('btn-item-back').addEventListener('click', () => {
-    el('battle-menu-items').classList.add('hidden');
-    el('battle-menu-main').classList.remove('hidden');
-  });
-  el('btn-item-potion').addEventListener('click', () => {
-    playerItem(battle, state, 'potion');
-    el('battle-menu-items').classList.add('hidden');
-    el('battle-menu-main').classList.remove('hidden');
-    renderBattle();
-  });
-  el('btn-item-ether').addEventListener('click', () => {
-    playerItem(battle, state, 'ether');
-    el('battle-menu-items').classList.add('hidden');
-    el('battle-menu-main').classList.remove('hidden');
-    renderBattle();
   });
   el('btn-battle-continue').addEventListener('click', () => resolveBattleEnd());
 
