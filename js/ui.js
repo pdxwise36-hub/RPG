@@ -2,7 +2,7 @@ import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -112,6 +112,11 @@ function handleMove(dir) {
     showModal('modal-tamer');
     return;
   }
+  if (result.type === 'arena') {
+    renderArena();
+    showModal('modal-arena');
+    return;
+  }
   if (result.type === 'portal') {
     // Every level gets a brand new random layout each time you step into
     // it — arriving via a portal is always a fresh start. Town's layout is
@@ -170,8 +175,9 @@ function renderBattle() {
   }
 }
 
-function startBattle(enemyDef, isBoss) {
+function startBattle(enemyDef, isBoss, isArena = false) {
   battle = createBattle(enemyDef, isBoss);
+  battle.isArena = isArena;
   el('battle-menu-main').classList.remove('hidden');
   el('battle-menu-items').classList.add('hidden');
   el('battle-menu-skills').classList.add('hidden');
@@ -203,6 +209,19 @@ function resolveBattleEnd() {
       }
       return;
     }
+    if (battle.isArena) {
+      // No chest roll here — the Arena already pays out extra gold/XP per
+      // wave. Winning re-opens the Arena modal for the next wave instead of
+      // returning to free-roam, keeping the "how far can you go" loop tight.
+      if (state.arenaWave > p.arenaBestWave) p.arenaBestWave = state.arenaWave;
+      state.arenaWave += 1;
+      autosave();
+      showToast(msg, 2000);
+      goToMap();
+      renderArena();
+      showModal('modal-arena');
+      return;
+    }
     const chest = rollChest(state);
     showToast(msg, 2400);
     autosave();
@@ -212,6 +231,7 @@ function resolveBattleEnd() {
       showModal('modal-chest');
     }
   } else if (battle.result === 'lose') {
+    if (battle.isArena) state.arenaWave = 1;
     showScreen('gameover');
   } else {
     goToMap();
@@ -452,6 +472,7 @@ function renderStatus() {
     <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
+    <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
     ${petDamageRow}
@@ -524,6 +545,13 @@ function buildArmoryRow(item, slot, statLabel) {
   }
   row.appendChild(btn);
   return row;
+}
+
+// ---------- Arena ----------
+function renderArena() {
+  const p = state.player;
+  el('arena-sub').textContent = `Wave ${state.arenaWave} — Best: Wave ${p.arenaBestWave}`;
+  el('btn-arena-fight').textContent = `Fight Wave ${state.arenaWave}`;
 }
 
 // ---------- Pet Tamer ----------
@@ -728,6 +756,18 @@ function wireEvents() {
   });
   el('btn-tamer-back').addEventListener('click', () => {
     hideModal('modal-tamer');
+    updateHud();
+  });
+
+  // Arena
+  el('btn-arena-fight').addEventListener('click', () => {
+    hideModal('modal-arena');
+    startBattle(pickArenaEnemy(state.arenaWave), false, true);
+  });
+  el('btn-arena-leave').addEventListener('click', () => {
+    state.arenaWave = 1;
+    hideModal('modal-arena');
+    autosave();
     updateHud();
   });
 

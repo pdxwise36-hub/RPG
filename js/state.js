@@ -31,6 +31,9 @@ export function newGameState(heroName) {
     // levels/boss, so this always points at whichever level you're
     // actually progressing through.
     currentLevelId: 'overworld',
+    // Current Arena run — resets to 1 on a loss or on leaving; the best
+    // wave ever reached is tracked separately on the player (persists).
+    arenaWave: 1,
   };
   const layout = ensureLayout(state, 'town');
   state.pos = { ...layout.startPos };
@@ -45,6 +48,7 @@ export function toSaveObject(state) {
     flags: state.flags,
     layouts: state.layouts,
     currentLevelId: state.currentLevelId,
+    arenaWave: state.arenaWave,
   };
 }
 
@@ -86,6 +90,7 @@ export function fromSaveObject(saved) {
     // Pre-town saves predate this field entirely — whatever level they were
     // in (their old mapId) is exactly the level to remember returning to.
     currentLevelId: saved.currentLevelId || saved.mapId || 'overworld',
+    arenaWave: saved.arenaWave || 1,
   };
 }
 

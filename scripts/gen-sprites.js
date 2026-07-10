@@ -923,6 +923,72 @@ const buildWorldSerpent = () => buildDragonBossTemplate({
   'h': [200, 30, 60, 255], 'e': [255, 60, 90, 255], 'j': [5, 3, 6, 255],
 });
 
+// ---------- Zone 15: The Ashen Wastes ----------
+const buildAshWraith = () => buildFlierTemplate({
+  'b': [130, 120, 110, 255], 'd': [80, 72, 65, 255], 'e': [255, 140, 60, 255],
+});
+const buildCinderGolem = () => buildQuadrupedTemplate({
+  'b': [70, 40, 35, 255], 'd': [35, 18, 15, 255], 'e': [255, 120, 40, 255],
+});
+const buildAshlord = () => buildGolemBossTemplate({
+  'i': [100, 90, 85, 255], 'i2': [140, 128, 120, 255], 'd': [60, 52, 48, 255],
+  'g': [255, 140, 60, 255], 'cr': [200, 80, 30, 255],
+});
+
+// ---------- Zone 16: The Storm Citadel ----------
+const buildThunderHawk = () => buildFlierTemplate({
+  'b': [90, 140, 220, 255], 'd': [50, 90, 160, 255], 'e': [255, 255, 200, 255],
+});
+const buildStormElemental = () => buildBlobTemplate({
+  'm': [110, 160, 230, 255], 'l': [180, 210, 255, 255], 'o': [20, 40, 80, 255], 'd': [70, 110, 180, 255],
+});
+const buildTempestKing = () => buildArmoredBossTemplate({
+  'a': [100, 140, 190, 255], 'a2': [150, 190, 230, 255], 'd': [60, 90, 130, 255],
+  'r': [220, 240, 255, 255], 's': [230, 240, 250, 255], 'gr': [255, 255, 255, 255],
+  'g': [180, 190, 210, 255], 'o': [30, 45, 70, 255], 'c': [70, 100, 150, 255],
+});
+
+// ---------- Zone 17: The Bone Wastes ----------
+const buildBoneReaper = () => buildBipedTemplate({
+  'k': [220, 215, 195, 255], 'd': [160, 155, 135, 255], 'v': [40, 30, 50, 255],
+  'r': [140, 60, 200, 255], 'w': [100, 90, 80, 255], 'o': [20, 15, 20, 255],
+});
+const buildWraithSerpent = () => buildSerpentTemplate({
+  'b': [150, 180, 220, 255], 'd': [100, 130, 170, 255], 'w': [120, 150, 190, 255],
+  'h': [220, 220, 255, 255], 'e': [180, 220, 255, 255],
+});
+const buildBoneEmperor = () => buildRobedBossTemplate({
+  'k': [220, 215, 195, 255], 'e': [180, 80, 220, 255], 'j': [60, 50, 55, 255],
+  'r': [50, 30, 60, 255], 'r2': [90, 60, 100, 255], 'd': [25, 15, 30, 255],
+  'w': [90, 80, 90, 255], 'o': [160, 70, 200, 255],
+});
+
+// ---------- Zone 18: The Chaos Rift ----------
+const buildChaosSpawn = () => buildBlobTemplate({
+  'm': [180, 20, 140, 255], 'l': [230, 80, 200, 255], 'o': [10, 5, 15, 255], 'd': [110, 10, 90, 255],
+});
+const buildVoidHound = () => buildQuadrupedTemplate({
+  'b': [30, 10, 35, 255], 'd': [10, 3, 12, 255], 'e': [255, 30, 180, 255],
+});
+const buildChaosHarbinger = () => buildDragonBossTemplate({
+  'b': [140, 10, 110, 255], 'd': [70, 5, 55, 255], 'w': [90, 8, 70, 255],
+  'h': [255, 255, 255, 255], 'e': [255, 60, 220, 255], 'j': [40, 3, 30, 255],
+});
+
+// ---------- Zone 19: The Throne of Eternity (final) ----------
+const buildEternalGuardian = () => buildBipedTemplate({
+  'k': [240, 225, 170, 255], 'd': [190, 170, 110, 255], 'v': [255, 255, 255, 255],
+  'r': [255, 220, 100, 255], 'w': [220, 200, 150, 255], 'o': [140, 120, 80, 255],
+});
+const buildTimelessWraith = () => buildSerpentTemplate({
+  'b': [230, 220, 180, 255], 'd': [180, 165, 110, 255], 'w': [200, 190, 150, 255],
+  'h': [255, 255, 255, 255], 'e': [100, 150, 255, 255],
+});
+const buildEternalSovereign = () => buildDragonBossTemplate({
+  'b': [255, 235, 180, 255], 'd': [200, 180, 120, 255], 'w': [240, 220, 160, 255],
+  'h': [255, 255, 255, 255], 'e': [120, 180, 255, 255], 'j': [180, 160, 100, 255],
+});
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -982,6 +1048,21 @@ const sprites = {
   'voidspawn.png': buildVoidSpawn,
   'chaoshound.png': buildChaosHound,
   'worldserpent.png': buildWorldSerpent,
+  'ashwraith.png': buildAshWraith,
+  'cindergolem.png': buildCinderGolem,
+  'ashlord.png': buildAshlord,
+  'thunderhawk.png': buildThunderHawk,
+  'stormelemental.png': buildStormElemental,
+  'tempestking.png': buildTempestKing,
+  'bonereaper.png': buildBoneReaper,
+  'wraithserpent.png': buildWraithSerpent,
+  'boneemperor.png': buildBoneEmperor,
+  'chaosspawn.png': buildChaosSpawn,
+  'voidhound.png': buildVoidHound,
+  'chaosharbinger.png': buildChaosHarbinger,
+  'eternalguardian.png': buildEternalGuardian,
+  'timelesswraith.png': buildTimelessWraith,
+  'eternalsovereign.png': buildEternalSovereign,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

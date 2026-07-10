@@ -20,6 +20,28 @@ export function pickRandomEnemy(enemyPool) {
   return pool[0];
 }
 
+// Arena enemies are reskinned/scaled versions of regular level enemies — no
+// separate roster to maintain. Zones unlock progressively (one more every 2
+// waves) so early waves draw from easy enemies instead of randomly pulling
+// an endgame monster on wave 1; both stats and rewards scale up with wave.
+export function pickArenaEnemy(wave) {
+  const zones = Object.values(MAPS).filter((m) => m.enemyPool);
+  const maxDepth = Math.min(Math.max(...zones.map((z) => z.depth)), Math.floor((wave - 1) / 2));
+  const pool = zones.filter((z) => z.depth <= maxDepth).flatMap((z) => Object.values(z.enemyPool));
+  const base = pool[Math.floor(Math.random() * pool.length)];
+  const mult = 1 + (wave - 1) * 0.12;
+  return {
+    ...base,
+    name: `${base.name} (Wave ${wave})`,
+    maxHp: Math.round(base.maxHp * mult),
+    atk: Math.round(base.atk * mult),
+    def: Math.round(base.def * mult),
+    xp: Math.round(base.xp * mult * 1.5),
+    goldMin: Math.round(base.goldMin * mult * 1.5),
+    goldMax: Math.round(base.goldMax * mult * 1.5),
+  };
+}
+
 export function createBattle(enemyDef, isBoss = false) {
   return {
     enemy: { ...enemyDef, hp: enemyDef.maxHp },

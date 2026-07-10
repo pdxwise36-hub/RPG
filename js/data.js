@@ -13,10 +13,11 @@ export const TILE = {
   KNIGHT: 7,
   MAGE: 8,
   TAMER: 9,
+  ARENA: 10,
 };
 
 export const WALKABLE = new Set([
-  TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE, TILE.TAMER,
+  TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE, TILE.TAMER, TILE.ARENA,
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
@@ -132,6 +133,7 @@ export const PLAYER_BASE = {
   ownedPets: [],
   activePetKey: null,
   petProgress: {},
+  arenaBestWave: 0,
   inventory: { potion: 3, ether: 0 },
 };
 
@@ -263,6 +265,46 @@ export const WORLD_SERPENT = {
   key: 'worldserpent', name: 'The World Serpent', maxHp: 640, atk: 45, def: 28, xp: 1600, goldMin: 1600, goldMax: 1600, sprite: 'icons/sprites/worldserpent.png',
 };
 
+export const ASHENWASTES_ENEMIES = {
+  ashWraith: { key: 'ashWraith', name: 'Ash Wraith', maxHp: 130, atk: 37, def: 19, xp: 100, goldMin: 90, goldMax: 100, weight: 4, sprite: 'icons/sprites/ashwraith.png' },
+  cinderGolem: { key: 'cinderGolem', name: 'Cinder Golem', maxHp: 140, atk: 39, def: 20, xp: 108, goldMin: 94, goldMax: 104, weight: 3, sprite: 'icons/sprites/cindergolem.png' },
+};
+export const ASHLORD = {
+  key: 'ashlord', name: 'The Ashlord', maxHp: 700, atk: 48, def: 30, xp: 1750, goldMin: 1750, goldMax: 1750, sprite: 'icons/sprites/ashlord.png',
+};
+
+export const STORMCITADEL_ENEMIES = {
+  thunderHawk: { key: 'thunderHawk', name: 'Thunder Hawk', maxHp: 145, atk: 40, def: 21, xp: 112, goldMin: 100, goldMax: 110, weight: 4, sprite: 'icons/sprites/thunderhawk.png' },
+  stormElemental: { key: 'stormElemental', name: 'Storm Elemental', maxHp: 155, atk: 42, def: 22, xp: 120, goldMin: 104, goldMax: 114, weight: 3, sprite: 'icons/sprites/stormelemental.png' },
+};
+export const TEMPEST_KING = {
+  key: 'tempestking', name: 'The Tempest King', maxHp: 760, atk: 51, def: 32, xp: 1900, goldMin: 1900, goldMax: 1900, sprite: 'icons/sprites/tempestking.png',
+};
+
+export const BONEWASTES_ENEMIES = {
+  boneReaper: { key: 'boneReaper', name: 'Bone Reaper', maxHp: 160, atk: 43, def: 23, xp: 124, goldMin: 112, goldMax: 122, weight: 4, sprite: 'icons/sprites/bonereaper.png' },
+  wraithSerpent: { key: 'wraithSerpent', name: 'Wraith Serpent', maxHp: 170, atk: 45, def: 24, xp: 132, goldMin: 116, goldMax: 126, weight: 3, sprite: 'icons/sprites/wraithserpent.png' },
+};
+export const BONE_EMPEROR = {
+  key: 'boneemperor', name: 'The Bone Emperor', maxHp: 820, atk: 54, def: 34, xp: 2050, goldMin: 2050, goldMax: 2050, sprite: 'icons/sprites/boneemperor.png',
+};
+
+export const CHAOSRIFT_ENEMIES = {
+  chaosSpawn: { key: 'chaosSpawn', name: 'Chaos Spawn', maxHp: 175, atk: 46, def: 25, xp: 136, goldMin: 124, goldMax: 134, weight: 4, sprite: 'icons/sprites/chaosspawn.png' },
+  voidHound: { key: 'voidHound', name: 'Void Hound', maxHp: 185, atk: 48, def: 26, xp: 144, goldMin: 128, goldMax: 138, weight: 3, sprite: 'icons/sprites/voidhound.png' },
+};
+export const CHAOS_HARBINGER = {
+  key: 'chaosharbinger', name: 'The Chaos Harbinger', maxHp: 880, atk: 57, def: 36, xp: 2200, goldMin: 2200, goldMax: 2200, sprite: 'icons/sprites/chaosharbinger.png',
+};
+
+export const THRONEOFETERNITY_ENEMIES = {
+  eternalGuardian: { key: 'eternalGuardian', name: 'Eternal Guardian', maxHp: 190, atk: 49, def: 27, xp: 148, goldMin: 136, goldMax: 146, weight: 4, sprite: 'icons/sprites/eternalguardian.png' },
+  timelessWraith: { key: 'timelessWraith', name: 'Timeless Wraith', maxHp: 200, atk: 51, def: 28, xp: 156, goldMin: 140, goldMax: 150, weight: 3, sprite: 'icons/sprites/timelesswraith.png' },
+};
+export const ETERNAL_SOVEREIGN = {
+  key: 'eternalsovereign', name: 'The Eternal Sovereign', maxHp: 1000, atk: 62, def: 40, xp: 3000, goldMin: 3000, goldMax: 3000, sprite: 'icons/sprites/eternalsovereign.png',
+};
+
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
 // ui.js all key off state.mapId instead of hardcoding a single map). Layouts
 // are no longer stored here — mapgen.js procedurally builds a fresh grid for
@@ -345,7 +387,32 @@ export const MAPS = {
   voidrift: {
     id: 'voidrift', name: 'The Void Rift', theme: 'voidrift', depth: 13,
     bossEnemy: WORLD_SERPENT, bossFlag: 'worldSerpentDefeated', enemyPool: VOIDRIFT_ENEMIES,
-    // No nextMap — defeating the World Serpent is the true ending.
+    nextMap: { mapId: 'ashenwastes' },
+  },
+  ashenwastes: {
+    id: 'ashenwastes', name: 'The Ashen Wastes', theme: 'ashenwastes', depth: 14,
+    bossEnemy: ASHLORD, bossFlag: 'ashlordDefeated', enemyPool: ASHENWASTES_ENEMIES,
+    nextMap: { mapId: 'stormcitadel' },
+  },
+  stormcitadel: {
+    id: 'stormcitadel', name: 'The Storm Citadel', theme: 'stormcitadel', depth: 15,
+    bossEnemy: TEMPEST_KING, bossFlag: 'tempestKingDefeated', enemyPool: STORMCITADEL_ENEMIES,
+    nextMap: { mapId: 'bonewastes' },
+  },
+  bonewastes: {
+    id: 'bonewastes', name: 'The Bone Wastes', theme: 'bonewastes', depth: 16,
+    bossEnemy: BONE_EMPEROR, bossFlag: 'boneEmperorDefeated', enemyPool: BONEWASTES_ENEMIES,
+    nextMap: { mapId: 'chaosrift' },
+  },
+  chaosrift: {
+    id: 'chaosrift', name: 'The Chaos Rift', theme: 'chaosrift', depth: 17,
+    bossEnemy: CHAOS_HARBINGER, bossFlag: 'chaosHarbingerDefeated', enemyPool: CHAOSRIFT_ENEMIES,
+    nextMap: { mapId: 'throneofeternity' },
+  },
+  throneofeternity: {
+    id: 'throneofeternity', name: 'The Throne of Eternity', theme: 'throneofeternity', depth: 18,
+    bossEnemy: ETERNAL_SOVEREIGN, bossFlag: 'eternalSovereignDefeated', enemyPool: THRONEOFETERNITY_ENEMIES,
+    // No nextMap — defeating the Eternal Sovereign is the true ending.
   },
 };
 

@@ -24,7 +24,7 @@ export function tileAt(grid, x, y) {
 }
 
 // Attempts to move the player by (dx, dy). Returns one of:
-// { type: 'blocked' | 'moved' | 'encounter' | 'town' | 'boss' | 'knight' | 'mage' | 'tamer' }
+// { type: 'blocked' | 'moved' | 'encounter' | 'town' | 'boss' | 'knight' | 'mage' | 'tamer' | 'arena' }
 // { type: 'portal', mapId } — step onto a portal or cleared-boss tile; the
 // caller resolves the landing position from the target zone's startPos.
 export function tryMove(state, dx, dy) {
@@ -42,6 +42,7 @@ export function tryMove(state, dx, dy) {
   if (tile === TILE.KNIGHT) return { type: 'knight' };
   if (tile === TILE.MAGE) return { type: 'mage' };
   if (tile === TILE.TAMER) return { type: 'tamer' };
+  if (tile === TILE.ARENA) return { type: 'arena' };
 
   if (tile === TILE.BOSS) {
     if (state.flags[map.bossFlag]) {
@@ -71,8 +72,8 @@ export function tryMove(state, dx, dy) {
 }
 
 // Builds a full tile-color palette from a small set of theme accents —
-// Town/Knight/Mage/Tamer tiles always blend into the theme's grass (their
-// icon is drawn on top) and every non-overworld zone shares the same
+// Town/Knight/Mage/Tamer/Arena tiles always blend into the theme's grass
+// (their icon is drawn on top) and every non-overworld zone shares the same
 // "path onward" teal portal glow, so only grass/path/water/tree/boss vary.
 function makeTheme({ grass, path, water, tree, boss, portal = '#3fd4c4' }) {
   return {
@@ -86,6 +87,7 @@ function makeTheme({ grass, path, water, tree, boss, portal = '#3fd4c4' }) {
     [TILE.KNIGHT]: grass,
     [TILE.MAGE]: grass,
     [TILE.TAMER]: grass,
+    [TILE.ARENA]: grass,
   };
 }
 
@@ -105,6 +107,11 @@ const PALETTES = {
   shadowfen: makeTheme({ grass: '#18101f', path: '#2a1e35', water: '#0a0612', tree: '#0f0a18', boss: '#7a2fae' }),
   celestial: makeTheme({ grass: '#3a3a5a', path: '#5a5a80', water: '#1a1a3a', tree: '#242440', boss: '#f4e04d' }),
   voidrift: makeTheme({ grass: '#0a0a0f', path: '#1a1420', water: '#000000', tree: '#050508', boss: '#c9304a' }),
+  ashenwastes: makeTheme({ grass: '#4a3530', path: '#6a4f42', water: '#c9500f', tree: '#2a1a15', boss: '#8a5a2a' }),
+  stormcitadel: makeTheme({ grass: '#3a4a5a', path: '#5a6f85', water: '#1a2a3a', tree: '#243040', boss: '#4a8ac9' }),
+  bonewastes: makeTheme({ grass: '#3a3530', path: '#5a5248', water: '#151210', tree: '#201d18', boss: '#8a5aae' }),
+  chaosrift: makeTheme({ grass: '#2a0a25', path: '#4a1a40', water: '#100510', tree: '#180814', boss: '#c92f9f' }),
+  throneofeternity: makeTheme({ grass: '#4a4025', path: '#6a5f3a', water: '#2a2510', tree: '#1a1810', boss: '#f4d84d' }),
 };
 
 // Generic per-theme decoration accents (speckle/water/tree rendering), keyed
@@ -116,6 +123,8 @@ const THEME_MOOD = {
   sunkenruins: 'arcane', whisperingwoods: 'warm', sandscar: 'ember', volcanic: 'ember',
   shatteredpeaks: 'frost', blightmarsh: 'arcane', crystalcaverns: 'frost',
   shadowfen: 'arcane', celestial: 'frost', voidrift: 'arcane',
+  ashenwastes: 'ember', stormcitadel: 'frost', bonewastes: 'arcane',
+  chaosrift: 'arcane', throneofeternity: 'warm',
 };
 
 const BOSS_CLEARED_COLOR = '#caa53d';
@@ -275,6 +284,17 @@ export function drawMap(ctx, state) {
         ctx.beginPath(); ctx.arc(px + 12, py + 12, 2, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(px + 16, py + 10, 2, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(px + 20, py + 12, 2, 0, Math.PI * 2); ctx.fill();
+      } else if (tile === TILE.ARENA) {
+        ctx.fillStyle = '#7a3b2e';
+        ctx.beginPath(); ctx.arc(px + 16, py + 17, 10, 0, Math.PI * 2); ctx.fill(); // colosseum ring
+        ctx.fillStyle = '#e8d9a8';
+        ctx.beginPath(); ctx.arc(px + 16, py + 17, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#c94040'; // crossed swords
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px + 11, py + 12); ctx.lineTo(px + 21, py + 22);
+        ctx.moveTo(px + 21, py + 12); ctx.lineTo(px + 11, py + 22);
+        ctx.stroke();
       }
     }
   }

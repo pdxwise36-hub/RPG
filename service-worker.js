@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v23';
+const CACHE_NAME = 'emberfall-v24';
 const ASSETS = [
   './',
   './index.html',
@@ -69,6 +69,21 @@ const ASSETS = [
   './icons/sprites/voidspawn.png',
   './icons/sprites/chaoshound.png',
   './icons/sprites/worldserpent.png',
+  './icons/sprites/ashwraith.png',
+  './icons/sprites/cindergolem.png',
+  './icons/sprites/ashlord.png',
+  './icons/sprites/thunderhawk.png',
+  './icons/sprites/stormelemental.png',
+  './icons/sprites/tempestking.png',
+  './icons/sprites/bonereaper.png',
+  './icons/sprites/wraithserpent.png',
+  './icons/sprites/boneemperor.png',
+  './icons/sprites/chaosspawn.png',
+  './icons/sprites/voidhound.png',
+  './icons/sprites/chaosharbinger.png',
+  './icons/sprites/eternalguardian.png',
+  './icons/sprites/timelesswraith.png',
+  './icons/sprites/eternalsovereign.png',
 ];
 
 self.addEventListener('install', (event) => {
