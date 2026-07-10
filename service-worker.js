@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v28';
+const CACHE_NAME = 'emberfall-v29';
 const ASSETS = [
   './',
   './index.html',
@@ -84,6 +84,26 @@ const ASSETS = [
   './icons/sprites/eternalguardian.png',
   './icons/sprites/timelesswraith.png',
   './icons/sprites/eternalsovereign.png',
+  './icons/sprites/wpn-rustySword.png',
+  './icons/sprites/wpn-ironSword.png',
+  './icons/sprites/wpn-steelBlade.png',
+  './icons/sprites/wpn-mithrilBlade.png',
+  './icons/sprites/wpn-flameSaber.png',
+  './icons/sprites/wpn-frostFang.png',
+  './icons/sprites/wpn-thunderAxe.png',
+  './icons/sprites/wpn-voidCleaver.png',
+  './icons/sprites/wpn-dragonfang.png',
+  './icons/sprites/wpn-celestialEdge.png',
+  './icons/sprites/arm-clothTunic.png',
+  './icons/sprites/arm-leatherArmor.png',
+  './icons/sprites/arm-ironPlate.png',
+  './icons/sprites/arm-steelMail.png',
+  './icons/sprites/arm-mithrilVest.png',
+  './icons/sprites/arm-dragonhideArmor.png',
+  './icons/sprites/arm-runicPlate.png',
+  './icons/sprites/arm-shadowweaveCloak.png',
+  './icons/sprites/arm-stormguardArmor.png',
+  './icons/sprites/arm-celestialAegis.png',
 ];
 
 self.addEventListener('install', (event) => {

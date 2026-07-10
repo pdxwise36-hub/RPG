@@ -989,6 +989,62 @@ const buildEternalSovereign = () => buildDragonBossTemplate({
   'h': [255, 255, 255, 255], 'e': [120, 180, 255, 255], 'j': [180, 160, 100, 255],
 });
 
+// ---------- Inventory icons — small item art for the Armory/Enchant/
+// Inventory grids. Same "one shared template, recolor per tier" approach
+// as the monster/boss templates above.
+function hex(h) {
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
+}
+
+// 14x14 blade + crossguard + hilt, shared by all ten weapon tiers.
+function buildSwordIcon({ blade, edge, hilt, guard }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 6, 1, 2, 8, 'b');
+  fillRect(g, 3, 9, 8, 1, 'g');
+  fillRect(g, 6, 10, 2, 3, 'h');
+  setPx(g, 6, 13, 'h'); setPx(g, 7, 13, 'h');
+  addRim(g, 'b', 'e');
+  const palette = { b: blade, e: edge, h: hilt, g: guard };
+  return rasterize(g, palette, 6);
+}
+
+// 14x14 chest-plate silhouette, shared by all ten armor tiers.
+function buildArmorIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 2, 1, 10, 3, 'm');
+  fillRect(g, 3, 4, 8, 5, 'm');
+  fillRect(g, 4, 9, 6, 3, 'm');
+  fillRect(g, 5, 12, 4, 1, 'm');
+  fillRect(g, 2, 1, 10, 1, 't');
+  fillRect(g, 6, 4, 2, 6, 't');
+  addRim(g, 'm', 'd');
+  const palette = { m: main, t: trim, d: dark };
+  return rasterize(g, palette, 6);
+}
+
+const buildRustySwordIcon = () => buildSwordIcon({ blade: hex('#8a7a6a'), edge: hex('#6b5f52'), hilt: hex('#5a3a22'), guard: hex('#6b5a4a') });
+const buildIronSwordIcon = () => buildSwordIcon({ blade: hex('#b8bcc4'), edge: hex('#8f939c'), hilt: hex('#4a3a2a'), guard: hex('#8a8a92') });
+const buildSteelBladeIcon = () => buildSwordIcon({ blade: hex('#d0d8e0'), edge: hex('#a4b0bc'), hilt: hex('#3a3a4a'), guard: hex('#6a7a8a') });
+const buildMithrilBladeIcon = () => buildSwordIcon({ blade: hex('#e8eef8'), edge: hex('#b8c8ec'), hilt: hex('#4a4a6a'), guard: hex('#8a9ac0') });
+const buildFlameSaberIcon = () => buildSwordIcon({ blade: hex('#ff8a3a'), edge: hex('#ffc080'), hilt: hex('#5a2a1a'), guard: hex('#c94020') });
+const buildFrostFangIcon = () => buildSwordIcon({ blade: hex('#a8e8f8'), edge: hex('#e0f8ff'), hilt: hex('#2a4a5a'), guard: hex('#4fa8c9') });
+const buildThunderAxeIcon = () => buildSwordIcon({ blade: hex('#f4e04d'), edge: hex('#fff8b0'), hilt: hex('#4a3a1a'), guard: hex('#d4a840') });
+const buildVoidCleaverIcon = () => buildSwordIcon({ blade: hex('#7a3fae'), edge: hex('#b088e0'), hilt: hex('#1a0e2a'), guard: hex('#4a2a6a') });
+const buildDragonfangIcon = () => buildSwordIcon({ blade: hex('#8a1a1a'), edge: hex('#c94040'), hilt: hex('#2a0a0a'), guard: hex('#5a1010') });
+const buildCelestialEdgeIcon = () => buildSwordIcon({ blade: hex('#fff8e0'), edge: hex('#ffffff'), hilt: hex('#d4a840'), guard: hex('#f4e04d') });
+
+const buildClothTunicIcon = () => buildArmorIcon({ main: hex('#8a7355'), trim: hex('#6b5a42'), dark: hex('#5a4a36') });
+const buildLeatherArmorIcon = () => buildArmorIcon({ main: hex('#6b4a2e'), trim: hex('#4a3320'), dark: hex('#3a2818') });
+const buildIronPlateIcon = () => buildArmorIcon({ main: hex('#8a8a92'), trim: hex('#5a5a62'), dark: hex('#454549') });
+const buildSteelMailIcon = () => buildArmorIcon({ main: hex('#6a7a8a'), trim: hex('#4a5a68'), dark: hex('#374250') });
+const buildMithrilVestIcon = () => buildArmorIcon({ main: hex('#8a9ac0'), trim: hex('#5a6a94'), dark: hex('#3f4a6b') });
+const buildDragonhideArmorIcon = () => buildArmorIcon({ main: hex('#4a6b3a'), trim: hex('#2a4a1e'), dark: hex('#1c3314') });
+const buildRunicPlateIcon = () => buildArmorIcon({ main: hex('#5a4a7a'), trim: hex('#3a2a5a'), dark: hex('#281c3f') });
+const buildShadowweaveCloakIcon = () => buildArmorIcon({ main: hex('#2a2438'), trim: hex('#4a4260'), dark: hex('#181420') });
+const buildStormguardArmorIcon = () => buildArmorIcon({ main: hex('#4a5a78'), trim: hex('#7ad4f4'), dark: hex('#333f52') });
+const buildCelestialAegisIcon = () => buildArmorIcon({ main: hex('#f4e8c0'), trim: hex('#d4a840'), dark: hex('#c9a860') });
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -1063,6 +1119,28 @@ const sprites = {
   'eternalguardian.png': buildEternalGuardian,
   'timelesswraith.png': buildTimelessWraith,
   'eternalsovereign.png': buildEternalSovereign,
+
+  'wpn-rustySword.png': buildRustySwordIcon,
+  'wpn-ironSword.png': buildIronSwordIcon,
+  'wpn-steelBlade.png': buildSteelBladeIcon,
+  'wpn-mithrilBlade.png': buildMithrilBladeIcon,
+  'wpn-flameSaber.png': buildFlameSaberIcon,
+  'wpn-frostFang.png': buildFrostFangIcon,
+  'wpn-thunderAxe.png': buildThunderAxeIcon,
+  'wpn-voidCleaver.png': buildVoidCleaverIcon,
+  'wpn-dragonfang.png': buildDragonfangIcon,
+  'wpn-celestialEdge.png': buildCelestialEdgeIcon,
+
+  'arm-clothTunic.png': buildClothTunicIcon,
+  'arm-leatherArmor.png': buildLeatherArmorIcon,
+  'arm-ironPlate.png': buildIronPlateIcon,
+  'arm-steelMail.png': buildSteelMailIcon,
+  'arm-mithrilVest.png': buildMithrilVestIcon,
+  'arm-dragonhideArmor.png': buildDragonhideArmorIcon,
+  'arm-runicPlate.png': buildRunicPlateIcon,
+  'arm-shadowweaveCloak.png': buildShadowweaveCloakIcon,
+  'arm-stormguardArmor.png': buildStormguardArmorIcon,
+  'arm-celestialAegis.png': buildCelestialAegisIcon,
 };
 
 for (const [filename, build] of Object.entries(sprites)) {

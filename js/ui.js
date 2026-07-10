@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, WEAPON_ORDER, ARMOR_ORDER, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress, enchantLevel, startNewGamePlus } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -369,7 +369,7 @@ function renderSkillMenu() {
   const p = state.player;
   const menu = el('battle-menu-skills');
   menu.innerHTML = '';
-  p.knownSkills.forEach((key) => {
+  SKILL_ORDER.filter((key) => p.knownSkills.includes(key)).forEach((key) => {
     const skill = SKILLS[key];
     const btn = document.createElement('button');
     btn.className = 'btn btn-battle';
@@ -448,12 +448,13 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body' };
+const STATUS_TABS = { status: 'status-body', inventory: 'inventory-body', bestiary: 'bestiary-body', achievements: 'achievements-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
     el(bodyId).classList.toggle('hidden', key !== tab);
   });
+  if (tab === 'inventory') renderInventory();
   if (tab === 'bestiary') renderBestiary();
   if (tab === 'achievements') renderAchievements();
 }
@@ -525,38 +526,6 @@ function buildTownScrollRow() {
   return row;
 }
 
-// Any owned weapon/armor can be equipped straight from here — no need to
-// visit the Armory once you already own the piece (e.g. from a chest drop).
-function buildStatusEquipRow(gearKey, slot) {
-  const p = state.player;
-  const gear = slot === 'weapon' ? WEAPONS[gearKey] : ARMORS[gearKey];
-  const isEquipped = (slot === 'weapon' ? p.weaponKey : p.armorKey) === gearKey;
-  const statLabel = slot === 'weapon' ? `+${gear.atkBonus} ATK` : `+${gear.defBonus} DEF`;
-  const row = document.createElement('div');
-  row.className = 'shop-item';
-  row.innerHTML = `
-    <div class="shop-item-info">
-      <span class="shop-item-name">${gear.name}</span>
-      <span class="shop-item-desc">${statLabel}</span>
-    </div>
-  `;
-  const btn = document.createElement('button');
-  btn.className = 'btn btn-small';
-  if (isEquipped) {
-    btn.textContent = 'Equipped';
-    btn.disabled = true;
-  } else {
-    btn.textContent = 'Equip';
-    btn.addEventListener('click', () => {
-      if (slot === 'weapon') p.weaponKey = gearKey; else p.armorKey = gearKey;
-      autosave();
-      updateHud();
-      renderStatus();
-    });
-  }
-  row.appendChild(btn);
-  return row;
-}
 
 function renderStatus() {
   const p = state.player;
@@ -585,7 +554,7 @@ function renderStatus() {
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
-    <div class="status-row"><span>Skills</span><span>${p.knownSkills.map((k) => SKILLS[k].name).join(', ')}</span></div>
+    <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
     ${petDamageRow}
     ${petBar}
@@ -594,12 +563,49 @@ function renderStatus() {
   body.appendChild(sectionHeading('Items'));
   CONSUMABLE_ITEMS.forEach((item) => body.appendChild(buildStatusItemRow(item.key)));
   body.appendChild(buildTownScrollRow());
+}
 
+// Weapons/armor you own, in tier order, as an icon grid — tap a piece to
+// equip it. The currently-equipped weapon and armor are each marked.
+function renderInventory() {
+  const p = state.player;
+  const body = el('inventory-body');
+  body.innerHTML = '';
   body.appendChild(sectionHeading('Weapons'));
-  p.ownedWeapons.forEach((key) => body.appendChild(buildStatusEquipRow(key, 'weapon')));
+  const weaponGrid = document.createElement('div');
+  weaponGrid.className = 'inventory-grid';
+  WEAPON_ORDER.filter((key) => p.ownedWeapons.includes(key)).forEach((key) => weaponGrid.appendChild(buildInventoryTile(WEAPONS[key], 'weapon')));
+  body.appendChild(weaponGrid);
 
   body.appendChild(sectionHeading('Armor'));
-  p.ownedArmors.forEach((key) => body.appendChild(buildStatusEquipRow(key, 'armor')));
+  const armorGrid = document.createElement('div');
+  armorGrid.className = 'inventory-grid';
+  ARMOR_ORDER.filter((key) => p.ownedArmors.includes(key)).forEach((key) => armorGrid.appendChild(buildInventoryTile(ARMORS[key], 'armor')));
+  body.appendChild(armorGrid);
+}
+
+function buildInventoryTile(gear, slot) {
+  const p = state.player;
+  const equipped = (slot === 'weapon' ? p.weaponKey : p.armorKey) === gear.key;
+  const statLabel = slot === 'weapon' ? `+${gear.atkBonus} ATK` : `+${gear.defBonus} DEF`;
+  const tile = document.createElement('button');
+  tile.className = `inventory-tile${equipped ? ' equipped' : ''}`;
+  tile.disabled = equipped;
+  tile.innerHTML = `
+    <div class="inventory-tile-icon" style="background-image:url('${gear.sprite}')"></div>
+    <span class="inventory-tile-name">${gear.name}</span>
+    <span class="inventory-tile-stat">${statLabel}</span>
+    ${equipped ? '<span class="inventory-tile-badge">Equipped</span>' : ''}
+  `;
+  if (!equipped) {
+    tile.addEventListener('click', () => {
+      if (slot === 'weapon') p.weaponKey = gear.key; else p.armorKey = gear.key;
+      autosave();
+      updateHud();
+      renderInventory();
+    });
+  }
+  return tile;
 }
 
 // Lists every level's monsters and boss, in chain order, with a strikethrough
@@ -660,8 +666,8 @@ function renderArmory() {
   const p = state.player;
   if (p.ownedWeapons.length > 0 || p.ownedArmors.length > 0) {
     list.appendChild(sectionHeading('Enchant'));
-    p.ownedWeapons.forEach((key) => list.appendChild(buildEnchantRow(WEAPONS[key], 'weapon')));
-    p.ownedArmors.forEach((key) => list.appendChild(buildEnchantRow(ARMORS[key], 'armor')));
+    WEAPON_ORDER.filter((key) => p.ownedWeapons.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(WEAPONS[key], 'weapon')));
+    ARMOR_ORDER.filter((key) => p.ownedArmors.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(ARMORS[key], 'armor')));
   }
 }
 
@@ -676,6 +682,7 @@ function buildEnchantRow(item, slot) {
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
+    <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${item.name}</span>
       <span class="shop-item-desc">+${level * ENCHANT_BONUS_PER_LEVEL} ${statLabel} (${level}/${ENCHANT_MAX_LEVEL})</span>
@@ -712,6 +719,7 @@ function buildArmoryRow(item, slot, statLabel) {
   row.className = 'shop-item';
   const priceLabel = item.price > 0 ? `${item.price}G` : 'Free';
   row.innerHTML = `
+    <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${item.name}</span>
       <span class="shop-item-desc">${statLabel} — ${owned ? 'Owned' : priceLabel}</span>
@@ -1080,6 +1088,7 @@ function wireEvents() {
   });
   el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
   el('tab-status').addEventListener('click', () => showStatusTab('status'));
+  el('tab-inventory').addEventListener('click', () => showStatusTab('inventory'));
   el('tab-bestiary').addEventListener('click', () => showStatusTab('bestiary'));
   el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
 

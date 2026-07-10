@@ -301,14 +301,23 @@ html, body {
 .shop-list { display: flex; flex-direction: column; gap: 10px; }
 .shop-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
 }
-.shop-item-info { display: flex; flex-direction: column; }
+.shop-item-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  image-rendering: pixelated;
+}
+.shop-item-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .shop-item-name { font-weight: 700; }
 .shop-item-desc { font-size: 0.8rem; color: var(--text-dim); }
 .armory-section {
@@ -324,12 +333,40 @@ html, body {
 .status-row { display: flex; justify-content: space-between; }
 .status-row span:first-child { color: var(--text-dim); }
 
-.status-tabs { display: flex; gap: 6px; }
-.status-tabs .btn { flex: 1; font-size: 0.75rem; padding: 6px 4px; min-height: 34px; }
+.status-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-tabs .btn { flex: 1 1 40%; font-size: 0.72rem; padding: 6px 4px; min-height: 34px; }
 .status-tabs .tab-active { background: var(--gold); color: #2a1e0a; border-color: var(--gold); }
 
 .bestiary-killed { text-decoration: line-through; color: var(--text-dim); opacity: 0.6; }
 .achievement-status { font-size: 0.8rem; color: var(--text-dim); white-space: nowrap; }
+
+.inventory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.inventory-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 4px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+.inventory-tile:disabled, .inventory-tile.equipped { cursor: default; }
+.inventory-tile.equipped { border-color: var(--gold); background: rgba(212, 168, 64, 0.12); }
+.inventory-tile-icon {
+  width: 36px;
+  height: 36px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  image-rendering: pixelated;
+}
+.inventory-tile-name { font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.15; }
+.inventory-tile-stat { font-size: 0.68rem; color: var(--text-dim); }
+.inventory-tile-badge { font-size: 0.65rem; color: var(--gold-bright); font-weight: 700; }
 
 @media (min-width: 480px) {
   .title-logo { font-size: 3.2rem; }

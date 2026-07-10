@@ -57,6 +57,11 @@ export const ARMORS = {
   celestialAegis: { key: 'celestialAegis', name: 'Celestial Aegis', defBonus: 64, price: 1280 },
 };
 
+// Icon art per piece — one shared sword/shield template recolored per tier
+// (see scripts/gen-sprites.js), used by the Armory, Enchant, and Inventory.
+Object.values(WEAPONS).forEach((w) => { w.sprite = `icons/sprites/wpn-${w.key}.png`; });
+Object.values(ARMORS).forEach((a) => { a.sprite = `icons/sprites/arm-${a.key}.png`; });
+
 // Tier-ordered key lists so chest gear drops can be anchored to how deep the
 // player has traveled (insertion order already runs weak -> strong).
 export const WEAPON_ORDER = Object.keys(WEAPONS);
@@ -96,6 +101,12 @@ export const SKILLS = {
   hellfire: { key: 'hellfire', name: 'Hellfire', mpCost: 14, power: 4.1, price: 310, vendor: 'mage' },
   starfall: { key: 'starfall', name: 'Starfall', mpCost: 16, power: 4.5, price: 390, vendor: 'mage' },
 };
+
+// Canonical price/tier order — p.ownedWeapons/ownedArmors/knownSkills grow
+// in whatever order things were bought/found/learned, so anywhere that
+// lists owned gear or known skills should sort through these instead of
+// iterating the array as-is.
+export const SKILL_ORDER = Object.keys(SKILLS);
 
 // Pets fight beside the player: each round, an equipped pet automatically
 // lands its own hit for atk*power damage right after the player's action,
