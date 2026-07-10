@@ -135,6 +135,9 @@ export const PLAYER_BASE = {
   petProgress: {},
   arenaBestWave: 0,
   inventory: { potion: 3, ether: 0 },
+  // Marks an enemy key true the first time it's ever been defeated, so the
+  // Bestiary can show which monsters in each level you've already killed.
+  bestiary: {},
 };
 
 // xpFactor compounds level-to-level below xpFactorCapLevel — this is the
@@ -415,6 +418,19 @@ export const MAPS = {
     // No nextMap — defeating the Eternal Sovereign is the true ending.
   },
 };
+
+// The level chain in progression order (Town excluded), derived by walking
+// nextMap links from the outskirts — used for the Travel menu and Bestiary
+// so both always match the real unlock order without hand-maintaining a list.
+export const LEVEL_CHAIN = (() => {
+  const order = [];
+  let cur = 'overworld';
+  while (cur) {
+    order.push(cur);
+    cur = MAPS[cur].nextMap ? MAPS[cur].nextMap.mapId : null;
+  }
+  return order;
+})();
 
 export const ITEMS = {
   potion: { key: 'potion', name: 'Potion', desc: 'Restores 20 HP', price: 8, heal: 20 },

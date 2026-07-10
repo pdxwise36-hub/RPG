@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -31,6 +31,9 @@ export function newGameState(heroName) {
     // levels/boss, so this always points at whichever level you're
     // actually progressing through.
     currentLevelId: 'overworld',
+    // Every level id ever set foot in — lets the Town portal offer a Travel
+    // menu to any of them, not just whichever one is "current."
+    reachedLevels: ['overworld'],
     // Current Arena run — resets to 1 on a loss or on leaving; the best
     // wave ever reached is tracked separately on the player (persists).
     arenaWave: 1,
@@ -48,6 +51,7 @@ export function toSaveObject(state) {
     flags: state.flags,
     layouts: state.layouts,
     currentLevelId: state.currentLevelId,
+    reachedLevels: state.reachedLevels,
     arenaWave: state.arenaWave,
   };
 }
@@ -90,8 +94,19 @@ export function fromSaveObject(saved) {
     // Pre-town saves predate this field entirely — whatever level they were
     // in (their old mapId) is exactly the level to remember returning to.
     currentLevelId: saved.currentLevelId || saved.mapId || 'overworld',
+    // Pre-Travel-menu saves predate this field entirely — since the chain is
+    // boss-gated, having reached currentLevelId means every level before it
+    // in the chain was reached too, so reconstruct the list from that.
+    reachedLevels: saved.reachedLevels && saved.reachedLevels.length > 0
+      ? saved.reachedLevels
+      : reachedLevelsUpTo(saved.currentLevelId || saved.mapId || 'overworld'),
     arenaWave: saved.arenaWave || 1,
   };
+}
+
+function reachedLevelsUpTo(mapId) {
+  const idx = LEVEL_CHAIN.indexOf(mapId);
+  return idx === -1 ? ['overworld'] : LEVEL_CHAIN.slice(0, idx + 1);
 }
 
 export function effectiveAtk(player) {

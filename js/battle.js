@@ -175,6 +175,7 @@ export function grantRewards(state, enemyDef) {
   const goldWon = rand(enemyDef.goldMin, enemyDef.goldMax);
   player.gold += goldWon;
   player.xp += enemyDef.xp;
+  if (enemyDef.key) player.bestiary[enemyDef.key] = true;
   const levels = applyLevelUps(player);
   if (levels > 0) {
     player.maxHp += LEVEL_GROWTH.hp * levels;

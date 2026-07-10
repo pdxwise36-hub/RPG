@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -117,6 +117,11 @@ function handleMove(dir) {
     showModal('modal-arena');
     return;
   }
+  if (result.type === 'townExit') {
+    renderLevelSelect();
+    showModal('modal-levelselect');
+    return;
+  }
   if (result.type === 'portal') {
     // Every level gets a brand new random layout each time you step into
     // it — arriving via a portal is always a fresh start. Town's layout is
@@ -126,7 +131,10 @@ function handleMove(dir) {
     state.pos = { ...layout.startPos };
     // Remember the level we just arrived in, so town's exit (and Town
     // Scrolls) can send us back to actual progress instead of level one.
-    if (state.mapId !== 'town') state.currentLevelId = state.mapId;
+    if (state.mapId !== 'town') {
+      state.currentLevelId = state.mapId;
+      if (!state.reachedLevels.includes(state.mapId)) state.reachedLevels.push(state.mapId);
+    }
     autosave();
     goToMap();
     showToast(`You arrive in ${MAPS[state.mapId].name}.`, 2200);
@@ -491,6 +499,30 @@ function renderStatus() {
   p.ownedArmors.forEach((key) => body.appendChild(buildStatusEquipRow(key, 'armor')));
 }
 
+// Lists every level's monsters and boss, in chain order, with a strikethrough
+// on anything already killed at least once — a simple kill-tracking log.
+function renderBestiary() {
+  const p = state.player;
+  const body = el('bestiary-body');
+  body.innerHTML = '';
+  LEVEL_CHAIN.forEach((mapId) => {
+    const map = MAPS[mapId];
+    body.appendChild(sectionHeading(map.name));
+    Object.values(map.enemyPool).forEach((enemy) => {
+      const row = document.createElement('div');
+      row.className = 'status-row';
+      const killed = !!p.bestiary[enemy.key];
+      row.innerHTML = `<span class="${killed ? 'bestiary-killed' : ''}">${enemy.name}</span>`;
+      body.appendChild(row);
+    });
+    const bossRow = document.createElement('div');
+    bossRow.className = 'status-row';
+    const bossKilled = !!state.flags[map.bossFlag];
+    bossRow.innerHTML = `<span class="${bossKilled ? 'bestiary-killed' : ''}">${map.bossEnemy.name} (Boss)</span>`;
+    body.appendChild(bossRow);
+  });
+}
+
 // ---------- Armory ----------
 function renderArmory() {
   el('armory-gold').textContent = state.player.gold;
@@ -552,6 +584,43 @@ function renderArena() {
   const p = state.player;
   el('arena-sub').textContent = `Wave ${state.arenaWave} — Best: Wave ${p.arenaBestWave}`;
   el('btn-arena-fight').textContent = `Fight Wave ${state.arenaWave}`;
+}
+
+// ---------- Travel (level select) ----------
+// Lists every level ever reached, in chain order, so you can jump straight
+// to any of them from Town instead of only ever landing back on whichever
+// one is "current" — free exploration/backtracking without walking it.
+function renderLevelSelect() {
+  const list = el('levelselect-list');
+  list.innerHTML = '';
+  LEVEL_CHAIN.filter((id) => state.reachedLevels.includes(id)).forEach((mapId) => {
+    const map = MAPS[mapId];
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">${map.name}</span>
+        <span class="shop-item-desc">Depth ${map.depth}${mapId === state.currentLevelId ? ' — current' : ''}</span>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    btn.textContent = 'Travel';
+    btn.addEventListener('click', () => travelToLevel(mapId));
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+function travelToLevel(mapId) {
+  hideModal('modal-levelselect');
+  state.mapId = mapId;
+  const layout = ensureLayout(state, mapId, true);
+  state.pos = { ...layout.startPos };
+  state.currentLevelId = mapId;
+  autosave();
+  goToMap();
+  showToast(`You arrive in ${MAPS[mapId].name}.`, 2200);
 }
 
 // ---------- Pet Tamer ----------
@@ -705,8 +774,30 @@ function wireEvents() {
     if (dir) { e.preventDefault(); handleMove(dir); }
   });
 
-  el('btn-status').addEventListener('click', () => { renderStatus(); showModal('modal-status'); });
+  el('btn-status').addEventListener('click', () => {
+    renderStatus();
+    el('tab-status').classList.add('tab-active');
+    el('tab-bestiary').classList.remove('tab-active');
+    el('status-body').classList.remove('hidden');
+    el('bestiary-body').classList.add('hidden');
+    showModal('modal-status');
+  });
   el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
+  el('tab-status').addEventListener('click', () => {
+    el('tab-status').classList.add('tab-active');
+    el('tab-bestiary').classList.remove('tab-active');
+    el('status-body').classList.remove('hidden');
+    el('bestiary-body').classList.add('hidden');
+  });
+  el('tab-bestiary').addEventListener('click', () => {
+    renderBestiary();
+    el('tab-bestiary').classList.add('tab-active');
+    el('tab-status').classList.remove('tab-active');
+    el('bestiary-body').classList.remove('hidden');
+    el('status-body').classList.add('hidden');
+  });
+
+  el('btn-levelselect-back').addEventListener('click', () => hideModal('modal-levelselect'));
 
   el('btn-chest-close').addEventListener('click', () => {
     hideModal('modal-chest');

@@ -190,8 +190,23 @@
   <div id="modal-status" class="modal hidden">
     <div class="modal-card">
       <h2 id="status-name"></h2>
+      <div class="status-tabs">
+        <button id="tab-status" class="btn btn-small tab-active">Status</button>
+        <button id="tab-bestiary" class="btn btn-small">Bestiary</button>
+      </div>
       <div id="status-body" class="status-body"></div>
+      <div id="bestiary-body" class="status-body hidden"></div>
       <button id="btn-status-close" class="btn btn-primary">Close</button>
+    </div>
+  </div>
+
+  <!-- LEVEL SELECT (TRAVEL) MODAL -->
+  <div id="modal-levelselect" class="modal hidden">
+    <div class="modal-card">
+      <h2>Travel</h2>
+      <p class="modal-sub">Choose any level you've already reached.</p>
+      <div id="levelselect-list" class="shop-list"></div>
+      <button id="btn-levelselect-back" class="btn btn-primary">Stay in Town</button>
     </div>
   </div>
 

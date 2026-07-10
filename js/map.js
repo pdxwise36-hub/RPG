@@ -53,16 +53,13 @@ export function tryMove(state, dx, dy) {
   }
 
   if (tile === TILE.PORTAL) {
-    // Town's exit always leads back to whichever level you're actually
-    // progressing through — that's what makes a Town Scroll (or just
-    // walking out) a real shortcut back to your progress instead of a walk
-    // back to level one. Symmetrically, every level's own entry portal
-    // leads straight back to Town, no matter how deep you are — the same
-    // shortcut a Town Scroll gives you, just reachable on foot. It stays
-    // open every single time; it never "closes" or chains through
-    // intermediate levels on the way back.
+    // Town's exit opens the Travel menu, so you can walk into any level
+    // you've ever reached — not just whichever one is "current." Every
+    // level's own entry portal leads straight back to Town, no matter how
+    // deep you are, and it stays open every single time; it never "closes"
+    // or chains through intermediate levels on the way back.
     if (state.mapId === 'town') {
-      return { type: 'portal', mapId: state.currentLevelId || 'overworld' };
+      return { type: 'townExit' };
     }
     return { type: 'portal', mapId: 'town' };
   }
