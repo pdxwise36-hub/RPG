@@ -25,9 +25,8 @@ export function tileAt(grid, x, y) {
 
 // Attempts to move the player by (dx, dy). Returns one of:
 // { type: 'blocked' | 'moved' | 'encounter' | 'town' | 'boss' | 'knight' | 'mage' | 'tamer' }
-// { type: 'portal', mapId, target: 'start' | 'boss' } — step onto a portal or
-// cleared-boss tile; the caller resolves the actual landing position from
-// the target zone's (freshly generated) layout.
+// { type: 'portal', mapId } — step onto a portal or cleared-boss tile; the
+// caller resolves the landing position from the target zone's startPos.
 export function tryMove(state, dx, dy) {
   const map = MAPS[state.mapId];
   const layout = state.layouts[state.mapId];
@@ -46,7 +45,7 @@ export function tryMove(state, dx, dy) {
 
   if (tile === TILE.BOSS) {
     if (state.flags[map.bossFlag]) {
-      if (map.nextMap) return { type: 'portal', mapId: map.nextMap.mapId, target: 'start' };
+      if (map.nextMap) return { type: 'portal', mapId: map.nextMap.mapId };
       return { type: 'moved' };
     }
     return { type: 'boss' };
@@ -54,16 +53,17 @@ export function tryMove(state, dx, dy) {
 
   if (tile === TILE.PORTAL) {
     // Town's exit always leads back to whichever level you're actually
-    // progressing through, not a fixed target — that's what makes a Town
-    // Scroll (or just walking out) a real shortcut back to your progress
-    // instead of a walk back to level one.
+    // progressing through — that's what makes a Town Scroll (or just
+    // walking out) a real shortcut back to your progress instead of a walk
+    // back to level one. Symmetrically, every level's own entry portal
+    // leads straight back to Town, no matter how deep you are — the same
+    // shortcut a Town Scroll gives you, just reachable on foot. It stays
+    // open every single time; it never "closes" or chains through
+    // intermediate levels on the way back.
     if (state.mapId === 'town') {
-      return { type: 'portal', mapId: state.currentLevelId || 'overworld', target: 'start' };
+      return { type: 'portal', mapId: state.currentLevelId || 'overworld' };
     }
-    if (map.portalTarget) {
-      const targetMap = MAPS[map.portalTarget.mapId];
-      return { type: 'portal', mapId: map.portalTarget.mapId, target: targetMap.bossEnemy ? 'boss' : 'start' };
-    }
+    return { type: 'portal', mapId: 'town' };
   }
 
   if (ENCOUNTER_TILES.has(tile) && Math.random() < ENCOUNTER_CHANCE) return { type: 'encounter' };

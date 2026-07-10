@@ -266,87 +266,85 @@ export const WORLD_SERPENT = {
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
 // ui.js all key off state.mapId instead of hardcoding a single map). Layouts
 // are no longer stored here — mapgen.js procedurally builds a fresh grid for
-// each zone, cached on state.layouts. `hasTown`/`vendors` tell the generator
-// to place the town and/or vendor huts; `portalTarget`/`nextMap` chain zones
-// together by id only (positions resolve dynamically from the generated
-// layout of whichever zone you're arriving in).
+// each zone, cached on state.layouts. `nextMap` is the only chain link: it's
+// what opens (and where) once a level's boss is defeated. Every level's own
+// entry portal always leads straight back to Town, and Town's exit always
+// leads back to whichever level you're currently in — both resolved
+// dynamically in map.js/tryMove rather than a fixed field here.
 export const MAPS = {
   // Town is a fixed, always-safe hub — no enemyPool/bossEnemy at all, so
-  // encounters and boss logic simply never trigger here. Its exit portal is
-  // resolved dynamically (see tryMove in map.js) to whichever level you were
-  // last in, rather than a fixed portalTarget.
+  // encounters and boss logic simply never trigger here.
   town: {
     id: 'town', name: 'Emberfall', theme: 'town',
   },
   overworld: {
     id: 'overworld', name: 'The Emberfall Outskirts', theme: 'overworld', depth: 0,
     bossEnemy: BOSS, bossFlag: 'bossDefeated', enemyPool: ENEMIES,
-    portalTarget: { mapId: 'town' }, nextMap: { mapId: 'depths' },
+    nextMap: { mapId: 'depths' },
   },
   depths: {
     id: 'depths', name: 'The Ember Depths', theme: 'depths', depth: 1,
     bossEnemy: LICH, bossFlag: 'lichDefeated', enemyPool: DEPTHS_ENEMIES,
-    portalTarget: { mapId: 'overworld' }, nextMap: { mapId: 'frostreach' },
+    nextMap: { mapId: 'frostreach' },
   },
   frostreach: {
     id: 'frostreach', name: 'The Frostreach', theme: 'frostreach', depth: 2,
     bossEnemy: GLACIAL_TITAN, bossFlag: 'titanDefeated', enemyPool: FROSTREACH_ENEMIES,
-    portalTarget: { mapId: 'depths' }, nextMap: { mapId: 'spire' },
+    nextMap: { mapId: 'spire' },
   },
   spire: {
     id: 'spire', name: "The Dragon's Spire", theme: 'spire', depth: 3,
     bossEnemy: ANCIENT_DRAGON, bossFlag: 'dragonDefeated', enemyPool: SPIRE_ENEMIES,
-    portalTarget: { mapId: 'frostreach' }, nextMap: { mapId: 'sunkenruins' },
+    nextMap: { mapId: 'sunkenruins' },
   },
   sunkenruins: {
     id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins', depth: 4,
     bossEnemy: DROWNED_QUEEN, bossFlag: 'drownedQueenDefeated', enemyPool: SUNKENRUINS_ENEMIES,
-    portalTarget: { mapId: 'spire' }, nextMap: { mapId: 'whisperingwoods' },
+    nextMap: { mapId: 'whisperingwoods' },
   },
   whisperingwoods: {
     id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods', depth: 5,
     bossEnemy: ELDER_ENT, bossFlag: 'elderEntDefeated', enemyPool: WHISPERINGWOODS_ENEMIES,
-    portalTarget: { mapId: 'sunkenruins' }, nextMap: { mapId: 'sandscar' },
+    nextMap: { mapId: 'sandscar' },
   },
   sandscar: {
     id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar', depth: 6,
     bossEnemy: SAND_REAVER, bossFlag: 'sandReaverDefeated', enemyPool: SANDSCAR_ENEMIES,
-    portalTarget: { mapId: 'whisperingwoods' }, nextMap: { mapId: 'volcanic' },
+    nextMap: { mapId: 'volcanic' },
   },
   volcanic: {
     id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic', depth: 7,
     bossEnemy: MOLTEN_WYRM, bossFlag: 'moltenWyrmDefeated', enemyPool: VOLCANIC_ENEMIES,
-    portalTarget: { mapId: 'sandscar' }, nextMap: { mapId: 'shatteredpeaks' },
+    nextMap: { mapId: 'shatteredpeaks' },
   },
   shatteredpeaks: {
     id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks', depth: 8,
     bossEnemy: STORMGUARD_TITAN, bossFlag: 'stormguardTitanDefeated', enemyPool: SHATTEREDPEAKS_ENEMIES,
-    portalTarget: { mapId: 'volcanic' }, nextMap: { mapId: 'blightmarsh' },
+    nextMap: { mapId: 'blightmarsh' },
   },
   blightmarsh: {
     id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh', depth: 9,
     bossEnemy: ROTLORD, bossFlag: 'rotlordDefeated', enemyPool: BLIGHTMARSH_ENEMIES,
-    portalTarget: { mapId: 'shatteredpeaks' }, nextMap: { mapId: 'crystalcaverns' },
+    nextMap: { mapId: 'crystalcaverns' },
   },
   crystalcaverns: {
     id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns', depth: 10,
     bossEnemy: PRISM_COLOSSUS, bossFlag: 'prismColossusDefeated', enemyPool: CRYSTALCAVERNS_ENEMIES,
-    portalTarget: { mapId: 'blightmarsh' }, nextMap: { mapId: 'shadowfen' },
+    nextMap: { mapId: 'shadowfen' },
   },
   shadowfen: {
     id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen', depth: 11,
     bossEnemy: NIGHTMARE_DRAKE, bossFlag: 'nightmareDrakeDefeated', enemyPool: SHADOWFEN_ENEMIES,
-    portalTarget: { mapId: 'crystalcaverns' }, nextMap: { mapId: 'celestial' },
+    nextMap: { mapId: 'celestial' },
   },
   celestial: {
     id: 'celestial', name: 'The Celestial Spire', theme: 'celestial', depth: 12,
     bossEnemy: ASTRAL_GUARDIAN, bossFlag: 'astralGuardianDefeated', enemyPool: CELESTIAL_ENEMIES,
-    portalTarget: { mapId: 'shadowfen' }, nextMap: { mapId: 'voidrift' },
+    nextMap: { mapId: 'voidrift' },
   },
   voidrift: {
     id: 'voidrift', name: 'The Void Rift', theme: 'voidrift', depth: 13,
     bossEnemy: WORLD_SERPENT, bossFlag: 'worldSerpentDefeated', enemyPool: VOIDRIFT_ENEMIES,
-    portalTarget: { mapId: 'celestial' },
     // No nextMap — defeating the World Serpent is the true ending.
   },
 };

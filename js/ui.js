@@ -118,7 +118,7 @@ function handleMove(dir) {
     // fixed and never regenerates.
     state.mapId = result.mapId;
     const layout = ensureLayout(state, state.mapId, state.mapId !== 'town');
-    state.pos = { ...(result.target === 'boss' ? layout.bossPos : layout.startPos) };
+    state.pos = { ...layout.startPos };
     // Remember the level we just arrived in, so town's exit (and Town
     // Scrolls) can send us back to actual progress instead of level one.
     if (state.mapId !== 'town') state.currentLevelId = state.mapId;
