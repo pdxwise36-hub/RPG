@@ -99,9 +99,22 @@ html, body {
 
 .hud { width: 100%; max-width: 420px; }
 .hud-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.hud-name { font-weight: 700; color: var(--gold-bright); }
+.hud-name { font-weight: 700; color: var(--gold-bright); flex: 1; margin-left: 8px; }
 .hud-level { color: var(--text-dim); font-size: 0.9rem; }
 .hud-gold { color: var(--gold); font-weight: 600; font-size: 0.9rem; }
+
+.hud-portrait {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  background: var(--panel) url('../icons/sprites/hero.png') center/70% no-repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+.hud-portrait:active { background-color: var(--bg-alt); }
 
 .hud-bars { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
 .bar-track {
@@ -367,6 +380,69 @@ html, body {
 .inventory-tile-name { font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.15; }
 .inventory-tile-stat { font-size: 0.68rem; color: var(--text-dim); }
 .inventory-tile-badge { font-size: 0.65rem; color: var(--gold-bright); font-weight: 700; }
+
+/* ---------- Inventory paper doll (Diablo-style equipment layout) ---------- */
+.paperdoll {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    ".      helm     ."
+    "amulet portrait shield"
+    "weapon armor    ring1"
+    "gloves belt     boots"
+    ".      ring2    .";
+  gap: 6px;
+  justify-items: center;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+.slot-helm { grid-area: helm; }
+.slot-amulet { grid-area: amulet; }
+.slot-portrait { grid-area: portrait; }
+.slot-shield { grid-area: shield; }
+.slot-weapon { grid-area: weapon; }
+.slot-armor { grid-area: armor; }
+.slot-ring1 { grid-area: ring1; }
+.slot-gloves { grid-area: gloves; }
+.slot-belt { grid-area: belt; }
+.slot-boots { grid-area: boots; }
+.slot-ring2 { grid-area: ring2; }
+
+.doll-portrait {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-alt);
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+}
+.doll-portrait img { width: 44px; height: 44px; image-rendering: pixelated; }
+
+.doll-slot {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-size: 65%;
+  background-repeat: no-repeat;
+  background-position: center;
+  image-rendering: pixelated;
+}
+.doll-slot.locked {
+  border: 1px dashed var(--border);
+  background-color: rgba(0, 0, 0, 0.15);
+  opacity: 0.5;
+}
+.doll-slot.equip {
+  border: 2px solid var(--gold);
+  background-color: var(--bg-alt);
+}
+
+#inventory-name { text-align: center; }
 
 @media (min-width: 480px) {
   .title-logo { font-size: 3.2rem; }

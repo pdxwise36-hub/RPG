@@ -448,13 +448,12 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', inventory: 'inventory-body', bestiary: 'bestiary-body', achievements: 'achievements-body' };
+const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
     el(bodyId).classList.toggle('hidden', key !== tab);
   });
-  if (tab === 'inventory') renderInventory();
   if (tab === 'bestiary') renderBestiary();
   if (tab === 'achievements') renderAchievements();
 }
@@ -565,46 +564,47 @@ function renderStatus() {
   body.appendChild(buildTownScrollRow());
 }
 
-// Weapons/armor you own, in tier order, as an icon grid — tap a piece to
-// equip it. The currently-equipped weapon and armor are each marked.
-function renderInventory() {
+// Diablo-style paper doll: the weapon/armor slots always show what's
+// currently equipped, and the backpack grid below shows everything else you
+// own (tier-ordered) — tap a backpack piece to swap it into its slot.
+function renderInventoryModal() {
   const p = state.player;
-  const body = el('inventory-body');
-  body.innerHTML = '';
-  body.appendChild(sectionHeading('Weapons'));
-  const weaponGrid = document.createElement('div');
-  weaponGrid.className = 'inventory-grid';
-  WEAPON_ORDER.filter((key) => p.ownedWeapons.includes(key)).forEach((key) => weaponGrid.appendChild(buildInventoryTile(WEAPONS[key], 'weapon')));
-  body.appendChild(weaponGrid);
+  el('inventory-name').textContent = `${p.name} — Lv. ${p.level}`;
 
-  body.appendChild(sectionHeading('Armor'));
-  const armorGrid = document.createElement('div');
-  armorGrid.className = 'inventory-grid';
-  ARMOR_ORDER.filter((key) => p.ownedArmors.includes(key)).forEach((key) => armorGrid.appendChild(buildInventoryTile(ARMORS[key], 'armor')));
-  body.appendChild(armorGrid);
+  const weapon = WEAPONS[p.weaponKey];
+  const weaponSlot = el('slot-weapon');
+  weaponSlot.style.backgroundImage = `url('${weapon.sprite}')`;
+  weaponSlot.title = `${weapon.name} — +${weapon.atkBonus} ATK`;
+
+  const armor = ARMORS[p.armorKey];
+  const armorSlot = el('slot-armor');
+  armorSlot.style.backgroundImage = `url('${armor.sprite}')`;
+  armorSlot.title = `${armor.name} — +${armor.defBonus} DEF`;
+
+  const grid = el('backpack-grid');
+  grid.innerHTML = '';
+  WEAPON_ORDER.filter((key) => p.ownedWeapons.includes(key) && key !== p.weaponKey)
+    .forEach((key) => grid.appendChild(buildInventoryTile(WEAPONS[key], 'weapon')));
+  ARMOR_ORDER.filter((key) => p.ownedArmors.includes(key) && key !== p.armorKey)
+    .forEach((key) => grid.appendChild(buildInventoryTile(ARMORS[key], 'armor')));
 }
 
 function buildInventoryTile(gear, slot) {
   const p = state.player;
-  const equipped = (slot === 'weapon' ? p.weaponKey : p.armorKey) === gear.key;
   const statLabel = slot === 'weapon' ? `+${gear.atkBonus} ATK` : `+${gear.defBonus} DEF`;
   const tile = document.createElement('button');
-  tile.className = `inventory-tile${equipped ? ' equipped' : ''}`;
-  tile.disabled = equipped;
+  tile.className = 'inventory-tile';
   tile.innerHTML = `
     <div class="inventory-tile-icon" style="background-image:url('${gear.sprite}')"></div>
     <span class="inventory-tile-name">${gear.name}</span>
     <span class="inventory-tile-stat">${statLabel}</span>
-    ${equipped ? '<span class="inventory-tile-badge">Equipped</span>' : ''}
   `;
-  if (!equipped) {
-    tile.addEventListener('click', () => {
-      if (slot === 'weapon') p.weaponKey = gear.key; else p.armorKey = gear.key;
-      autosave();
-      updateHud();
-      renderInventory();
-    });
-  }
+  tile.addEventListener('click', () => {
+    if (slot === 'weapon') p.weaponKey = gear.key; else p.armorKey = gear.key;
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
   return tile;
 }
 
@@ -1088,9 +1088,14 @@ function wireEvents() {
   });
   el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
   el('tab-status').addEventListener('click', () => showStatusTab('status'));
-  el('tab-inventory').addEventListener('click', () => showStatusTab('inventory'));
   el('tab-bestiary').addEventListener('click', () => showStatusTab('bestiary'));
   el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
+
+  el('btn-character').addEventListener('click', () => {
+    renderInventoryModal();
+    showModal('modal-inventory');
+  });
+  el('btn-inventory-close').addEventListener('click', () => hideModal('modal-inventory'));
 
   el('btn-levelselect-back').addEventListener('click', () => hideModal('modal-levelselect'));
 

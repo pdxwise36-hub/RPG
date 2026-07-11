@@ -30,6 +30,7 @@
   <section id="screen-map" class="screen hidden">
     <div class="hud">
       <div class="hud-row">
+        <button id="btn-character" class="hud-portrait" aria-label="Open Inventory"></button>
         <span id="hud-name" class="hud-name"></span>
         <span id="hud-level" class="hud-level"></span>
         <button id="btn-status" class="btn btn-small">Status</button>
@@ -205,15 +206,36 @@
       <h2 id="status-name"></h2>
       <div class="status-tabs">
         <button id="tab-status" class="btn btn-small tab-active">Status</button>
-        <button id="tab-inventory" class="btn btn-small">Inventory</button>
         <button id="tab-bestiary" class="btn btn-small">Bestiary</button>
         <button id="tab-achievements" class="btn btn-small">Achievements</button>
       </div>
       <div id="status-body" class="status-body"></div>
-      <div id="inventory-body" class="status-body hidden"></div>
       <div id="bestiary-body" class="status-body hidden"></div>
       <div id="achievements-body" class="status-body hidden"></div>
       <button id="btn-status-close" class="btn btn-primary">Close</button>
+    </div>
+  </div>
+
+  <!-- INVENTORY MODAL (Diablo-style paper doll) -->
+  <div id="modal-inventory" class="modal hidden">
+    <div class="modal-card">
+      <h2 id="inventory-name"></h2>
+      <div class="paperdoll">
+        <div class="doll-slot locked slot-helm" title="Helm — coming soon"></div>
+        <div class="doll-slot locked slot-amulet" title="Amulet — coming soon"></div>
+        <div class="doll-portrait slot-portrait"><img src="icons/sprites/hero.png" alt="" /></div>
+        <div class="doll-slot locked slot-shield" title="Shield — coming soon"></div>
+        <div id="slot-weapon" class="doll-slot equip slot-weapon"></div>
+        <div id="slot-armor" class="doll-slot equip slot-armor"></div>
+        <div class="doll-slot locked slot-ring1" title="Ring — coming soon"></div>
+        <div class="doll-slot locked slot-gloves" title="Gloves — coming soon"></div>
+        <div class="doll-slot locked slot-belt" title="Belt — coming soon"></div>
+        <div class="doll-slot locked slot-boots" title="Boots — coming soon"></div>
+        <div class="doll-slot locked slot-ring2" title="Ring — coming soon"></div>
+      </div>
+      <h3 class="armory-section">Backpack</h3>
+      <div id="backpack-grid" class="inventory-grid"></div>
+      <button id="btn-inventory-close" class="btn btn-primary">Close</button>
     </div>
   </div>
 
