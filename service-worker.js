@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v30';
+const CACHE_NAME = 'emberfall-v31';
 const ASSETS = [
   './',
   './index.html',
@@ -104,6 +104,36 @@ const ASSETS = [
   './icons/sprites/arm-shadowweaveCloak.png',
   './icons/sprites/arm-stormguardArmor.png',
   './icons/sprites/arm-celestialAegis.png',
+  './icons/sprites/hlm-clothCap.png',
+  './icons/sprites/hlm-leatherCap.png',
+  './icons/sprites/hlm-ironHelm.png',
+  './icons/sprites/hlm-steelHelm.png',
+  './icons/sprites/hlm-mithrilCirclet.png',
+  './icons/sprites/hlm-flameguardHelm.png',
+  './icons/sprites/hlm-frostcrown.png',
+  './icons/sprites/hlm-thunderHelm.png',
+  './icons/sprites/hlm-voidsightHelm.png',
+  './icons/sprites/hlm-celestialCrown.png',
+  './icons/sprites/glv-clothWraps.png',
+  './icons/sprites/glv-leatherGloves.png',
+  './icons/sprites/glv-ironGauntlets.png',
+  './icons/sprites/glv-steelGauntlets.png',
+  './icons/sprites/glv-mithrilGrips.png',
+  './icons/sprites/glv-flameforgedGloves.png',
+  './icons/sprites/glv-frostbiteGloves.png',
+  './icons/sprites/glv-thunderstrikeGauntlets.png',
+  './icons/sprites/glv-voidtouchedGloves.png',
+  './icons/sprites/glv-celestialGauntlets.png',
+  './icons/sprites/bts-wornSandals.png',
+  './icons/sprites/bts-leatherBoots.png',
+  './icons/sprites/bts-ironGreaves.png',
+  './icons/sprites/bts-steelBoots.png',
+  './icons/sprites/bts-mithrilStriders.png',
+  './icons/sprites/bts-flamewalkers.png',
+  './icons/sprites/bts-frostwalkers.png',
+  './icons/sprites/bts-thunderstepBoots.png',
+  './icons/sprites/bts-voidwalkers.png',
+  './icons/sprites/bts-celestialStriders.png',
 ];
 
 self.addEventListener('install', (event) => {

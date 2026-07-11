@@ -57,15 +57,80 @@ export const ARMORS = {
   celestialAegis: { key: 'celestialAegis', name: 'Celestial Aegis', defBonus: 64, price: 1280 },
 };
 
-// Icon art per piece — one shared sword/shield template recolored per tier
+// Helmets, Gloves, and Boots don't add flat ATK/DEF like weapons/armor do —
+// each slot has its own unique mechanic instead, applied in battle.js:
+// helmets cut skill MP costs and boost XP gain, gloves add a chance to
+// crit for double damage, boots add a chance to dodge an attack entirely
+// and boost gold found. Same 10-tier weak-to-strong spread and price curve
+// as Armor (they're all "gear you find and wear," just different slots).
+export const HELMETS = {
+  clothCap: { key: 'clothCap', name: 'Cloth Cap', mpCostReduction: 0, xpBonusPercent: 0, price: 0 },
+  leatherCap: { key: 'leatherCap', name: 'Leather Cap', mpCostReduction: 4, xpBonusPercent: 2, price: 35 },
+  ironHelm: { key: 'ironHelm', name: 'Iron Helm', mpCostReduction: 8, xpBonusPercent: 4, price: 110 },
+  steelHelm: { key: 'steelHelm', name: 'Steel Helm', mpCostReduction: 12, xpBonusPercent: 6, price: 200 },
+  mithrilCirclet: { key: 'mithrilCirclet', name: 'Mithril Circlet', mpCostReduction: 16, xpBonusPercent: 8, price: 320 },
+  flameguardHelm: { key: 'flameguardHelm', name: 'Flameguard Helm', mpCostReduction: 20, xpBonusPercent: 10, price: 460 },
+  frostcrown: { key: 'frostcrown', name: 'Frostcrown', mpCostReduction: 25, xpBonusPercent: 12, price: 620 },
+  thunderHelm: { key: 'thunderHelm', name: 'Thunder Helm', mpCostReduction: 30, xpBonusPercent: 14, price: 800 },
+  voidsightHelm: { key: 'voidsightHelm', name: 'Voidsight Helm', mpCostReduction: 35, xpBonusPercent: 17, price: 1000 },
+  celestialCrown: { key: 'celestialCrown', name: 'Celestial Crown', mpCostReduction: 40, xpBonusPercent: 20, price: 1280 },
+};
+
+export const GLOVES = {
+  clothWraps: { key: 'clothWraps', name: 'Cloth Wraps', critChance: 0, price: 0 },
+  leatherGloves: { key: 'leatherGloves', name: 'Leather Gloves', critChance: 3, price: 35 },
+  ironGauntlets: { key: 'ironGauntlets', name: 'Iron Gauntlets', critChance: 6, price: 110 },
+  steelGauntlets: { key: 'steelGauntlets', name: 'Steel Gauntlets', critChance: 9, price: 200 },
+  mithrilGrips: { key: 'mithrilGrips', name: 'Mithril Grips', critChance: 12, price: 320 },
+  flameforgedGloves: { key: 'flameforgedGloves', name: 'Flameforged Gloves', critChance: 15, price: 460 },
+  frostbiteGloves: { key: 'frostbiteGloves', name: 'Frostbite Gloves', critChance: 18, price: 620 },
+  thunderstrikeGauntlets: { key: 'thunderstrikeGauntlets', name: 'Thunderstrike Gauntlets', critChance: 21, price: 800 },
+  voidtouchedGloves: { key: 'voidtouchedGloves', name: 'Voidtouched Gloves', critChance: 25, price: 1000 },
+  celestialGauntlets: { key: 'celestialGauntlets', name: 'Celestial Gauntlets', critChance: 30, price: 1280 },
+};
+
+export const BOOTS = {
+  wornSandals: { key: 'wornSandals', name: 'Worn Sandals', dodgeChance: 0, goldBonusPercent: 0, price: 0 },
+  leatherBoots: { key: 'leatherBoots', name: 'Leather Boots', dodgeChance: 2, goldBonusPercent: 2, price: 35 },
+  ironGreaves: { key: 'ironGreaves', name: 'Iron Greaves', dodgeChance: 4, goldBonusPercent: 4, price: 110 },
+  steelBoots: { key: 'steelBoots', name: 'Steel Boots', dodgeChance: 6, goldBonusPercent: 6, price: 200 },
+  mithrilStriders: { key: 'mithrilStriders', name: 'Mithril Striders', dodgeChance: 8, goldBonusPercent: 8, price: 320 },
+  flamewalkers: { key: 'flamewalkers', name: 'Flamewalkers', dodgeChance: 10, goldBonusPercent: 10, price: 460 },
+  frostwalkers: { key: 'frostwalkers', name: 'Frostwalkers', dodgeChance: 12, goldBonusPercent: 12, price: 620 },
+  thunderstepBoots: { key: 'thunderstepBoots', name: 'Thunderstep Boots', dodgeChance: 14, goldBonusPercent: 14, price: 800 },
+  voidwalkers: { key: 'voidwalkers', name: 'Voidwalkers', dodgeChance: 17, goldBonusPercent: 17, price: 1000 },
+  celestialStriders: { key: 'celestialStriders', name: 'Celestial Striders', dodgeChance: 20, goldBonusPercent: 20, price: 1280 },
+};
+
+// Icon art per piece — one shared silhouette template recolored per tier
 // (see scripts/gen-sprites.js), used by the Armory, Enchant, and Inventory.
 Object.values(WEAPONS).forEach((w) => { w.sprite = `icons/sprites/wpn-${w.key}.png`; });
 Object.values(ARMORS).forEach((a) => { a.sprite = `icons/sprites/arm-${a.key}.png`; });
+Object.values(HELMETS).forEach((h) => { h.sprite = `icons/sprites/hlm-${h.key}.png`; });
+Object.values(GLOVES).forEach((g) => { g.sprite = `icons/sprites/glv-${g.key}.png`; });
+Object.values(BOOTS).forEach((b) => { b.sprite = `icons/sprites/bts-${b.key}.png`; });
 
 // Tier-ordered key lists so chest gear drops can be anchored to how deep the
 // player has traveled (insertion order already runs weak -> strong).
 export const WEAPON_ORDER = Object.keys(WEAPONS);
 export const ARMOR_ORDER = Object.keys(ARMORS);
+export const HELMET_ORDER = Object.keys(HELMETS);
+export const GLOVES_ORDER = Object.keys(GLOVES);
+export const BOOTS_ORDER = Object.keys(BOOTS);
+
+// One place to look up "the registry/order/owned-list/equipped-key field for
+// this equipment slot" — every piece of UI that lists or equips gear (the
+// Armory, the Inventory paper doll, chest reveals, achievements) reads
+// through this instead of hand-rolling a weapon/armor ternary per site, so
+// adding a future slot (ring, amulet, shield...) only means adding one more
+// entry here.
+export const GEAR_SLOTS = {
+  weapon: { registry: WEAPONS, order: WEAPON_ORDER, ownedField: 'ownedWeapons', equipField: 'weaponKey', label: 'Weapon' },
+  armor: { registry: ARMORS, order: ARMOR_ORDER, ownedField: 'ownedArmors', equipField: 'armorKey', label: 'Armor' },
+  helmet: { registry: HELMETS, order: HELMET_ORDER, ownedField: 'ownedHelmets', equipField: 'helmKey', label: 'Helmet' },
+  gloves: { registry: GLOVES, order: GLOVES_ORDER, ownedField: 'ownedGloves', equipField: 'glovesKey', label: 'Gloves' },
+  boots: { registry: BOOTS, order: BOOTS_ORDER, ownedField: 'ownedBoots', equipField: 'bootsKey', label: 'Boots' },
+};
 
 // Both the Knight and the Master Mage teach permanent skills for gold — they
 // share one mechanic (spend MP, hit for atk*power - def) so "physical skill"
@@ -146,8 +211,14 @@ export const PLAYER_BASE = {
   gold: 15,
   weaponKey: 'rustySword',
   armorKey: 'clothTunic',
+  helmKey: 'clothCap',
+  glovesKey: 'clothWraps',
+  bootsKey: 'wornSandals',
   ownedWeapons: ['rustySword'],
   ownedArmors: ['clothTunic'],
+  ownedHelmets: ['clothCap'],
+  ownedGloves: ['clothWraps'],
+  ownedBoots: ['wornSandals'],
   knownSkills: ['fireball'],
   ownedPets: [],
   activePetKey: null,
@@ -502,9 +573,11 @@ export const ACHIEVEMENTS = [
     check: (state) => state.player.ownedPets.length >= Object.keys(PETS).length,
   },
   {
-    key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the Celestial Edge and Celestial Aegis.', rewardGold: 300,
-    check: (state) => state.player.ownedWeapons.includes(WEAPON_ORDER[WEAPON_ORDER.length - 1])
-      && state.player.ownedArmors.includes(ARMOR_ORDER[ARMOR_ORDER.length - 1]),
+    key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400,
+    check: (state) => Object.values(GEAR_SLOTS).every((slot) => {
+      const topKey = slot.order[slot.order.length - 1];
+      return state.player[slot.ownedField].includes(topKey);
+    }),
   },
   {
     key: 'bestiaryComplete', name: 'Monster Hunter', desc: 'Defeat every kind of monster and every boss.', rewardGold: 750,

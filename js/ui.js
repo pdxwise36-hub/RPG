@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, WEAPON_ORDER, ARMOR_ORDER, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress, enchantLevel, startNewGamePlus } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -432,8 +432,7 @@ function renderChest(chest) {
   } else if (chest.type === 'item') {
     desc = `You found a ${ITEMS[chest.itemKey].name}!`;
   } else if (chest.type === 'gear') {
-    const slotLabel = chest.slot === 'weapon' ? 'Weapon' : 'Armor Piece';
-    desc = `You found an Unidentified ${slotLabel}! Bring it to Deckard Cain in Town to find out what it is.`;
+    desc = `You found an Unidentified ${GEAR_SLOTS[chest.slot].label}! Bring it to Deckard Cain in Town to find out what it is.`;
   } else {
     desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
   }
@@ -456,6 +455,20 @@ function showStatusTab(tab) {
   });
   if (tab === 'bestiary') renderBestiary();
   if (tab === 'achievements') renderAchievements();
+}
+
+// Weapon/Armor add flat ATK/DEF; Helmet/Gloves/Boots each carry their own
+// unique mechanic instead (see battle.js) — this is the one place that
+// knows how to describe any of the five in a shop/inventory row.
+function gearStatLabel(slot, item) {
+  switch (slot) {
+    case 'weapon': return `+${item.atkBonus} ATK`;
+    case 'armor': return `+${item.defBonus} DEF`;
+    case 'helmet': return `-${item.mpCostReduction}% Skill Cost, +${item.xpBonusPercent}% XP`;
+    case 'gloves': return `${item.critChance}% Crit Chance`;
+    case 'boots': return `${item.dodgeChance}% Dodge, +${item.goldBonusPercent}% Gold`;
+    default: return '';
+  }
 }
 
 // Items are usable right here — no need to be in battle or visit town.
@@ -549,6 +562,9 @@ function renderStatus() {
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
     <div class="status-row"><span>Attack</span><span>${effectiveAtk(p)} (${p.baseAtk}+${weapon.atkBonus})</span></div>
     <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
+    <div class="status-row"><span>Crit Chance</span><span>${critChance(p)}%</span></div>
+    <div class="status-row"><span>Dodge Chance</span><span>${dodgeChance(p)}%</span></div>
+    <div class="status-row"><span>Skill Cost / XP / Gold</span><span>-${mpCostReduction(p)}% / +${xpBonusPercent(p)}% / +${goldBonusPercent(p)}%</span></div>
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
@@ -564,43 +580,39 @@ function renderStatus() {
   body.appendChild(buildTownScrollRow());
 }
 
-// Diablo-style paper doll: the weapon/armor slots always show what's
+// Diablo-style paper doll: every functional slot always shows what's
 // currently equipped, and the backpack grid below shows everything else you
-// own (tier-ordered) — tap a backpack piece to swap it into its slot.
+// own across all slots (tier-ordered) — tap a backpack piece to swap it in.
 function renderInventoryModal() {
   const p = state.player;
   el('inventory-name').textContent = `${p.name} — Lv. ${p.level}`;
 
-  const weapon = WEAPONS[p.weaponKey];
-  const weaponSlot = el('slot-weapon');
-  weaponSlot.style.backgroundImage = `url('${weapon.sprite}')`;
-  weaponSlot.title = `${weapon.name} — +${weapon.atkBonus} ATK`;
-
-  const armor = ARMORS[p.armorKey];
-  const armorSlot = el('slot-armor');
-  armorSlot.style.backgroundImage = `url('${armor.sprite}')`;
-  armorSlot.title = `${armor.name} — +${armor.defBonus} DEF`;
-
   const grid = el('backpack-grid');
   grid.innerHTML = '';
-  WEAPON_ORDER.filter((key) => p.ownedWeapons.includes(key) && key !== p.weaponKey)
-    .forEach((key) => grid.appendChild(buildInventoryTile(WEAPONS[key], 'weapon')));
-  ARMOR_ORDER.filter((key) => p.ownedArmors.includes(key) && key !== p.armorKey)
-    .forEach((key) => grid.appendChild(buildInventoryTile(ARMORS[key], 'armor')));
+  Object.entries(GEAR_SLOTS).forEach(([slot, cfg]) => {
+    const equippedKey = p[cfg.equipField];
+    const item = cfg.registry[equippedKey];
+    const slotEl = el(`slot-${slot}`);
+    slotEl.style.backgroundImage = `url('${item.sprite}')`;
+    slotEl.title = `${item.name} — ${gearStatLabel(slot, item)}`;
+
+    cfg.order.filter((key) => p[cfg.ownedField].includes(key) && key !== equippedKey)
+      .forEach((key) => grid.appendChild(buildInventoryTile(cfg.registry[key], slot)));
+  });
 }
 
 function buildInventoryTile(gear, slot) {
   const p = state.player;
-  const statLabel = slot === 'weapon' ? `+${gear.atkBonus} ATK` : `+${gear.defBonus} DEF`;
+  const cfg = GEAR_SLOTS[slot];
   const tile = document.createElement('button');
   tile.className = 'inventory-tile';
   tile.innerHTML = `
     <div class="inventory-tile-icon" style="background-image:url('${gear.sprite}')"></div>
     <span class="inventory-tile-name">${gear.name}</span>
-    <span class="inventory-tile-stat">${statLabel}</span>
+    <span class="inventory-tile-stat">${gearStatLabel(slot, gear)}</span>
   `;
   tile.addEventListener('click', () => {
-    if (slot === 'weapon') p.weaponKey = gear.key; else p.armorKey = gear.key;
+    p[cfg.equipField] = gear.key;
     autosave();
     updateHud();
     renderInventoryModal();
@@ -653,21 +665,21 @@ function renderAchievements() {
 
 // ---------- Armory ----------
 function renderArmory() {
-  el('armory-gold').textContent = state.player.gold;
-  const list = el('armory-list');
-  list.innerHTML = '<h3 class="armory-section">Weapons</h3>';
-  Object.values(WEAPONS).forEach((w) => list.appendChild(buildArmoryRow(w, 'weapon', '+' + w.atkBonus + ' ATK')));
-  const armorHeading = document.createElement('h3');
-  armorHeading.className = 'armory-section';
-  armorHeading.textContent = 'Armor';
-  list.appendChild(armorHeading);
-  Object.values(ARMORS).forEach((a) => list.appendChild(buildArmoryRow(a, 'armor', '+' + a.defBonus + ' DEF')));
-
   const p = state.player;
+  el('armory-gold').textContent = p.gold;
+  const list = el('armory-list');
+  list.innerHTML = '';
+  Object.entries(GEAR_SLOTS).forEach(([slot, cfg]) => {
+    list.appendChild(sectionHeading(cfg.label));
+    Object.values(cfg.registry).forEach((item) => list.appendChild(buildArmoryRow(item, slot)));
+  });
+
+  // Enchanting only makes sense for Weapon/Armor's flat ATK/DEF bonus — the
+  // other three slots carry percent-based mechanics instead.
   if (p.ownedWeapons.length > 0 || p.ownedArmors.length > 0) {
     list.appendChild(sectionHeading('Enchant'));
-    WEAPON_ORDER.filter((key) => p.ownedWeapons.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(WEAPONS[key], 'weapon')));
-    ARMOR_ORDER.filter((key) => p.ownedArmors.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(ARMORS[key], 'armor')));
+    GEAR_SLOTS.weapon.order.filter((key) => p.ownedWeapons.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(WEAPONS[key], 'weapon')));
+    GEAR_SLOTS.armor.order.filter((key) => p.ownedArmors.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(ARMORS[key], 'armor')));
   }
 }
 
@@ -709,10 +721,11 @@ function buildEnchantRow(item, slot) {
   return row;
 }
 
-function buildArmoryRow(item, slot, statLabel) {
+function buildArmoryRow(item, slot) {
   const p = state.player;
-  const equippedKey = slot === 'weapon' ? p.weaponKey : p.armorKey;
-  const owned = (slot === 'weapon' ? p.ownedWeapons : p.ownedArmors).includes(item.key);
+  const cfg = GEAR_SLOTS[slot];
+  const equippedKey = p[cfg.equipField];
+  const owned = p[cfg.ownedField].includes(item.key);
   const isEquipped = equippedKey === item.key;
 
   const row = document.createElement('div');
@@ -722,7 +735,7 @@ function buildArmoryRow(item, slot, statLabel) {
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${item.name}</span>
-      <span class="shop-item-desc">${statLabel} — ${owned ? 'Owned' : priceLabel}</span>
+      <span class="shop-item-desc">${gearStatLabel(slot, item)} — ${owned ? 'Owned' : priceLabel}</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -733,7 +746,7 @@ function buildArmoryRow(item, slot, statLabel) {
   } else if (owned) {
     btn.textContent = 'Equip';
     btn.addEventListener('click', () => {
-      if (slot === 'weapon') p.weaponKey = item.key; else p.armorKey = item.key;
+      p[cfg.equipField] = item.key;
       autosave();
       renderArmory();
     });
@@ -743,8 +756,8 @@ function buildArmoryRow(item, slot, statLabel) {
     btn.addEventListener('click', () => {
       if (p.gold < item.price) return;
       p.gold -= item.price;
-      if (slot === 'weapon') { p.ownedWeapons.push(item.key); p.weaponKey = item.key; }
-      else { p.ownedArmors.push(item.key); p.armorKey = item.key; }
+      p[cfg.ownedField].push(item.key);
+      p[cfg.equipField] = item.key;
       autosave();
       renderArmory();
     });
@@ -771,10 +784,10 @@ function renderCain() {
   p.unidentifiedItems.forEach((unident, idx) => {
     const row = document.createElement('div');
     row.className = 'shop-item';
-    const slotLabel = unident.slot === 'weapon' ? 'Weapon' : 'Armor Piece';
+    const cfg = GEAR_SLOTS[unident.slot];
     row.innerHTML = `
       <div class="shop-item-info">
-        <span class="shop-item-name">Unidentified ${slotLabel}</span>
+        <span class="shop-item-name">Unidentified ${cfg.label}</span>
         <span class="shop-item-desc">${IDENTIFY_COST}G to identify</span>
       </div>
     `;
@@ -786,9 +799,8 @@ function renderCain() {
       if (p.gold < IDENTIFY_COST) return;
       p.gold -= IDENTIFY_COST;
       p.unidentifiedItems.splice(idx, 1);
-      const gear = unident.slot === 'weapon' ? WEAPONS[unident.key] : ARMORS[unident.key];
-      if (unident.slot === 'weapon') p.ownedWeapons.push(unident.key);
-      else p.ownedArmors.push(unident.key);
+      const gear = cfg.registry[unident.key];
+      p[cfg.ownedField].push(unident.key);
       autosave();
       showToast(`It's a ${gear.name}!`, 2600);
       renderCain();

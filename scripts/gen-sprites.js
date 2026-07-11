@@ -1045,6 +1045,60 @@ const buildShadowweaveCloakIcon = () => buildArmorIcon({ main: hex('#2a2438'), t
 const buildStormguardArmorIcon = () => buildArmorIcon({ main: hex('#4a5a78'), trim: hex('#7ad4f4'), dark: hex('#333f52') });
 const buildCelestialAegisIcon = () => buildArmorIcon({ main: hex('#f4e8c0'), trim: hex('#d4a840'), dark: hex('#c9a860') });
 
+// 14x14 domed helm with a brim and eye-slit, shared by all ten helm tiers.
+function buildHelmetIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 3, 2, 8, 5, 'm');
+  fillRect(g, 2, 6, 10, 2, 'm');
+  fillRect(g, 5, 4, 4, 1, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
+// 14x14 fist with a wrist cuff, shared by all ten glove tiers.
+function buildGlovesIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 4, 3, 6, 6, 'm');
+  fillRect(g, 2, 4, 3, 3, 'm');
+  fillRect(g, 4, 9, 6, 3, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
+// 14x14 L-shaped boot with an ankle cuff, shared by all ten boot tiers.
+function buildBootsIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 4, 2, 4, 7, 'm');
+  fillRect(g, 3, 9, 8, 3, 'm');
+  fillRect(g, 4, 2, 4, 2, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
+// One shared 10-tier color ramp (rusty -> iron -> steel -> mithril -> flame
+// -> frost -> thunder -> void -> dragon -> celestial) reused across helms,
+// gloves, and boots so a tier reads the same regardless of slot.
+const GEAR_TIER_PALETTE = [
+  { main: '#8a7a6a', trim: '#6b5a4a', dark: '#5a4a3a' },
+  { main: '#b8bcc4', trim: '#8a8a92', dark: '#6a6a72' },
+  { main: '#d0d8e0', trim: '#a4b0bc', dark: '#7a8794' },
+  { main: '#e8eef8', trim: '#b8c8ec', dark: '#8a9ac0' },
+  { main: '#ff8a3a', trim: '#c94020', dark: '#8a2010' },
+  { main: '#a8e8f8', trim: '#4fa8c9', dark: '#2a5a6a' },
+  { main: '#f4e04d', trim: '#d4a840', dark: '#a07820' },
+  { main: '#7a3fae', trim: '#4a2a6a', dark: '#2a1840' },
+  { main: '#8a1a1a', trim: '#5a1010', dark: '#3a0808' },
+  { main: '#fff8e0', trim: '#d4a840', dark: '#b08a30' },
+];
+function tierColors(i) {
+  const t = GEAR_TIER_PALETTE[i];
+  return { main: hex(t.main), trim: hex(t.trim), dark: hex(t.dark) };
+}
+
+const HELMET_KEYS = ['clothCap', 'leatherCap', 'ironHelm', 'steelHelm', 'mithrilCirclet', 'flameguardHelm', 'frostcrown', 'thunderHelm', 'voidsightHelm', 'celestialCrown'];
+const GLOVES_KEYS = ['clothWraps', 'leatherGloves', 'ironGauntlets', 'steelGauntlets', 'mithrilGrips', 'flameforgedGloves', 'frostbiteGloves', 'thunderstrikeGauntlets', 'voidtouchedGloves', 'celestialGauntlets'];
+const BOOTS_KEYS = ['wornSandals', 'leatherBoots', 'ironGreaves', 'steelBoots', 'mithrilStriders', 'flamewalkers', 'frostwalkers', 'thunderstepBoots', 'voidwalkers', 'celestialStriders'];
+
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -1142,6 +1196,10 @@ const sprites = {
   'arm-stormguardArmor.png': buildStormguardArmorIcon,
   'arm-celestialAegis.png': buildCelestialAegisIcon,
 };
+
+HELMET_KEYS.forEach((key, i) => { sprites[`hlm-${key}.png`] = () => buildHelmetIcon(tierColors(i)); });
+GLOVES_KEYS.forEach((key, i) => { sprites[`glv-${key}.png`] = () => buildGlovesIcon(tierColors(i)); });
+BOOTS_KEYS.forEach((key, i) => { sprites[`bts-${key}.png`] = () => buildBootsIcon(tierColors(i)); });
 
 for (const [filename, build] of Object.entries(sprites)) {
   const png = build();

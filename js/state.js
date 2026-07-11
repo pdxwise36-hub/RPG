@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -143,6 +143,29 @@ export function effectiveDef(player) {
 
 export function enchantLevel(player, slot, key) {
   return (player.enchantLevels && player.enchantLevels[slot] && player.enchantLevels[slot][key]) || 0;
+}
+
+// Helmets, Gloves, and Boots each carry their own unique mechanic instead of
+// flat ATK/DEF — these read the equipped piece the same way effectiveAtk/Def
+// read the weapon/armor.
+export function mpCostReduction(player) {
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction;
+}
+
+export function xpBonusPercent(player) {
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent;
+}
+
+export function critChance(player) {
+  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance;
+}
+
+export function dodgeChance(player) {
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance;
+}
+
+export function goldBonusPercent(player) {
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent;
 }
 
 // Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the

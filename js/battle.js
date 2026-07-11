@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, WEAPON_ORDER, ARMOR_ORDER, ngPlusMultiplier } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, applyLevelUps, ensurePetProgress } from './state.js';
+import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -74,8 +74,21 @@ function pushLog(battle, msg) {
   if (battle.log.length > 4) battle.log.shift();
 }
 
+// Boots give a chance to dodge an attack entirely, gloves give a chance for
+// the player's own hits to crit for double damage — rolled fresh each time.
+function rollDodge(player) {
+  return Math.random() * 100 < dodgeChance(player);
+}
+function rollCrit(player) {
+  return Math.random() * 100 < critChance(player);
+}
+
 function enemyStrikes(battle, state) {
   const player = state.player;
+  if (rollDodge(player)) {
+    pushLog(battle, `You dodge ${battle.enemy.name}'s attack!`);
+    return;
+  }
   const dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
   player.hp = Math.max(0, player.hp - dmg);
   pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
@@ -116,9 +129,11 @@ function afterPlayerAction(battle, state) {
 
 export function playerAttack(battle, state) {
   if (battle.over) return;
-  const dmg = damageRoll(effectiveAtk(state.player), battle.enemy.def);
+  let dmg = damageRoll(effectiveAtk(state.player), battle.enemy.def);
+  const crit = rollCrit(state.player);
+  if (crit) dmg *= 2;
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `You strike ${battle.enemy.name} for ${dmg}.`);
+  pushLog(battle, `${crit ? 'Critical hit! ' : ''}You strike ${battle.enemy.name} for ${dmg}.`);
   afterPlayerAction(battle, state);
 }
 
@@ -127,14 +142,17 @@ export function playerSkill(battle, state, skillKey) {
   const player = state.player;
   const skill = SKILLS[skillKey];
   if (!skill || !player.knownSkills.includes(skillKey)) return;
-  if (player.mp < skill.mpCost) {
+  const cost = Math.max(1, Math.round(skill.mpCost * (1 - mpCostReduction(player) / 100)));
+  if (player.mp < cost) {
     pushLog(battle, 'Not enough MP!');
     return;
   }
-  player.mp -= skill.mpCost;
-  const dmg = Math.max(2, Math.round(effectiveAtk(player) * skill.power) - battle.enemy.def);
+  player.mp -= cost;
+  let dmg = Math.max(2, Math.round(effectiveAtk(player) * skill.power) - battle.enemy.def);
+  const crit = rollCrit(player);
+  if (crit) dmg *= 2;
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `${skill.name} hits ${battle.enemy.name} for ${dmg}!`);
+  pushLog(battle, `${crit ? 'Critical hit! ' : ''}${skill.name} hits ${battle.enemy.name} for ${dmg}!`);
   afterPlayerAction(battle, state);
 }
 
@@ -183,14 +201,17 @@ export function playerRun(battle, state) {
 }
 
 // Returns { leveledUp, levels, petLeveledUp, petLevels } describing how many
-// level-ups occurred. The active pet earns the exact same XP as the player
-// from this kill and levels on the exact same curve, so it never lags
-// behind as long as it's been active the whole way.
+// level-ups occurred. The active pet earns the exact same (already-boosted)
+// XP as the player from this kill and levels on the exact same curve, so it
+// never lags behind as long as it's been active the whole way. Boots boost
+// gold found and a helm boosts XP gained, both applied here since every
+// kill (regular, boss, or Arena) funnels through this one function.
 export function grantRewards(state, enemyDef) {
   const player = state.player;
-  const goldWon = rand(enemyDef.goldMin, enemyDef.goldMax);
+  const goldWon = Math.round(rand(enemyDef.goldMin, enemyDef.goldMax) * (1 + goldBonusPercent(player) / 100));
+  const xpWon = Math.round(enemyDef.xp * (1 + xpBonusPercent(player) / 100));
   player.gold += goldWon;
-  player.xp += enemyDef.xp;
+  player.xp += xpWon;
   if (enemyDef.key) player.bestiary[enemyDef.key] = true;
   player.bountyProgress.kills += 1;
   player.bountyProgress.gold += goldWon;
@@ -207,12 +228,12 @@ export function grantRewards(state, enemyDef) {
   let petLevels = 0;
   if (player.activePetKey) {
     const progress = ensurePetProgress(player, player.activePetKey);
-    progress.xp += enemyDef.xp;
+    progress.xp += xpWon;
     petLevels = applyLevelUps(progress);
   }
 
   return {
-    goldWon, xpWon: enemyDef.xp,
+    goldWon, xpWon,
     leveledUp: levels > 0, levels,
     petLeveledUp: petLevels > 0, petLevels,
   };
@@ -229,21 +250,22 @@ function goldDrop(state, depth) {
   return amount;
 }
 
-// Picks an unowned weapon or armor piece, anchored to the current zone's
-// depth so early chests don't hand out endgame gear (or waste a drop on
-// something already outclassed). Searches outward from the anchor tier for
-// the nearest unowned piece; returns null only if every tier in that slot
-// is already owned.
+const GEAR_SLOT_KEYS = Object.keys(GEAR_SLOTS);
+
+// Picks an unowned piece from a random equipment slot, anchored to the
+// current zone's depth so early chests don't hand out endgame gear (or
+// waste a drop on something already outclassed). Searches outward from the
+// anchor tier for the nearest unowned piece; returns null only if every
+// tier in that slot is already owned.
 // Gear chests drop unidentified — the roll picks a real, specific item right
 // now (same anchored-to-depth logic as always), but it lands in
-// unidentifiedItems instead of ownedWeapons/ownedArmors. Deckard Cain
-// reveals (and grants ownership of) it later, for a fee.
+// unidentifiedItems instead of the slot's owned list. Deckard Cain reveals
+// (and grants ownership of) it later, for a fee.
 function rollGear(state, depth) {
   const player = state.player;
-  const isWeapon = Math.random() < 0.5;
-  const slot = isWeapon ? 'weapon' : 'armor';
-  const order = isWeapon ? WEAPON_ORDER : ARMOR_ORDER;
-  const owned = isWeapon ? player.ownedWeapons : player.ownedArmors;
+  const slot = GEAR_SLOT_KEYS[Math.floor(Math.random() * GEAR_SLOT_KEYS.length)];
+  const { order, ownedField } = GEAR_SLOTS[slot];
+  const owned = player[ownedField];
   const pending = player.unidentifiedItems.filter((u) => u.slot === slot).map((u) => u.key);
   const anchor = Math.max(0, Math.min(order.length - 1, depth + rand(-1, 1)));
   let key = null;

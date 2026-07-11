@@ -386,7 +386,7 @@ html, body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-areas:
-    ".      helm     ."
+    ".      helmet    ."
     "amulet portrait shield"
     "weapon armor    ring1"
     "gloves belt     boots"
@@ -399,7 +399,7 @@ html, body {
   border-radius: 12px;
   padding: 10px;
 }
-.slot-helm { grid-area: helm; }
+.slot-helmet { grid-area: helmet; }
 .slot-amulet { grid-area: amulet; }
 .slot-portrait { grid-area: portrait; }
 .slot-shield { grid-area: shield; }
