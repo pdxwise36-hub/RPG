@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, PETS, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
 import { effectiveAtk, effectiveDef, petEffectivePower, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 
 function rand(min, max) {
@@ -113,7 +113,7 @@ function checkEnemyDefeated(battle) {
 function petAttacks(battle, state) {
   const player = state.player;
   const petKey = player.activePetKey;
-  const pet = PETS[petKey];
+  const pet = ALL_PET_DEFS[petKey];
   if (!pet) return;
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * petEffectivePower(player, petKey)));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
@@ -181,6 +181,39 @@ export function playerItem(battle, state, itemKey) {
   const msg = consumeItem(state.player, itemKey);
   if (msg) pushLog(battle, msg);
   afterPlayerAction(battle, state);
+}
+
+// Pokemon-style capture: consumes a Capture Orb for a chance to add the
+// current enemy to ownedPets as a usable companion instead of defeating it
+// for the usual gold/XP/bestiary credit — catching is a genuine alternative
+// to a kill, not a strictly-better bonus on top of one. Bosses can never be
+// captured, so the boss-gated level chain is untouched by this system.
+export function playerCapture(battle, state, itemKey) {
+  if (battle.over) return;
+  const player = state.player;
+  const item = ITEMS[itemKey];
+  if (!item || !item.capture || (player.inventory[itemKey] || 0) <= 0) return;
+  if (battle.isBoss) {
+    pushLog(battle, `${battle.enemy.name} is too powerful to capture!`);
+    return;
+  }
+  if (player.ownedPets.includes(battle.enemy.key)) {
+    pushLog(battle, `You already have a ${battle.enemy.name}!`);
+    return;
+  }
+  player.inventory[itemKey] -= 1;
+  const hpPercent = battle.enemy.hp / battle.enemy.maxHp;
+  const chance = Math.min(0.95, item.captureBase + (1 - hpPercent) * item.captureHpBonus);
+  if (Math.random() < chance) {
+    player.ownedPets.push(battle.enemy.key);
+    if (!player.activePetKey) player.activePetKey = battle.enemy.key;
+    battle.over = true;
+    battle.result = 'captured';
+    pushLog(battle, `Gotcha! ${battle.enemy.name} was captured!`);
+  } else {
+    pushLog(battle, `The ${battle.enemy.name} broke free!`);
+    afterPlayerAction(battle, state);
+  }
 }
 
 export function playerRun(battle, state) {
@@ -300,9 +333,10 @@ export function rollChest(state) {
     const greaterChance = Math.min(0.5, depth * 0.04);
     const itemRoll = Math.random();
     let itemKey;
-    if (itemRoll < 0.4) itemKey = Math.random() < greaterChance ? 'greaterPotion' : 'potion';
-    else if (itemRoll < 0.7) itemKey = Math.random() < greaterChance ? 'greaterEther' : 'ether';
-    else itemKey = 'townScroll';
+    if (itemRoll < 0.3) itemKey = Math.random() < greaterChance ? 'greaterPotion' : 'potion';
+    else if (itemRoll < 0.55) itemKey = Math.random() < greaterChance ? 'greaterEther' : 'ether';
+    else if (itemRoll < 0.75) itemKey = 'townScroll';
+    else itemKey = Math.random() < greaterChance ? 'greaterCaptureOrb' : 'captureOrb';
     player.inventory[itemKey] = (player.inventory[itemKey] || 0) + 1;
     return { type: 'item', itemKey };
   }

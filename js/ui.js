@@ -1,8 +1,8 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -199,7 +199,7 @@ function renderBattle() {
 
   const petEl = el('pet-sprite');
   if (p.activePetKey) {
-    petEl.style.backgroundImage = `url('${PETS[p.activePetKey].sprite}')`;
+    petEl.style.backgroundImage = `url('${ALL_PET_DEFS[p.activePetKey].sprite}')`;
     petEl.classList.remove('hidden');
   } else {
     petEl.classList.add('hidden');
@@ -238,7 +238,7 @@ function resolveBattleEnd() {
     let msg = `Won ${rewards.goldWon}G and ${rewards.xpWon} XP.`;
     if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
     if (rewards.petLeveledUp) {
-      const pet = PETS[p.activePetKey];
+      const pet = ALL_PET_DEFS[p.activePetKey];
       msg += ` ${pet.name} is now Lv. ${petLevel(p, p.activePetKey)}!`;
     }
     if (battle.isBossRush) {
@@ -317,6 +317,11 @@ function resolveBattleEnd() {
     // whatever gold/XP each individual boss along the way already paid out.
     if (battle.isBossRush) bossRush = null;
     showScreen('gameover');
+  } else if (battle.result === 'captured') {
+    const pet = ALL_PET_DEFS[battle.enemy.key];
+    autosave();
+    goToMap();
+    showToast(`Gotcha! ${pet.name} joined your team!`, 2800);
   } else {
     goToMap();
   }
@@ -348,6 +353,22 @@ function renderItemMenu() {
     btn.disabled = !(p.inventory[item.key] > 0);
     btn.addEventListener('click', () => {
       playerItem(battle, state, item.key);
+      menu.classList.add('hidden');
+      el('battle-menu-main').classList.remove('hidden');
+      renderBattle();
+    });
+    menu.appendChild(btn);
+  });
+  CAPTURE_ITEMS.forEach((item) => {
+    const alreadyOwned = p.ownedPets.includes(battle.enemy.key);
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-battle';
+    if (battle.isBoss) btn.textContent = `${item.name} (can't catch a boss)`;
+    else if (alreadyOwned) btn.textContent = `${item.name} (already have it)`;
+    else btn.textContent = `${item.name} (${p.inventory[item.key] || 0})`;
+    btn.disabled = battle.isBoss || alreadyOwned || !(p.inventory[item.key] > 0);
+    btn.addEventListener('click', () => {
+      playerCapture(battle, state, item.key);
       menu.classList.add('hidden');
       el('battle-menu-main').classList.remove('hidden');
       renderBattle();
@@ -539,6 +560,23 @@ function buildTownScrollRow() {
 }
 
 
+// Capture Orbs need a live enemy to target, so unlike potions/ethers there's
+// no "Use" button here — just a read-only count, same info-row shape.
+function buildStatusCaptureRow(itemKey) {
+  const p = state.player;
+  const item = ITEMS[itemKey];
+  const count = p.inventory[itemKey] || 0;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">${item.desc} — Have ${count}</span>
+    </div>
+  `;
+  return row;
+}
+
 function renderStatus() {
   const p = state.player;
   const weapon = WEAPONS[p.weaponKey];
@@ -570,14 +608,16 @@ function renderStatus() {
     <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
-    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${PETS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
+    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${ALL_PET_DEFS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
     ${petDamageRow}
     ${petBar}
+    <div class="status-row"><span>Monsters Caught</span><span>${p.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
   `;
 
   body.appendChild(sectionHeading('Items'));
   CONSUMABLE_ITEMS.forEach((item) => body.appendChild(buildStatusItemRow(item.key)));
   body.appendChild(buildTownScrollRow());
+  CAPTURE_ITEMS.forEach((item) => body.appendChild(buildStatusCaptureRow(item.key)));
 }
 
 // Diablo-style paper doll: every functional slot always shows what's
@@ -633,7 +673,8 @@ function renderBestiary() {
       const row = document.createElement('div');
       row.className = 'status-row';
       const killed = !!p.bestiary[enemy.key];
-      row.innerHTML = `<span class="${killed ? 'bestiary-killed' : ''}">${enemy.name}</span>`;
+      const caught = p.ownedPets.includes(enemy.key);
+      row.innerHTML = `<span class="${killed ? 'bestiary-killed' : ''}">${enemy.name}</span>${caught ? '<span class="bestiary-caught">Caught</span>' : ''}`;
       body.appendChild(row);
     });
     const bossRow = document.createElement('div');
@@ -973,25 +1014,36 @@ function renderTamer() {
   noneRow.appendChild(noneBtn);
   list.appendChild(noneRow);
 
-  Object.values(PETS).forEach((pet) => list.appendChild(buildTamerRow(pet)));
+  // Companions can come from the Tamer's own catalog or from capturing wild
+  // monsters in battle — both live in the same ownedPets list, so this
+  // section lists whichever ones you actually have before the shop catalog
+  // of ones you don't.
+  if (p.ownedPets.length > 0) {
+    list.appendChild(sectionHeading('Your Companions'));
+    p.ownedPets
+      .map((key) => ALL_PET_DEFS[key])
+      .filter(Boolean)
+      .sort((a, b) => a.power - b.power)
+      .forEach((pet) => list.appendChild(buildCompanionRow(pet)));
+  }
+
+  list.appendChild(sectionHeading('Adopt a Pet'));
+  Object.values(PETS).filter((pet) => !p.ownedPets.includes(pet.key)).forEach((pet) => list.appendChild(buildTamerRow(pet)));
 }
 
-function buildTamerRow(pet) {
+// Any owned companion (bought or caught) — Select/Active only, no buy flow.
+function buildCompanionRow(pet) {
   const p = state.player;
-  const owned = p.ownedPets.includes(pet.key);
   const isActive = p.activePetKey === pet.key;
   const level = petLevel(p, pet.key);
   const powerPct = Math.round(petEffectivePower(p, pet.key) * 100);
-  const statLabel = owned
-    ? `Lv. ${level} — +${powerPct}% ATK per turn`
-    : `+${Math.round(pet.power * 100)}% ATK per turn`;
 
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
     <div class="shop-item-info">
       <span class="shop-item-name">${pet.name}</span>
-      <span class="shop-item-desc">${statLabel} — ${owned ? 'Owned' : pet.price + 'G'}</span>
+      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -999,25 +1051,41 @@ function buildTamerRow(pet) {
   if (isActive) {
     btn.textContent = 'Active';
     btn.disabled = true;
-  } else if (owned) {
+  } else {
     btn.textContent = 'Select';
     btn.addEventListener('click', () => {
       p.activePetKey = pet.key;
       autosave();
       renderTamer();
     });
-  } else {
-    btn.textContent = 'Adopt';
-    btn.disabled = p.gold < pet.price;
-    btn.addEventListener('click', () => {
-      if (p.gold < pet.price) return;
-      p.gold -= pet.price;
-      p.ownedPets.push(pet.key);
-      p.activePetKey = pet.key;
-      autosave();
-      renderTamer();
-    });
   }
+  row.appendChild(btn);
+  return row;
+}
+
+// Only called for pets not yet owned — always the "Adopt" flow.
+function buildTamerRow(pet) {
+  const p = state.player;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${pet.name}</span>
+      <span class="shop-item-desc">+${Math.round(pet.power * 100)}% ATK per turn — ${pet.price}G</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  btn.textContent = 'Adopt';
+  btn.disabled = p.gold < pet.price;
+  btn.addEventListener('click', () => {
+    if (p.gold < pet.price) return;
+    p.gold -= pet.price;
+    p.ownedPets.push(pet.key);
+    p.activePetKey = pet.key;
+    autosave();
+    renderTamer();
+  });
   row.appendChild(btn);
   return row;
 }

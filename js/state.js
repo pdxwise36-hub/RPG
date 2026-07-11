@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, MAPS, PETS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -201,7 +201,7 @@ export function petLevel(player, petKey) {
 }
 
 export function petEffectivePower(player, petKey) {
-  const pet = PETS[petKey];
+  const pet = ALL_PET_DEFS[petKey];
   if (!pet) return 0;
   const level = petLevel(player, petKey);
   return pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);

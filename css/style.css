@@ -351,6 +351,7 @@ html, body {
 .status-tabs .tab-active { background: var(--gold); color: #2a1e0a; border-color: var(--gold); }
 
 .bestiary-killed { text-decoration: line-through; color: var(--text-dim); opacity: 0.6; }
+.bestiary-caught { font-size: 0.75rem; color: var(--gold-bright); white-space: nowrap; }
 .achievement-status { font-size: 0.8rem; color: var(--text-dim); white-space: nowrap; }
 
 .inventory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }

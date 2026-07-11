@@ -224,7 +224,7 @@ export const PLAYER_BASE = {
   activePetKey: null,
   petProgress: {},
   arenaBestWave: 0,
-  inventory: { potion: 3, ether: 0 },
+  inventory: { potion: 3, ether: 0, captureOrb: 1 },
   // Marks an enemy key true the first time it's ever been defeated, so the
   // Bestiary can show which monsters in each level you've already killed.
   bestiary: {},
@@ -543,6 +543,36 @@ export const LEVEL_CHAIN = (() => {
   return order;
 })();
 
+// Every non-boss monster across every zone is a potential companion — catch
+// one in battle (see playerCapture in battle.js) instead of defeating it for
+// loot, and it fights beside you exactly like a Tamer-bought pet (same
+// {key, name, sprite, power} shape, same lockstep leveling). `power` scales
+// with how deep its zone is, so a wild catch from a late zone is a
+// genuinely stronger companion than anything buyable — bosses are excluded
+// entirely so capture can never bypass the boss-gated level chain.
+function capturePower(depth) {
+  return Math.round((0.25 + depth * 0.09) * 100) / 100;
+}
+
+export const CAPTURABLE_MONSTERS = LEVEL_CHAIN.flatMap((mapId) => {
+  const map = MAPS[mapId];
+  return Object.values(map.enemyPool).map((enemy) => ({
+    key: enemy.key, name: enemy.name, sprite: enemy.sprite,
+    power: capturePower(map.depth), zoneName: map.name,
+  }));
+});
+export const CAPTURABLE_KEYS = new Set(CAPTURABLE_MONSTERS.map((m) => m.key));
+
+// One combined lookup for "the pet definition behind this key," whether it
+// was bought from the Tamer or caught in the wild — battle.js's petAttacks,
+// state.js's petEffectivePower, and every pet-display spot in ui.js read
+// through this instead of PETS alone. Monster and pet keys never collide
+// (disjoint naming), so a plain merge is safe.
+export const ALL_PET_DEFS = {
+  ...PETS,
+  ...Object.fromEntries(CAPTURABLE_MONSTERS.map((m) => [m.key, m])),
+};
+
 // Permanent milestones, checked on every autosave (see checkAchievements in
 // ui.js). Each `check` reads live state; once earned, state.player.achievements
 // stays true forever regardless of whether the condition still holds (e.g.
@@ -570,7 +600,15 @@ export const ACHIEVEMENTS = [
   },
   {
     key: 'petCollector', name: 'Pet Collector', desc: 'Adopt all 10 pets.', rewardGold: 200,
-    check: (state) => state.player.ownedPets.length >= Object.keys(PETS).length,
+    check: (state) => Object.keys(PETS).every((k) => state.player.ownedPets.includes(k)),
+  },
+  {
+    key: 'wildCatcher', name: 'Wild Catcher', desc: 'Capture 10 different wild monsters.', rewardGold: 150,
+    check: (state) => state.player.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length >= 10,
+  },
+  {
+    key: 'monsterTamer', name: 'Monster Tamer', desc: 'Capture every capturable monster in the realm.', rewardGold: 600,
+    check: (state) => CAPTURABLE_MONSTERS.every((m) => state.player.ownedPets.includes(m.key)),
   },
   {
     key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400,
@@ -628,11 +666,24 @@ export const ITEMS = {
   greaterPotion: { key: 'greaterPotion', name: 'Greater Potion', desc: 'Restores 60 HP', price: 24, heal: 60 },
   greaterEther: { key: 'greaterEther', name: 'Greater Ether', desc: 'Restores 30 MP', price: 30, mp: 30 },
   townScroll: { key: 'townScroll', name: 'Town Scroll', desc: 'Teleports you back to town', price: 25 },
+  captureOrb: {
+    key: 'captureOrb', name: 'Capture Orb', desc: 'A chance to capture a wild monster', price: 20,
+    capture: true, captureBase: 0.15, captureHpBonus: 0.55,
+  },
+  greaterCaptureOrb: {
+    key: 'greaterCaptureOrb', name: 'Greater Capture Orb', desc: 'A much better chance to capture a wild monster', price: 55,
+    capture: true, captureBase: 0.3, captureHpBonus: 0.65,
+  },
 };
 
 // Any item with a heal or mp field is a usable consumable — shown in the
 // battle Item submenu and the Status screen's Items section alike, so a
 // new potion/ether tier never needs its own hardcoded button.
 export const CONSUMABLE_ITEMS = Object.values(ITEMS).filter((item) => item.heal || item.mp);
+
+// Capture Orbs only make sense as a battle action (they need a live target),
+// so they're listed separately from CONSUMABLE_ITEMS rather than mixed in
+// with the out-of-battle-usable heal/mp items.
+export const CAPTURE_ITEMS = Object.values(ITEMS).filter((item) => item.capture);
 
 export const SAVE_KEY = 'emberfall-save-v1';
