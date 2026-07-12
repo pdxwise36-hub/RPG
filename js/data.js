@@ -173,6 +173,47 @@ export const SKILLS = {
 // iterating the array as-is.
 export const SKILL_ORDER = Object.keys(SKILLS);
 
+// Each vendor's 12 skills split into two 6-skill branches — a genuine
+// choice of path rather than one long line, without needing a full graph
+// editor: each branch is its own straight chain (skill N requires skill
+// N-1 already known, in the SAME branch only), gated additionally by
+// character level per tier. fireball sits outside the tree entirely as the
+// innate starting skill.
+export const SKILL_TREES = {
+  knight: {
+    vendor: 'knight',
+    branches: {
+      guardian: { name: "Guardian's Path", skills: ['shieldBash', 'piercingThrust', 'counterStrike', 'whirlwind', 'earthbreaker', 'executionersEdge'] },
+      warlord: { name: "Warlord's Path", skills: ['powerStrike', 'cleave', 'berserkerRage', 'rendingSlash', 'bladeStorm', 'titansFury'] },
+    },
+  },
+  mage: {
+    vendor: 'mage',
+    branches: {
+      frostfire: { name: 'Frostfire Path', skills: ['spark', 'frostBolt', 'flameWave', 'thunderbolt', 'meteor', 'hellfire'] },
+      storm: { name: "Stormcaller's Path", skills: ['iceShard', 'arcaneMissile', 'lightningChain', 'voidRay', 'blizzard', 'starfall'] },
+    },
+  },
+};
+export const SKILL_TREE_LEVEL_REQS = [1, 5, 10, 15, 20, 28];
+
+const SKILL_TREE_INFO = {};
+Object.values(SKILL_TREES).forEach((tree) => {
+  Object.values(tree.branches).forEach((branch) => {
+    branch.skills.forEach((skillKey, i) => {
+      SKILL_TREE_INFO[skillKey] = {
+        branchName: branch.name,
+        tierIndex: i,
+        prereqKey: i > 0 ? branch.skills[i - 1] : null,
+        levelReq: SKILL_TREE_LEVEL_REQS[i],
+      };
+    });
+  });
+});
+export function skillTreeInfo(skillKey) {
+  return SKILL_TREE_INFO[skillKey] || null;
+}
+
 // Every companion — Tamer-bought or wild-caught — learns one passive
 // ability once it reaches COMPANION_ABILITY_LEVEL, sourced from this small
 // shared pool instead of 49 hand-authored bespoke abilities. Each reuses an

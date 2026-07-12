@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petIsEvolved, petDisplayName, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -633,6 +633,10 @@ function renderStatus() {
   CONSUMABLE_ITEMS.forEach((item) => body.appendChild(buildStatusItemRow(item.key)));
   body.appendChild(buildTownScrollRow());
   CAPTURE_ITEMS.forEach((item) => body.appendChild(buildStatusCaptureRow(item.key)));
+
+  // Charms can be swapped right here — no trip to the Pet Tamer needed.
+  body.appendChild(sectionHeading('Companion Charm'));
+  CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => body.appendChild(buildCharmRow(CHARMS[key], renderStatus)));
 }
 
 // Diablo-style paper doll: every functional slot always shows what's
@@ -1048,7 +1052,7 @@ function renderTamer() {
   // Charms are chest-only finds, never sold here — just an Equip list over
   // whatever you've already picked up (the free "No Charm" is always owned).
   list.appendChild(sectionHeading('Companion Charm'));
-  CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => list.appendChild(buildCharmRow(CHARMS[key])));
+  CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => list.appendChild(buildCharmRow(CHARMS[key], renderTamer)));
 }
 
 // Any owned companion (bought or caught) — Select/Active only, no buy flow.
@@ -1090,7 +1094,10 @@ function buildCompanionRow(pet) {
 }
 
 // Charms are never bought — Equip/Equipped only, over whatever's been found.
-function buildCharmRow(charm) {
+// `onEquip` re-renders whichever screen the row lives in — both the Tamer
+// and the Status screen list owned charms, so equipping one works from
+// wherever the player happens to be, not just a trip to Town.
+function buildCharmRow(charm, onEquip) {
   const p = state.player;
   const isEquipped = p.charmKey === charm.key;
   const row = document.createElement('div');
@@ -1112,7 +1119,7 @@ function buildCharmRow(charm) {
     btn.addEventListener('click', () => {
       p.charmKey = charm.key;
       autosave();
-      renderTamer();
+      onEquip();
     });
   }
   row.appendChild(btn);
@@ -1146,43 +1153,66 @@ function buildTamerRow(pet) {
   return row;
 }
 
-// ---------- Knight / Mage skill vendors ----------
+// ---------- Knight / Mage skill trees ----------
+// Each vendor's 12 skills are laid out as two 6-skill branches (see
+// SKILL_TREES in data.js) — a row per skill, grouped under its branch
+// heading in tier order, locked until its prerequisite (the previous skill
+// in the SAME branch) is known and the character has reached that tier's
+// level requirement.
 function renderVendor(vendorKey, goldElId, listElId) {
   const p = state.player;
   el(goldElId).textContent = p.gold;
   const list = el(listElId);
   list.innerHTML = '';
-  Object.values(SKILLS)
-    .filter((s) => s.vendor === vendorKey)
-    .forEach((skill) => {
-      const known = p.knownSkills.includes(skill.key);
-      const row = document.createElement('div');
-      row.className = 'shop-item';
-      row.innerHTML = `
-        <div class="shop-item-info">
-          <span class="shop-item-name">${skill.name}</span>
-          <span class="shop-item-desc">${skill.mpCost} MP, power ${skill.power}x — ${known ? 'Known' : skill.price + 'G'}</span>
-        </div>
-      `;
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-small';
-      if (known) {
-        btn.textContent = 'Known';
-        btn.disabled = true;
-      } else {
-        btn.textContent = 'Learn';
-        btn.disabled = p.gold < skill.price;
-        btn.addEventListener('click', () => {
-          if (p.gold < skill.price) return;
-          p.gold -= skill.price;
-          p.knownSkills.push(skill.key);
-          autosave();
-          renderVendor(vendorKey, goldElId, listElId);
-        });
-      }
-      row.appendChild(btn);
-      list.appendChild(row);
+  Object.values(SKILL_TREES[vendorKey].branches).forEach((branch) => {
+    list.appendChild(sectionHeading(branch.name));
+    branch.skills.forEach((skillKey) => list.appendChild(buildSkillTreeRow(skillKey, vendorKey, goldElId, listElId)));
+  });
+}
+
+function buildSkillTreeRow(skillKey, vendorKey, goldElId, listElId) {
+  const p = state.player;
+  const skill = SKILLS[skillKey];
+  const info = skillTreeInfo(skillKey);
+  const known = p.knownSkills.includes(skillKey);
+  const prereqMet = !info.prereqKey || p.knownSkills.includes(info.prereqKey);
+  const levelMet = p.level >= info.levelReq;
+
+  let statusText;
+  if (known) statusText = 'Known';
+  else if (!prereqMet) statusText = `Requires ${SKILLS[info.prereqKey].name}`;
+  else if (!levelMet) statusText = `Requires Lv. ${info.levelReq}`;
+  else statusText = `${skill.price}G`;
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${skill.name}</span>
+      <span class="shop-item-desc">${skill.mpCost} MP, power ${skill.power}x — ${statusText}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (known) {
+    btn.textContent = 'Known';
+    btn.disabled = true;
+  } else if (!prereqMet || !levelMet) {
+    btn.textContent = 'Locked';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Learn';
+    btn.disabled = p.gold < skill.price;
+    btn.addEventListener('click', () => {
+      if (p.gold < skill.price) return;
+      p.gold -= skill.price;
+      p.knownSkills.push(skillKey);
+      autosave();
+      renderVendor(vendorKey, goldElId, listElId);
     });
+  }
+  row.appendChild(btn);
+  return row;
 }
 
 function renderKnight() { renderVendor('knight', 'knight-gold', 'knight-list'); }
