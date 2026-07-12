@@ -120,6 +120,7 @@ const PALETTES = {
   bonewastes: makeTheme({ grass: '#3a3530', path: '#5a5248', water: '#151210', tree: '#201d18', boss: '#8a5aae' }),
   chaosrift: makeTheme({ grass: '#2a0a25', path: '#4a1a40', water: '#100510', tree: '#180814', boss: '#c92f9f' }),
   throneofeternity: makeTheme({ grass: '#4a4025', path: '#6a5f3a', water: '#2a2510', tree: '#1a1810', boss: '#f4d84d' }),
+  abyssaldepths: makeTheme({ grass: '#150a1a', path: '#2a1530', water: '#050208', tree: '#0d0612', boss: '#e02fb0' }),
 };
 
 // Generic per-theme decoration accents (speckle/water/tree rendering), keyed
@@ -132,7 +133,7 @@ const THEME_MOOD = {
   shatteredpeaks: 'frost', blightmarsh: 'arcane', crystalcaverns: 'frost',
   shadowfen: 'arcane', celestial: 'frost', voidrift: 'arcane',
   ashenwastes: 'ember', stormcitadel: 'frost', bonewastes: 'arcane',
-  chaosrift: 'arcane', throneofeternity: 'warm',
+  chaosrift: 'arcane', throneofeternity: 'warm', abyssaldepths: 'arcane',
 };
 
 const BOSS_CLEARED_COLOR = '#caa53d';

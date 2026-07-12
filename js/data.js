@@ -133,6 +133,18 @@ export const GEAR_SLOTS = {
   boots: { registry: BOOTS, order: BOOTS_ORDER, ownedField: 'ownedBoots', equipField: 'bootsKey', label: 'Boots' },
 };
 
+// Wearing all 5 top-tier Celestial pieces at once (equipped, not just
+// owned) grants a bonus on top of each piece's own stats — the Celestial
+// tier already shares a name across every slot, so this reuses that
+// existing naming rather than inventing a separate set-item system.
+export const SET_BONUSES = [
+  {
+    key: 'celestialSet', name: 'Celestial Radiance',
+    pieces: { weapon: 'celestialEdge', armor: 'celestialAegis', helmet: 'celestialCrown', gloves: 'celestialGauntlets', boots: 'celestialStriders' },
+    bonus: { atk: 15, def: 15, critChance: 10, dodgeChance: 10, mpCostReduction: 10, xpBonusPercent: 10, goldBonusPercent: 10 },
+  },
+];
+
 // Both the Knight and the Master Mage teach permanent skills for gold — they
 // share one mechanic (spend MP, hit for atk*power - def) so "physical skill"
 // vs "spell" is flavor only, not a separate stat.
@@ -262,6 +274,13 @@ export const PETS = {
 // the player.
 export const PET_LEVEL_POWER_BONUS = 0.15;
 
+// A small chance for a companion to come out "Shiny" the moment it's first
+// acquired (captured or adopted) — permanent once rolled, a flat power
+// bonus and a distinct glow (see .pet-shiny in style.css) alongside — not
+// instead of — the Evolved state, which is purely level-based.
+export const SHINY_CHANCE = 0.05;
+export const SHINY_POWER_MULTIPLIER = 1.15;
+
 // A single equippable trinket that boosts whichever companion is currently
 // active — found only in chests, never sold, so unlike the player's own
 // gear there's no Buy flow, just Equip. Ten tiers, same price-curve shape
@@ -348,6 +367,12 @@ export const PLAYER_BASE = {
   // "Fusionist" achievement.
   fusionBonus: {},
   fusionCount: 0,
+  // Companion keys that rolled Shiny on first acquisition — permanent.
+  shinyPets: [],
+  // Lifetime totals, never reset (unlike bountyProgress, which rerolls
+  // daily) — feeds the Hall of Legacy tab.
+  lifetimeKills: 0,
+  lifetimeGoldEarned: 0,
   arenaBestWave: 0,
   inventory: { potion: 3, ether: 0, captureOrb: 1 },
   // Marks an enemy key true the first time it's ever been defeated, so the
@@ -544,6 +569,19 @@ export const ETERNAL_SOVEREIGN = {
   key: 'eternalsovereign', name: 'The Eternal Sovereign', maxHp: 1000, atk: 62, def: 40, xp: 3000, goldMin: 3000, goldMax: 3000, sprite: 'icons/sprites/eternalsovereign.png',
 };
 
+// Post-game only — see the "Descend into the Abyss" Town button, shown
+// only once the true ending achievement is earned. Not linked in via
+// nextMap (that would replace the true-ending victory screen with a mere
+// "the way onward has opened" toast), so it's appended to LEVEL_CHAIN by
+// hand below instead of being discovered by walking nextMap links.
+export const ABYSSAL_ENEMIES = {
+  mawOfTheDeep: { key: 'mawOfTheDeep', name: 'Maw of the Deep', maxHp: 210, atk: 54, def: 29, xp: 165, goldMin: 150, goldMax: 160, weight: 4, sprite: 'icons/sprites/mawofthedeep.png' },
+  gloomfang: { key: 'gloomfang', name: 'Gloomfang', maxHp: 220, atk: 56, def: 30, xp: 172, goldMin: 155, goldMax: 165, weight: 3, sprite: 'icons/sprites/gloomfang.png' },
+};
+export const FORMLESS_KING = {
+  key: 'formlessking', name: 'The Formless King', maxHp: 1100, atk: 66, def: 42, xp: 3300, goldMin: 3300, goldMax: 3300, sprite: 'icons/sprites/formlessking.png',
+};
+
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
 // ui.js all key off state.mapId instead of hardcoding a single map). Layouts
 // are no longer stored here — mapgen.js procedurally builds a fresh grid for
@@ -572,6 +610,7 @@ export const MAPS = {
     id: 'frostreach', name: 'The Frostreach', theme: 'frostreach', depth: 2,
     bossEnemy: GLACIAL_TITAN, bossFlag: 'titanDefeated', enemyPool: FROSTREACH_ENEMIES,
     nextMap: { mapId: 'spire' },
+    hazard: { type: 'Frostbite', chance: 0.15, damagePercent: 0.04 },
   },
   spire: {
     id: 'spire', name: "The Dragon's Spire", theme: 'spire', depth: 3,
@@ -597,6 +636,7 @@ export const MAPS = {
     id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic', depth: 7,
     bossEnemy: MOLTEN_WYRM, bossFlag: 'moltenWyrmDefeated', enemyPool: VOLCANIC_ENEMIES,
     nextMap: { mapId: 'shatteredpeaks' },
+    hazard: { type: 'Scorching heat', chance: 0.15, damagePercent: 0.04 },
   },
   shatteredpeaks: {
     id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks', depth: 8,
@@ -607,6 +647,7 @@ export const MAPS = {
     id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh', depth: 9,
     bossEnemy: ROTLORD, bossFlag: 'rotlordDefeated', enemyPool: BLIGHTMARSH_ENEMIES,
     nextMap: { mapId: 'crystalcaverns' },
+    hazard: { type: 'Toxic fumes', chance: 0.15, damagePercent: 0.04 },
   },
   crystalcaverns: {
     id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns', depth: 10,
@@ -653,6 +694,14 @@ export const MAPS = {
     bossEnemy: ETERNAL_SOVEREIGN, bossFlag: 'eternalSovereignDefeated', enemyPool: THRONEOFETERNITY_ENEMIES,
     // No nextMap — defeating the Eternal Sovereign is the true ending.
   },
+  // Post-game only — reached via a Town button (see ui.js), not the normal
+  // nextMap chain. No nextMap of its own either: it's a dead-end, farmable
+  // endgame zone same as any other, not a new "true ending."
+  abyssaldepths: {
+    id: 'abyssaldepths', name: 'The Abyssal Depths', theme: 'abyssaldepths', depth: 19,
+    bossEnemy: FORMLESS_KING, bossFlag: 'formlessKingDefeated', enemyPool: ABYSSAL_ENEMIES,
+    hazard: { type: 'The Abyss itself', chance: 0.15, damagePercent: 0.05 },
+  },
 };
 
 // The level chain in progression order (Town excluded), derived by walking
@@ -665,6 +714,10 @@ export const LEVEL_CHAIN = (() => {
     order.push(cur);
     cur = MAPS[cur].nextMap ? MAPS[cur].nextMap.mapId : null;
   }
+  // The Abyssal Depths isn't linked via nextMap (see its comment in MAPS
+  // above), so it's appended by hand — this is what makes it show up in
+  // the World Map, Bestiary, and the "every boss/monster" achievements.
+  order.push('abyssaldepths');
   return order;
 })();
 
@@ -754,6 +807,10 @@ export const ACHIEVEMENTS = [
   {
     key: 'rivalDefeated', name: 'Rival Defeated', desc: "Clear the Rival's full team in one duel.", rewardGold: 250,
     check: (state) => !!state.flags.rivalDefeated,
+  },
+  {
+    key: 'shinyHunter', name: 'Shiny Hunter', desc: 'Acquire a Shiny companion.', rewardGold: 150,
+    check: (state) => (state.player.shinyPets || []).length > 0,
   },
   {
     key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400,

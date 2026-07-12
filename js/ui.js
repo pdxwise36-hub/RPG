@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petIsEvolved, petDisplayName, petAbilities, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SHINY_CHANCE, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetBonus, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -106,6 +106,7 @@ function handleMove(dir) {
   if (result.type === 'town') {
     autosave();
     el('btn-town-ngplus').classList.toggle('hidden', !state.player.achievements.trueEnding);
+    el('btn-town-abyss').classList.toggle('hidden', !state.player.achievements.trueEnding);
     showModal('modal-town');
     return;
   }
@@ -208,6 +209,7 @@ function renderBattle() {
     petEl.style.backgroundImage = `url('${ALL_PET_DEFS[p.activePetKey].sprite}')`;
     petEl.classList.remove('hidden');
     petEl.classList.toggle('pet-evolved', petIsEvolved(p, p.activePetKey));
+    petEl.classList.toggle('pet-shiny', petIsShiny(p, p.activePetKey));
   } else {
     petEl.classList.add('hidden');
   }
@@ -508,7 +510,7 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body' };
+const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
@@ -516,6 +518,7 @@ function showStatusTab(tab) {
   });
   if (tab === 'bestiary') renderBestiary();
   if (tab === 'achievements') renderAchievements();
+  if (tab === 'legacy') renderLegacy();
 }
 
 // Weapon/Armor add flat ATK/DEF; Helmet/Gloves/Boots each carry their own
@@ -642,12 +645,17 @@ function renderStatus() {
       <span class="bar-text">${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP</span>
     </div>
   ` : '';
+  const set = activeSetBonus(p);
+  const setBonusRow = set ? `
+    <div class="status-row"><span>Set Bonus</span><span>${set.name} — Active</span></div>
+  ` : '';
 
   body.innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
     <div class="status-row"><span>Attack</span><span>${effectiveAtk(p)} (${p.baseAtk}+${weapon.atkBonus})</span></div>
     <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
+    ${setBonusRow}
     <div class="status-row"><span>Crit Chance</span><span>${critChance(p)}%</span></div>
     <div class="status-row"><span>Dodge Chance</span><span>${dodgeChance(p)}%</span></div>
     <div class="status-row"><span>Skill Cost / XP / Gold</span><span>-${mpCostReduction(p)}% / +${xpBonusPercent(p)}% / +${goldBonusPercent(p)}%</span></div>
@@ -756,6 +764,36 @@ function renderAchievements() {
     `;
     body.appendChild(row);
   });
+}
+
+// ---------- Hall of Legacy ----------
+// A single aggregated "how far have you gotten" screen, mostly derived
+// from state already tracked elsewhere (bestiary, achievements, flags,
+// ownedPets/Charms) plus two new lifetime counters (kills, gold earned)
+// that — unlike bountyProgress — never reset.
+function renderLegacy() {
+  const p = state.player;
+  const body = el('legacy-body');
+  const bossesDefeated = LEVEL_CHAIN.filter((id) => state.flags[MAPS[id].bossFlag]).length;
+  const totalMonsters = LEVEL_CHAIN.reduce((sum, id) => sum + Object.keys(MAPS[id].enemyPool).length, 0);
+  const monstersKilled = LEVEL_CHAIN.reduce((sum, id) => sum + Object.keys(MAPS[id].enemyPool).filter((k) => p.bestiary[k]).length, 0);
+  const achievementsUnlocked = ACHIEVEMENTS.filter((a) => p.achievements[a.key]).length;
+  const totalCompanions = Object.keys(ALL_PET_DEFS).length;
+  const totalCharms = CHARM_ORDER.length - 1; // "No Charm" doesn't count as a find
+
+  body.innerHTML = `
+    <div class="status-row"><span>Character</span><span>Lv. ${p.level}${p.ngPlusLevel > 0 ? ` (NG+${p.ngPlusLevel})` : ''}</span></div>
+    <div class="status-row"><span>Lifetime Kills</span><span>${p.lifetimeKills || 0}</span></div>
+    <div class="status-row"><span>Lifetime Gold Earned</span><span>${p.lifetimeGoldEarned || 0}</span></div>
+    <div class="status-row"><span>Gold on Hand</span><span>${p.gold}</span></div>
+    <div class="status-row"><span>Bosses Defeated</span><span>${bossesDefeated}/${LEVEL_CHAIN.length}</span></div>
+    <div class="status-row"><span>Bestiary</span><span>${monstersKilled}/${totalMonsters}</span></div>
+    <div class="status-row"><span>Companions Owned</span><span>${p.ownedPets.length}/${totalCompanions}</span></div>
+    <div class="status-row"><span>Shiny Companions</span><span>${(p.shinyPets || []).length}</span></div>
+    <div class="status-row"><span>Charms Found</span><span>${Math.max(0, p.ownedCharms.length - 1)}/${totalCharms}</span></div>
+    <div class="status-row"><span>Achievements</span><span>${achievementsUnlocked}/${ACHIEVEMENTS.length}</span></div>
+    <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
+  `;
 }
 
 // ---------- Armory ----------
@@ -1125,6 +1163,7 @@ function buildCompanionRow(pet) {
   const isActive = p.activePetKey === pet.key;
   const level = petLevel(p, pet.key);
   const evolved = petIsEvolved(p, pet.key);
+  const shiny = petIsShiny(p, pet.key);
   const powerPct = Math.round(petEffectivePower(p, pet.key) * 100);
   const abilityNames = petAbilities(p, pet.key).map((k) => COMPANION_ABILITIES[k].name);
   const abilityLabel = abilityNames.length > 0
@@ -1135,8 +1174,9 @@ function buildCompanionRow(pet) {
 
   const row = document.createElement('div');
   row.className = 'shop-item';
+  const iconClass = `${evolved ? ' pet-evolved' : ''}${shiny ? ' pet-shiny' : ''}`;
   row.innerHTML = `
-    <div class="shop-item-icon${evolved ? ' pet-evolved' : ''}" style="background-image:url('${pet.sprite}')"></div>
+    <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${petDisplayName(p, pet.key)}</span>
       <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}${fusionLabel}</span>
@@ -1252,8 +1292,11 @@ function buildTamerRow(pet) {
     if (p.gold < pet.price) return;
     p.gold -= pet.price;
     p.ownedPets.push(pet.key);
+    const shiny = Math.random() < SHINY_CHANCE;
+    if (shiny) p.shinyPets.push(pet.key);
     p.activePetKey = pet.key;
     autosave();
+    if (shiny) showToast(`It's Shiny! ${petDisplayName(p, pet.key)} joined your team!`, 2800);
     renderTamer();
   });
   row.appendChild(btn);
@@ -1363,6 +1406,7 @@ function wireEvents() {
   el('tab-status').addEventListener('click', () => showStatusTab('status'));
   el('tab-bestiary').addEventListener('click', () => showStatusTab('bestiary'));
   el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
+  el('tab-legacy').addEventListener('click', () => showStatusTab('legacy'));
 
   el('btn-character').addEventListener('click', () => {
     renderInventoryModal();
@@ -1403,6 +1447,10 @@ function wireEvents() {
   el('btn-town-ngplus').addEventListener('click', () => {
     hideModal('modal-town');
     showModal('modal-ngplus-confirm');
+  });
+  el('btn-town-abyss').addEventListener('click', () => {
+    hideModal('modal-town');
+    travelToLevel('abyssaldepths');
   });
   el('btn-town-leave').addEventListener('click', () => {
     hideModal('modal-town');

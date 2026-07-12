@@ -989,6 +989,23 @@ const buildEternalSovereign = () => buildDragonBossTemplate({
   'h': [255, 255, 255, 255], 'e': [120, 180, 255, 255], 'j': [180, 160, 100, 255],
 });
 
+// ---------- Zone 20: The Abyssal Depths (post-game, unlocked from Town
+// only after the true ending) — a bone-pale biped, a near-black quadruped,
+// and a void-purple robed boss, distinct in both shape and palette from
+// anything earlier in the chain.
+const buildMawOfTheDeep = () => buildBipedTemplate({
+  'k': [75, 72, 85, 255], 'd': [38, 36, 45, 255], 'v': [55, 52, 65, 255],
+  'r': [140, 225, 95, 255], 'w': [48, 46, 58, 255], 'o': [18, 17, 22, 255],
+});
+const buildGloomfang = () => buildQuadrupedTemplate({
+  'b': [28, 22, 38, 255], 'd': [12, 9, 18, 255], 'e': [190, 255, 250, 255],
+});
+const buildFormlessKing = () => buildRobedBossTemplate({
+  'k': [45, 22, 55, 255], 'e': [255, 60, 200, 255], 'j': [15, 8, 20, 255],
+  'r': [12, 6, 22, 255], 'r2': [38, 16, 58, 255], 'd': [6, 3, 10, 255],
+  'w': [62, 42, 82, 255], 'o': [225, 42, 182, 255],
+});
+
 // ---------- Inventory icons — small item art for the Armory/Enchant/
 // Inventory grids. Same "one shared template, recolor per tier" approach
 // as the monster/boss templates above.
@@ -1185,6 +1202,11 @@ const sprites = {
   'eternalguardian.png': buildEternalGuardian,
   'timelesswraith.png': buildTimelessWraith,
   'eternalsovereign.png': buildEternalSovereign,
+
+  // ---------- Zone 20: The Abyssal Depths (post-game) ----------
+  'mawofthedeep.png': buildMawOfTheDeep,
+  'gloomfang.png': buildGloomfang,
+  'formlessking.png': buildFormlessKing,
 
   'wpn-rustySword.png': buildRustySwordIcon,
   'wpn-ironSword.png': buildIronSwordIcon,

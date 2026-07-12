@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
 import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 
 function rand(min, max) {
@@ -84,21 +84,38 @@ function rollCrit(player) {
   return Math.random() * 100 < critChance(player) + companionAbilityBonus(player, 'berserker');
 }
 
-function enemyStrikes(battle, state) {
+// Some zones inflict environmental damage on top of the enemy's own attack
+// (poison fumes, scorching heat, and so on) — a flat chance per enemy turn,
+// independent of dodge, since ducking the monster doesn't duck the swamp.
+function applyZoneHazard(battle, state) {
   const player = state.player;
-  if (rollDodge(player)) {
-    pushLog(battle, `You dodge ${battle.enemy.name}'s attack!`);
-    return;
-  }
-  let dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
-  const guardian = companionAbilityBonus(player, 'guardian');
-  if (guardian > 0) dmg = Math.max(1, Math.round(dmg * (1 - guardian / 100)));
+  const hazard = MAPS[state.mapId] && MAPS[state.mapId].hazard;
+  if (!hazard || Math.random() >= hazard.chance) return;
+  const dmg = Math.max(1, Math.round(player.maxHp * hazard.damagePercent));
   player.hp = Math.max(0, player.hp - dmg);
-  pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
+  pushLog(battle, `${hazard.type} stings you for ${dmg}!`);
   if (player.hp <= 0) {
     battle.over = true;
     battle.result = 'lose';
   }
+}
+
+function enemyStrikes(battle, state) {
+  const player = state.player;
+  if (rollDodge(player)) {
+    pushLog(battle, `You dodge ${battle.enemy.name}'s attack!`);
+  } else {
+    let dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
+    const guardian = companionAbilityBonus(player, 'guardian');
+    if (guardian > 0) dmg = Math.max(1, Math.round(dmg * (1 - guardian / 100)));
+    player.hp = Math.max(0, player.hp - dmg);
+    pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
+    if (player.hp <= 0) {
+      battle.over = true;
+      battle.result = 'lose';
+    }
+  }
+  if (!battle.over) applyZoneHazard(battle, state);
 }
 
 // Returns true (and finalizes the win) if the enemy is dead.
@@ -218,10 +235,12 @@ export function playerCapture(battle, state, itemKey) {
   const chance = Math.min(0.95, item.captureBase + (1 - hpPercent) * item.captureHpBonus);
   if (Math.random() < chance) {
     player.ownedPets.push(battle.enemy.key);
+    const shiny = Math.random() < SHINY_CHANCE;
+    if (shiny) player.shinyPets.push(battle.enemy.key);
     if (!player.activePetKey) player.activePetKey = battle.enemy.key;
     battle.over = true;
     battle.result = 'captured';
-    pushLog(battle, `Gotcha! ${battle.enemy.name} was captured!`);
+    pushLog(battle, shiny ? `Gotcha! A Shiny ${battle.enemy.name} was captured!` : `Gotcha! ${battle.enemy.name} was captured!`);
   } else {
     pushLog(battle, `The ${battle.enemy.name} broke free!`);
     afterPlayerAction(battle, state);
@@ -261,6 +280,8 @@ export function grantRewards(state, enemyDef) {
   if (enemyDef.key) player.bestiary[enemyDef.key] = true;
   player.bountyProgress.kills += 1;
   player.bountyProgress.gold += goldWon;
+  player.lifetimeKills = (player.lifetimeKills || 0) + 1;
+  player.lifetimeGoldEarned = (player.lifetimeGoldEarned || 0) + goldWon;
   const levels = applyLevelUps(player);
   if (levels > 0) {
     player.maxHp += LEVEL_GROWTH.hp * levels;

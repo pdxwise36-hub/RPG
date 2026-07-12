@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -131,14 +131,30 @@ function reachedLevelsUpTo(mapId) {
   return idx === -1 ? ['overworld'] : LEVEL_CHAIN.slice(0, idx + 1);
 }
 
+// Wearing all 5 pieces of a SET_BONUSES entry (equipped, not just owned)
+// grants a flat/percent bump on top of each piece's own stats — checked
+// once here and read by every stat accessor below via setBonusValue.
+export function activeSetBonus(player) {
+  return SET_BONUSES.find((set) => Object.entries(set.pieces).every(([slot, key]) => {
+    const equipField = slot === 'weapon' ? 'weaponKey' : slot === 'armor' ? 'armorKey'
+      : slot === 'helmet' ? 'helmKey' : slot === 'gloves' ? 'glovesKey' : 'bootsKey';
+    return player[equipField] === key;
+  })) || null;
+}
+
+function setBonusValue(player, statKey) {
+  const set = activeSetBonus(player);
+  return (set && set.bonus[statKey]) || 0;
+}
+
 export function effectiveAtk(player) {
   const weapon = WEAPONS[player.weaponKey] || WEAPONS.rustySword;
-  return player.baseAtk + weapon.atkBonus + enchantLevel(player, 'weapon', player.weaponKey) * ENCHANT_BONUS_PER_LEVEL;
+  return player.baseAtk + weapon.atkBonus + enchantLevel(player, 'weapon', player.weaponKey) * ENCHANT_BONUS_PER_LEVEL + setBonusValue(player, 'atk');
 }
 
 export function effectiveDef(player) {
   const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
-  return player.baseDef + armor.defBonus + enchantLevel(player, 'armor', player.armorKey) * ENCHANT_BONUS_PER_LEVEL;
+  return player.baseDef + armor.defBonus + enchantLevel(player, 'armor', player.armorKey) * ENCHANT_BONUS_PER_LEVEL + setBonusValue(player, 'def');
 }
 
 export function enchantLevel(player, slot, key) {
@@ -149,23 +165,23 @@ export function enchantLevel(player, slot, key) {
 // flat ATK/DEF — these read the equipped piece the same way effectiveAtk/Def
 // read the weapon/armor.
 export function mpCostReduction(player) {
-  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction;
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction + setBonusValue(player, 'mpCostReduction');
 }
 
 export function xpBonusPercent(player) {
-  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent;
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent + setBonusValue(player, 'xpBonusPercent');
 }
 
 export function critChance(player) {
-  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance;
+  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance + setBonusValue(player, 'critChance');
 }
 
 export function dodgeChance(player) {
-  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance;
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance + setBonusValue(player, 'dodgeChance');
 }
 
 export function goldBonusPercent(player) {
-  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent;
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent + setBonusValue(player, 'goldBonusPercent');
 }
 
 // Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the
@@ -213,6 +229,7 @@ export function petEffectivePower(player, petKey) {
   const level = petLevel(player, petKey);
   let power = pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
   if (level >= PET_EVOLVE_LEVEL) power *= PET_EVOLVE_MULTIPLIER;
+  if (petIsShiny(player, petKey)) power *= SHINY_POWER_MULTIPLIER;
   const fusion = player.fusionBonus && player.fusionBonus[petKey];
   if (fusion && fusion.power) power *= (1 + fusion.power / 100);
   return power;
@@ -222,10 +239,16 @@ export function petIsEvolved(player, petKey) {
   return petLevel(player, petKey) >= PET_EVOLVE_LEVEL;
 }
 
+export function petIsShiny(player, petKey) {
+  return !!(player.shinyPets && player.shinyPets.includes(petKey));
+}
+
 export function petDisplayName(player, petKey) {
   const pet = ALL_PET_DEFS[petKey];
   if (!pet) return '';
-  return petIsEvolved(player, petKey) ? `Evolved ${pet.name}` : pet.name;
+  const shiny = petIsShiny(player, petKey) ? 'Shiny ' : '';
+  const evolved = petIsEvolved(player, petKey) ? 'Evolved ' : '';
+  return `${shiny}${evolved}${pet.name}`;
 }
 
 // The Companion Charm boosts whichever pet is currently active — it's a
