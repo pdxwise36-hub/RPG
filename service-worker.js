@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v32';
+const CACHE_NAME = 'emberfall-v33';
 const ASSETS = [
   './',
   './index.html',
@@ -134,6 +134,17 @@ const ASSETS = [
   './icons/sprites/bts-thunderstepBoots.png',
   './icons/sprites/bts-voidwalkers.png',
   './icons/sprites/bts-celestialStriders.png',
+  './icons/sprites/chm-none.png',
+  './icons/sprites/chm-frayedCharm.png',
+  './icons/sprites/chm-carvedCharm.png',
+  './icons/sprites/chm-ironCharm.png',
+  './icons/sprites/chm-steelCharm.png',
+  './icons/sprites/chm-mithrilCharm.png',
+  './icons/sprites/chm-flameforgedCharm.png',
+  './icons/sprites/chm-frostboundCharm.png',
+  './icons/sprites/chm-thunderCharm.png',
+  './icons/sprites/chm-voidboundCharm.png',
+  './icons/sprites/chm-celestialCharm.png',
 ];
 
 self.addEventListener('install', (event) => {

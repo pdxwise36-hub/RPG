@@ -1075,6 +1075,17 @@ function buildBootsIcon({ main, trim, dark }) {
   return rasterize(g, { m: main, t: trim, d: dark }, 6);
 }
 
+// 14x14 gem-on-a-cord, shared by all ten Companion Charm tiers plus the
+// neutral "No Charm" default.
+function buildCharmIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 5, 1, 4, 2, 't');
+  fillRect(g, 4, 3, 6, 7, 'm');
+  fillRect(g, 6, 5, 2, 3, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
 // One shared 10-tier color ramp (rusty -> iron -> steel -> mithril -> flame
 // -> frost -> thunder -> void -> dragon -> celestial) reused across helms,
 // gloves, and boots so a tier reads the same regardless of slot.
@@ -1098,6 +1109,7 @@ function tierColors(i) {
 const HELMET_KEYS = ['clothCap', 'leatherCap', 'ironHelm', 'steelHelm', 'mithrilCirclet', 'flameguardHelm', 'frostcrown', 'thunderHelm', 'voidsightHelm', 'celestialCrown'];
 const GLOVES_KEYS = ['clothWraps', 'leatherGloves', 'ironGauntlets', 'steelGauntlets', 'mithrilGrips', 'flameforgedGloves', 'frostbiteGloves', 'thunderstrikeGauntlets', 'voidtouchedGloves', 'celestialGauntlets'];
 const BOOTS_KEYS = ['wornSandals', 'leatherBoots', 'ironGreaves', 'steelBoots', 'mithrilStriders', 'flamewalkers', 'frostwalkers', 'thunderstepBoots', 'voidwalkers', 'celestialStriders'];
+const CHARM_KEYS = ['frayedCharm', 'carvedCharm', 'ironCharm', 'steelCharm', 'mithrilCharm', 'flameforgedCharm', 'frostboundCharm', 'thunderCharm', 'voidboundCharm', 'celestialCharm'];
 
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
@@ -1200,6 +1212,8 @@ const sprites = {
 HELMET_KEYS.forEach((key, i) => { sprites[`hlm-${key}.png`] = () => buildHelmetIcon(tierColors(i)); });
 GLOVES_KEYS.forEach((key, i) => { sprites[`glv-${key}.png`] = () => buildGlovesIcon(tierColors(i)); });
 BOOTS_KEYS.forEach((key, i) => { sprites[`bts-${key}.png`] = () => buildBootsIcon(tierColors(i)); });
+sprites['chm-none.png'] = () => buildCharmIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });
+CHARM_KEYS.forEach((key, i) => { sprites[`chm-${key}.png`] = () => buildCharmIcon(tierColors(i)); });
 
 for (const [filename, build] of Object.entries(sprites)) {
   const png = build();

@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -200,11 +200,49 @@ export function petLevel(player, petKey) {
   return progress ? progress.level : 1;
 }
 
+// Level-scaling plus the flat evolution multiplier once a companion hits
+// PET_EVOLVE_LEVEL — this is each pet's own intrinsic power, independent of
+// whether it's the currently-active one, so it's safe to show for any owned
+// companion (e.g. browsing the Tamer's roster). The Charm bonus is
+// deliberately NOT folded in here since it only affects whichever companion
+// is actually out (see charmPowerBonus below, applied at the real damage
+// call sites instead).
 export function petEffectivePower(player, petKey) {
   const pet = ALL_PET_DEFS[petKey];
   if (!pet) return 0;
   const level = petLevel(player, petKey);
-  return pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
+  let power = pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
+  if (level >= PET_EVOLVE_LEVEL) power *= PET_EVOLVE_MULTIPLIER;
+  return power;
+}
+
+export function petIsEvolved(player, petKey) {
+  return petLevel(player, petKey) >= PET_EVOLVE_LEVEL;
+}
+
+export function petDisplayName(player, petKey) {
+  const pet = ALL_PET_DEFS[petKey];
+  if (!pet) return '';
+  return petIsEvolved(player, petKey) ? `Evolved ${pet.name}` : pet.name;
+}
+
+// The Companion Charm boosts whichever pet is currently active — it's a
+// player-side upgrade, not a property of any one companion, so (unlike
+// petEffectivePower) it's applied only at the actual combat/display call
+// sites for the active pet, not baked into every companion's own number.
+export function charmPowerBonus(player) {
+  return (CHARMS[player.charmKey] || CHARMS.none).petPowerBonus;
+}
+
+// Returns the % value of `abilityKey` if the currently active companion has
+// learned it (i.e. it's their assigned ability and they've reached
+// COMPANION_ABILITY_LEVEL) — 0 otherwise, so every call site can just add
+// this straight onto the matching player stat.
+export function companionAbilityBonus(player, abilityKey) {
+  const pet = player.activePetKey && ALL_PET_DEFS[player.activePetKey];
+  if (!pet || pet.ability !== abilityKey) return 0;
+  if (petLevel(player, player.activePetKey) < COMPANION_ABILITY_LEVEL) return 0;
+  return COMPANION_ABILITIES[abilityKey].value;
 }
 
 // Progress toward the pet's next level, for rendering an XP bar.

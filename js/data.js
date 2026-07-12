@@ -173,21 +173,44 @@ export const SKILLS = {
 // iterating the array as-is.
 export const SKILL_ORDER = Object.keys(SKILLS);
 
+// Every companion — Tamer-bought or wild-caught — learns one passive
+// ability once it reaches COMPANION_ABILITY_LEVEL, sourced from this small
+// shared pool instead of 49 hand-authored bespoke abilities. Each reuses an
+// existing player-facing mechanic (crit/dodge/lifesteal/gold+xp/damage
+// reduction) so the payoff is just "apply the same formula, sourced from
+// the active companion" rather than a new combat subsystem.
+export const COMPANION_ABILITIES = {
+  vampiric: { key: 'vampiric', name: 'Vampiric', desc: "Heals you for a % of the pet's hit damage.", value: 15 },
+  guardian: { key: 'guardian', name: 'Guardian', desc: 'Reduces incoming damage by a %.', value: 12 },
+  berserker: { key: 'berserker', name: 'Berserker', desc: 'Adds to your own crit chance.', value: 15 },
+  swift: { key: 'swift', name: 'Swift', desc: 'Adds to your own dodge chance.', value: 12 },
+  blessed: { key: 'blessed', name: 'Blessed', desc: 'Boosts gold and XP found.', value: 12 },
+};
+export const COMPANION_ABILITY_LEVEL = 10;
+
+// A companion "evolves" once it reaches this level: a flat damage
+// multiplier, a name change (see petDisplayName in state.js), and a visual
+// glow — reusing the pet's existing sprite rather than commissioning a
+// second bespoke piece of art per companion.
+export const PET_EVOLVE_LEVEL = 15;
+export const PET_EVOLVE_MULTIPLIER = 1.3;
+
 // Pets fight beside the player: each round, an equipped pet automatically
 // lands its own hit for atk*power damage right after the player's action,
 // no separate HP/AI — just a free extra hit each turn. Ten pets span cheap
 // and weak to rare and strong, with the Dragonling as the top-tier prize.
+// Each also carries a hand-picked `ability` (see COMPANION_ABILITIES above).
 export const PETS = {
-  turtle: { key: 'turtle', name: 'Turtle', power: 0.3, price: 60, sprite: 'icons/sprites/turtle.png' },
-  wolfPup: { key: 'wolfPup', name: 'Wolf Pup', power: 0.4, price: 80, sprite: 'icons/sprites/wolfpup.png' },
-  fox: { key: 'fox', name: 'Fox', power: 0.5, price: 130, sprite: 'icons/sprites/fox.png' },
-  hawk: { key: 'hawk', name: 'Hawk', power: 0.55, price: 150, sprite: 'icons/sprites/hawk.png' },
-  boar: { key: 'boar', name: 'Boar', power: 0.65, price: 200, sprite: 'icons/sprites/boar.png' },
-  salamander: { key: 'salamander', name: 'Salamander', power: 0.7, price: 250, sprite: 'icons/sprites/salamander.png' },
-  owl: { key: 'owl', name: 'Owl', power: 0.8, price: 320, sprite: 'icons/sprites/owl.png' },
-  babyGolem: { key: 'babyGolem', name: 'Baby Golem', power: 0.9, price: 400, sprite: 'icons/sprites/babygolem.png' },
-  panther: { key: 'panther', name: 'Panther', power: 1.0, price: 500, sprite: 'icons/sprites/panther.png' },
-  dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.png' },
+  turtle: { key: 'turtle', name: 'Turtle', power: 0.3, price: 60, sprite: 'icons/sprites/turtle.png', ability: 'guardian' },
+  wolfPup: { key: 'wolfPup', name: 'Wolf Pup', power: 0.4, price: 80, sprite: 'icons/sprites/wolfpup.png', ability: 'berserker' },
+  fox: { key: 'fox', name: 'Fox', power: 0.5, price: 130, sprite: 'icons/sprites/fox.png', ability: 'swift' },
+  hawk: { key: 'hawk', name: 'Hawk', power: 0.55, price: 150, sprite: 'icons/sprites/hawk.png', ability: 'blessed' },
+  boar: { key: 'boar', name: 'Boar', power: 0.65, price: 200, sprite: 'icons/sprites/boar.png', ability: 'berserker' },
+  salamander: { key: 'salamander', name: 'Salamander', power: 0.7, price: 250, sprite: 'icons/sprites/salamander.png', ability: 'vampiric' },
+  owl: { key: 'owl', name: 'Owl', power: 0.8, price: 320, sprite: 'icons/sprites/owl.png', ability: 'blessed' },
+  babyGolem: { key: 'babyGolem', name: 'Baby Golem', power: 0.9, price: 400, sprite: 'icons/sprites/babygolem.png', ability: 'guardian' },
+  panther: { key: 'panther', name: 'Panther', power: 1.0, price: 500, sprite: 'icons/sprites/panther.png', ability: 'berserker' },
+  dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.png', ability: 'vampiric' },
 };
 
 // Pets earn the exact same XP as the player from every kill they're active
@@ -196,6 +219,28 @@ export const PETS = {
 // level adds a flat bonus to the pet's damage multiplier; no cap, same as
 // the player.
 export const PET_LEVEL_POWER_BONUS = 0.15;
+
+// A single equippable trinket that boosts whichever companion is currently
+// active — found only in chests, never sold, so unlike the player's own
+// gear there's no Buy flow, just Equip. Ten tiers, same price-curve shape
+// as the rest of the game's gear (used only to anchor chest depth-scaling,
+// not to charge gold). `none` is always owned so there's always something
+// equipped, even if it does nothing yet.
+export const CHARMS = {
+  none: { key: 'none', name: 'No Charm', petPowerBonus: 0 },
+  frayedCharm: { key: 'frayedCharm', name: 'Frayed Charm', petPowerBonus: 5 },
+  carvedCharm: { key: 'carvedCharm', name: 'Carved Charm', petPowerBonus: 10 },
+  ironCharm: { key: 'ironCharm', name: 'Iron Charm', petPowerBonus: 16 },
+  steelCharm: { key: 'steelCharm', name: 'Steel Charm', petPowerBonus: 22 },
+  mithrilCharm: { key: 'mithrilCharm', name: 'Mithril Charm', petPowerBonus: 28 },
+  flameforgedCharm: { key: 'flameforgedCharm', name: 'Flameforged Charm', petPowerBonus: 35 },
+  frostboundCharm: { key: 'frostboundCharm', name: 'Frostbound Charm', petPowerBonus: 42 },
+  thunderCharm: { key: 'thunderCharm', name: 'Thunder Charm', petPowerBonus: 50 },
+  voidboundCharm: { key: 'voidboundCharm', name: 'Voidbound Charm', petPowerBonus: 60 },
+  celestialCharm: { key: 'celestialCharm', name: 'Celestial Charm', petPowerBonus: 75 },
+};
+Object.values(CHARMS).forEach((c) => { c.sprite = `icons/sprites/chm-${c.key}.png`; });
+export const CHARM_ORDER = Object.keys(CHARMS);
 
 export const PLAYER_BASE = {
   name: 'Kael',
@@ -223,6 +268,8 @@ export const PLAYER_BASE = {
   ownedPets: [],
   activePetKey: null,
   petProgress: {},
+  charmKey: 'none',
+  ownedCharms: ['none'],
   arenaBestWave: 0,
   inventory: { potion: 3, ether: 0, captureOrb: 1 },
   // Marks an enemy key true the first time it's ever been defeated, so the
@@ -554,11 +601,19 @@ function capturePower(depth) {
   return Math.round((0.25 + depth * 0.09) * 100) / 100;
 }
 
+// Abilities are assigned deterministically (cycling through the shared
+// pool by position) rather than hand-authored per monster — there are too
+// many of these for bespoke flavor text to be worth it, but the assignment
+// is stable across saves since it only depends on each monster's fixed
+// position in the chain.
+const ABILITY_KEYS = Object.keys(COMPANION_ABILITIES);
+let abilityCursor = 0;
 export const CAPTURABLE_MONSTERS = LEVEL_CHAIN.flatMap((mapId) => {
   const map = MAPS[mapId];
   return Object.values(map.enemyPool).map((enemy) => ({
     key: enemy.key, name: enemy.name, sprite: enemy.sprite,
     power: capturePower(map.depth), zoneName: map.name,
+    ability: ABILITY_KEYS[abilityCursor++ % ABILITY_KEYS.length],
   }));
 });
 export const CAPTURABLE_KEYS = new Set(CAPTURABLE_MONSTERS.map((m) => m.key));
@@ -609,6 +664,10 @@ export const ACHIEVEMENTS = [
   {
     key: 'monsterTamer', name: 'Monster Tamer', desc: 'Capture every capturable monster in the realm.', rewardGold: 600,
     check: (state) => CAPTURABLE_MONSTERS.every((m) => state.player.ownedPets.includes(m.key)),
+  },
+  {
+    key: 'charmMaster', name: 'Charm Master', desc: 'Find the Celestial Charm.', rewardGold: 300,
+    check: (state) => state.player.ownedCharms.includes('celestialCharm'),
   },
   {
     key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400,

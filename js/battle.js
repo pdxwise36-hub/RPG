@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -76,11 +76,12 @@ function pushLog(battle, msg) {
 
 // Boots give a chance to dodge an attack entirely, gloves give a chance for
 // the player's own hits to crit for double damage — rolled fresh each time.
+// A Swift/Berserker companion ability adds straight onto these same rolls.
 function rollDodge(player) {
-  return Math.random() * 100 < dodgeChance(player);
+  return Math.random() * 100 < dodgeChance(player) + companionAbilityBonus(player, 'swift');
 }
 function rollCrit(player) {
-  return Math.random() * 100 < critChance(player);
+  return Math.random() * 100 < critChance(player) + companionAbilityBonus(player, 'berserker');
 }
 
 function enemyStrikes(battle, state) {
@@ -89,7 +90,9 @@ function enemyStrikes(battle, state) {
     pushLog(battle, `You dodge ${battle.enemy.name}'s attack!`);
     return;
   }
-  const dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
+  let dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
+  const guardian = companionAbilityBonus(player, 'guardian');
+  if (guardian > 0) dmg = Math.max(1, Math.round(dmg * (1 - guardian / 100)));
   player.hp = Math.max(0, player.hp - dmg);
   pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
   if (player.hp <= 0) {
@@ -115,9 +118,18 @@ function petAttacks(battle, state) {
   const petKey = player.activePetKey;
   const pet = ALL_PET_DEFS[petKey];
   if (!pet) return;
-  const dmg = Math.max(1, Math.round(effectiveAtk(player) * petEffectivePower(player, petKey)));
+  const power = petEffectivePower(player, petKey) * (1 + charmPowerBonus(player) / 100);
+  const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `${pet.name} attacks ${battle.enemy.name} for ${dmg}!`);
+  pushLog(battle, `${petDisplayName(player, petKey)} attacks ${battle.enemy.name} for ${dmg}!`);
+  const vampiric = companionAbilityBonus(player, 'vampiric');
+  if (vampiric > 0 && player.hp < player.maxHp) {
+    const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * vampiric / 100));
+    if (healed > 0) {
+      player.hp += healed;
+      pushLog(battle, `${pet.name}'s bite heals you for ${healed}!`);
+    }
+  }
 }
 
 function afterPlayerAction(battle, state) {
@@ -241,8 +253,9 @@ export function playerRun(battle, state) {
 // kill (regular, boss, or Arena) funnels through this one function.
 export function grantRewards(state, enemyDef) {
   const player = state.player;
-  const goldWon = Math.round(rand(enemyDef.goldMin, enemyDef.goldMax) * (1 + goldBonusPercent(player) / 100));
-  const xpWon = Math.round(enemyDef.xp * (1 + xpBonusPercent(player) / 100));
+  const blessed = companionAbilityBonus(player, 'blessed');
+  const goldWon = Math.round(rand(enemyDef.goldMin, enemyDef.goldMax) * (1 + goldBonusPercent(player) / 100) * (1 + blessed / 100));
+  const xpWon = Math.round(enemyDef.xp * (1 + xpBonusPercent(player) / 100) * (1 + blessed / 100));
   player.gold += goldWon;
   player.xp += xpWon;
   if (enemyDef.key) player.bestiary[enemyDef.key] = true;
@@ -314,6 +327,27 @@ function rollGear(state, depth) {
   return { type: 'gear', slot, key };
 }
 
+// Companion Charms are chest-only — no Buy flow at the Tamer at all — so
+// this is the sole way to acquire one. Same "nearest unowned tier anchored
+// to zone depth" search as rollGear, just over the one CHARM_ORDER list.
+function rollCharm(state, depth) {
+  const player = state.player;
+  const order = CHARM_ORDER;
+  const owned = player.ownedCharms;
+  const anchor = Math.max(0, Math.min(order.length - 1, depth + rand(-1, 1)));
+  let key = null;
+  for (let offset = 0; offset < order.length && !key; offset++) {
+    for (const candidate of [anchor + offset, anchor - offset]) {
+      if (candidate < 0 || candidate >= order.length) continue;
+      const candidateKey = order[candidate];
+      if (!owned.includes(candidateKey)) { key = candidateKey; break; }
+    }
+  }
+  if (!key) return null;
+  player.ownedCharms.push(key);
+  return { type: 'charm', key };
+}
+
 // Rolls a chest drop after a non-boss win. Mutates player state directly
 // (same pattern as grantRewards) and returns a description of the loot, or
 // null if no chest appeared.
@@ -323,11 +357,11 @@ export function rollChest(state) {
   const depth = (MAPS[state.mapId] && MAPS[state.mapId].depth) || 0;
   const roll = Math.random();
 
-  if (roll < 0.3) {
+  if (roll < 0.25) {
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.55) {
+  if (roll < 0.45) {
     // Deeper zones have a rising chance of the Greater tier instead of the
     // basic potion/ether — same "deeper = better loot" pattern as gold/gear.
     const greaterChance = Math.min(0.5, depth * 0.04);
@@ -341,9 +375,15 @@ export function rollChest(state) {
     return { type: 'item', itemKey };
   }
 
-  if (roll < 0.8) {
+  if (roll < 0.65) {
     const gear = rollGear(state, depth);
     if (gear) return gear;
+    return { type: 'gold', amount: goldDrop(state, depth) };
+  }
+
+  if (roll < 0.78) {
+    const charm = rollCharm(state, depth);
+    if (charm) return charm;
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 

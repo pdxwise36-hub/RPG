@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petIsEvolved, petDisplayName, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -201,6 +201,7 @@ function renderBattle() {
   if (p.activePetKey) {
     petEl.style.backgroundImage = `url('${ALL_PET_DEFS[p.activePetKey].sprite}')`;
     petEl.classList.remove('hidden');
+    petEl.classList.toggle('pet-evolved', petIsEvolved(p, p.activePetKey));
   } else {
     petEl.classList.add('hidden');
   }
@@ -239,7 +240,11 @@ function resolveBattleEnd() {
     if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
     if (rewards.petLeveledUp) {
       const pet = ALL_PET_DEFS[p.activePetKey];
-      msg += ` ${pet.name} is now Lv. ${petLevel(p, p.activePetKey)}!`;
+      const newLevel = petLevel(p, p.activePetKey);
+      msg += ` ${pet.name} is now Lv. ${newLevel}!`;
+      if (newLevel >= PET_EVOLVE_LEVEL && newLevel - rewards.petLevels < PET_EVOLVE_LEVEL) {
+        msg += ` ${pet.name} evolved into ${petDisplayName(p, p.activePetKey)}!`;
+      }
     }
     if (battle.isBossRush) {
       // Boss Rush reuses boss defs but skips per-level unlock/victory logic
@@ -454,6 +459,8 @@ function renderChest(chest) {
     desc = `You found a ${ITEMS[chest.itemKey].name}!`;
   } else if (chest.type === 'gear') {
     desc = `You found an Unidentified ${GEAR_SLOTS[chest.slot].label}! Bring it to Deckard Cain in Town to find out what it is.`;
+  } else if (chest.type === 'charm') {
+    desc = `You found a ${CHARMS[chest.key].name}! Equip it on your active companion from the Pet Tamer.`;
   } else {
     desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
   }
@@ -585,8 +592,14 @@ function renderStatus() {
   const body = el('status-body');
 
   const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
+  const activePetPower = p.activePetKey ? petEffectivePower(p, p.activePetKey) * (1 + charmPowerBonus(p) / 100) : 0;
   const petDamageRow = p.activePetKey ? `
-    <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * petEffectivePower(p, p.activePetKey)))} per hit (+${Math.round(petEffectivePower(p, p.activePetKey) * 100)}% ATK)</span></div>
+    <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * activePetPower))} per hit (+${Math.round(activePetPower * 100)}% ATK)</span></div>
+  ` : '';
+  const activeAbility = p.activePetKey && ALL_PET_DEFS[p.activePetKey] ? COMPANION_ABILITIES[ALL_PET_DEFS[p.activePetKey].ability] : null;
+  const abilityUnlocked = p.activePetKey && petLevel(p, p.activePetKey) >= COMPANION_ABILITY_LEVEL;
+  const petAbilityRow = activeAbility ? `
+    <div class="status-row"><span>Pet Ability</span><span>${abilityUnlocked ? `${activeAbility.name} — ${activeAbility.desc}` : `${activeAbility.name} (unlocks at Lv. ${COMPANION_ABILITY_LEVEL})`}</span></div>
   ` : '';
   const petBar = petProgress ? `
     <div class="bar-track pet-xp">
@@ -608,9 +621,11 @@ function renderStatus() {
     <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
-    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${ALL_PET_DEFS[p.activePetKey].name} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
+    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${petDisplayName(p, p.activePetKey)} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
     ${petDamageRow}
+    ${petAbilityRow}
     ${petBar}
+    <div class="status-row"><span>Companion Charm</span><span>${CHARMS[p.charmKey].name}${charmPowerBonus(p) > 0 ? ` (+${charmPowerBonus(p)}% pet damage)` : ''}</span></div>
     <div class="status-row"><span>Monsters Caught</span><span>${p.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
   `;
 
@@ -1029,6 +1044,11 @@ function renderTamer() {
 
   list.appendChild(sectionHeading('Adopt a Pet'));
   Object.values(PETS).filter((pet) => !p.ownedPets.includes(pet.key)).forEach((pet) => list.appendChild(buildTamerRow(pet)));
+
+  // Charms are chest-only finds, never sold here — just an Equip list over
+  // whatever you've already picked up (the free "No Charm" is always owned).
+  list.appendChild(sectionHeading('Companion Charm'));
+  CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => list.appendChild(buildCharmRow(CHARMS[key])));
 }
 
 // Any owned companion (bought or caught) — Select/Active only, no buy flow.
@@ -1036,14 +1056,20 @@ function buildCompanionRow(pet) {
   const p = state.player;
   const isActive = p.activePetKey === pet.key;
   const level = petLevel(p, pet.key);
+  const evolved = petIsEvolved(p, pet.key);
   const powerPct = Math.round(petEffectivePower(p, pet.key) * 100);
+  const ability = COMPANION_ABILITIES[pet.ability];
+  const abilityLabel = ability
+    ? (level >= COMPANION_ABILITY_LEVEL ? ability.name : `${ability.name} at Lv. ${COMPANION_ABILITY_LEVEL}`)
+    : null;
 
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
+    <div class="shop-item-icon${evolved ? ' pet-evolved' : ''}" style="background-image:url('${pet.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${pet.name}</span>
-      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}</span>
+      <span class="shop-item-name">${petDisplayName(p, pet.key)}</span>
+      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -1055,6 +1081,36 @@ function buildCompanionRow(pet) {
     btn.textContent = 'Select';
     btn.addEventListener('click', () => {
       p.activePetKey = pet.key;
+      autosave();
+      renderTamer();
+    });
+  }
+  row.appendChild(btn);
+  return row;
+}
+
+// Charms are never bought — Equip/Equipped only, over whatever's been found.
+function buildCharmRow(charm) {
+  const p = state.player;
+  const isEquipped = p.charmKey === charm.key;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-icon" style="background-image:url('${charm.sprite}')"></div>
+    <div class="shop-item-info">
+      <span class="shop-item-name">${charm.name}</span>
+      <span class="shop-item-desc">+${charm.petPowerBonus}% pet damage</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isEquipped) {
+    btn.textContent = 'Equipped';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Equip';
+    btn.addEventListener('click', () => {
+      p.charmKey = charm.key;
       autosave();
       renderTamer();
     });
