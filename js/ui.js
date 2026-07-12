@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petIsEvolved, petDisplayName, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, petLevel, petEffectivePower, petIsEvolved, petDisplayName, petAbilities, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -8,6 +8,7 @@ let state = null;
 let battle = null;
 let prevPos = null;
 let bossRush = null;
+let rivalBattle = null;
 
 const el = (id) => document.getElementById(id);
 
@@ -154,6 +155,11 @@ function handleMove(dir) {
     showModal('modal-cain');
     return;
   }
+  if (result.type === 'rival') {
+    renderRival();
+    showModal('modal-rival');
+    return;
+  }
   if (result.type === 'townExit') {
     renderLevelSelect();
     showModal('modal-levelselect');
@@ -221,10 +227,11 @@ function renderBattle() {
   }
 }
 
-function startBattle(enemyDef, isBoss, isArena = false, isBossRush = false) {
+function startBattle(enemyDef, isBoss, isArena = false, isBossRush = false, isRival = false) {
   battle = createBattle(enemyDef, isBoss);
   battle.isArena = isArena;
   battle.isBossRush = isBossRush;
+  battle.isRival = isRival;
   el('battle-menu-main').classList.remove('hidden');
   el('battle-menu-items').classList.add('hidden');
   el('battle-menu-skills').classList.add('hidden');
@@ -264,6 +271,29 @@ function resolveBattleEnd() {
         const nextMapId = bossRush.order[bossRush.index];
         showToast(`${msg} ${bossRush.index}/${bossRush.order.length} bosses down!`, 2600);
         startBattle(scaleForNGPlus(MAPS[nextMapId].bossEnemy, p.ngPlusLevel), true, false, true);
+      }
+      return;
+    }
+    if (battle.isRival) {
+      // Reuses isBoss=true on the underlying battle so capture/run are
+      // blocked (you can't catch or flee a rival's companion), but skips
+      // the zone-boss unlock/victory logic entirely — same separation as
+      // Boss Rush above.
+      rivalBattle.index += 1;
+      if (rivalBattle.index >= RIVAL_TEAM.length) {
+        const bonus = Math.round(RIVAL_TEAM.length * 150 * ngPlusMultiplier(p.ngPlusLevel));
+        p.gold += bonus;
+        state.flags.rivalDefeated = true;
+        rivalBattle = null;
+        autosave();
+        showToast(`${msg} You bested your rival! Bonus: ${bonus}G!`, 3600);
+        goToMap();
+      } else {
+        p.hp = p.maxHp;
+        p.mp = p.maxMp;
+        const next = RIVAL_TEAM[rivalBattle.index];
+        showToast(`${msg} ${rivalBattle.index}/${RIVAL_TEAM.length} rival companions down!`, 2600);
+        startBattle(scaleRivalOpponent(next, p.level), true, false, false, true);
       }
       return;
     }
@@ -321,6 +351,9 @@ function resolveBattleEnd() {
     // A Boss Rush loss ends the run with no completion bonus — you keep
     // whatever gold/XP each individual boss along the way already paid out.
     if (battle.isBossRush) bossRush = null;
+    // Same for a Rival duel loss — no bonus, but you keep what each rival
+    // companion beaten so far already paid out.
+    if (battle.isRival) rivalBattle = null;
     showScreen('gameover');
   } else if (battle.result === 'captured') {
     const pet = ALL_PET_DEFS[battle.enemy.key];
@@ -596,10 +629,12 @@ function renderStatus() {
   const petDamageRow = p.activePetKey ? `
     <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * activePetPower))} per hit (+${Math.round(activePetPower * 100)}% ATK)</span></div>
   ` : '';
-  const activeAbility = p.activePetKey && ALL_PET_DEFS[p.activePetKey] ? COMPANION_ABILITIES[ALL_PET_DEFS[p.activePetKey].ability] : null;
+  // Fusion can grant a companion more than one ability, so this lists all
+  // of them (its own plus anything fused in) rather than just the one.
+  const activeAbilities = p.activePetKey ? petAbilities(p, p.activePetKey).map((k) => COMPANION_ABILITIES[k]) : [];
   const abilityUnlocked = p.activePetKey && petLevel(p, p.activePetKey) >= COMPANION_ABILITY_LEVEL;
-  const petAbilityRow = activeAbility ? `
-    <div class="status-row"><span>Pet Ability</span><span>${abilityUnlocked ? `${activeAbility.name} — ${activeAbility.desc}` : `${activeAbility.name} (unlocks at Lv. ${COMPANION_ABILITY_LEVEL})`}</span></div>
+  const petAbilityRow = activeAbilities.length > 0 ? `
+    <div class="status-row"><span>Pet Abilit${activeAbilities.length > 1 ? 'ies' : 'y'}</span><span>${abilityUnlocked ? activeAbilities.map((a) => a.name).join(', ') : `${activeAbilities.map((a) => a.name).join(', ')} (unlocks at Lv. ${COMPANION_ABILITY_LEVEL})`}</span></div>
   ` : '';
   const petBar = petProgress ? `
     <div class="bar-track pet-xp">
@@ -903,6 +938,20 @@ function startBossRush() {
   startBattle(scaleForNGPlus(MAPS[order[0]].bossEnemy, state.player.ngPlusLevel), true, false, true);
 }
 
+// ---------- Rival Duel ----------
+// A fixed 3-companion team, fought back-to-back with a full heal between
+// each, scaled to the player's own level — freely repeatable, same
+// endurance-tour shape as Boss Rush, distinct from wild encounters/bosses.
+function renderRival() {
+  el('rival-sub').textContent = `Face all ${RIVAL_TEAM.length} of your rival's companions back-to-back, with a full heal between each. Neither of you can flee or capture the other's team. Full clear pays a bonus; a loss keeps whatever you earned along the way.`;
+}
+
+function startRivalBattle() {
+  rivalBattle = { index: 0 };
+  hideModal('modal-rival');
+  startBattle(scaleRivalOpponent(RIVAL_TEAM[0], state.player.level), true, false, false, true);
+}
+
 // ---------- Bounty Board ----------
 // Three objectives roll fresh every real-world day. Progress is tracked in
 // player.bountyProgress (incremented in battle.js/resolveBattleEnd) and
@@ -1062,10 +1111,12 @@ function buildCompanionRow(pet) {
   const level = petLevel(p, pet.key);
   const evolved = petIsEvolved(p, pet.key);
   const powerPct = Math.round(petEffectivePower(p, pet.key) * 100);
-  const ability = COMPANION_ABILITIES[pet.ability];
-  const abilityLabel = ability
-    ? (level >= COMPANION_ABILITY_LEVEL ? ability.name : `${ability.name} at Lv. ${COMPANION_ABILITY_LEVEL}`)
+  const abilityNames = petAbilities(p, pet.key).map((k) => COMPANION_ABILITIES[k].name);
+  const abilityLabel = abilityNames.length > 0
+    ? (level >= COMPANION_ABILITY_LEVEL ? abilityNames.join(', ') : `${abilityNames.join(', ')} at Lv. ${COMPANION_ABILITY_LEVEL}`)
     : null;
+  const fusion = p.fusionBonus && p.fusionBonus[pet.key];
+  const fusionLabel = fusion && fusion.power ? ` — +${fusion.power}% from Fusion` : '';
 
   const row = document.createElement('div');
   row.className = 'shop-item';
@@ -1073,24 +1124,65 @@ function buildCompanionRow(pet) {
     <div class="shop-item-icon${evolved ? ' pet-evolved' : ''}" style="background-image:url('${pet.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${petDisplayName(p, pet.key)}</span>
-      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}</span>
+      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}${fusionLabel}</span>
     </div>
   `;
-  const btn = document.createElement('button');
-  btn.className = 'btn btn-small';
   if (isActive) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
     btn.textContent = 'Active';
     btn.disabled = true;
+    row.appendChild(btn);
   } else {
-    btn.textContent = 'Select';
-    btn.addEventListener('click', () => {
+    const selectBtn = document.createElement('button');
+    selectBtn.className = 'btn btn-small';
+    selectBtn.textContent = 'Select';
+    selectBtn.addEventListener('click', () => {
       p.activePetKey = pet.key;
       autosave();
       renderTamer();
     });
+    row.appendChild(selectBtn);
+
+    if (p.activePetKey) {
+      const fuseBtn = document.createElement('button');
+      fuseBtn.className = 'btn btn-small';
+      fuseBtn.textContent = 'Fuse';
+      fuseBtn.addEventListener('click', () => {
+        const activeName = petDisplayName(p, p.activePetKey);
+        const gain = fusionPowerGain(level);
+        const activeAbility = ALL_PET_DEFS[p.activePetKey].ability;
+        const gainsAbility = pet.ability !== activeAbility && !petAbilities(p, p.activePetKey).includes(pet.ability);
+        const confirmMsg = `Fuse ${petDisplayName(p, pet.key)} (Lv. ${level}) into ${activeName}? This permanently removes ${pet.name} from your team and grants +${gain}% power${gainsAbility ? ` plus the ${COMPANION_ABILITIES[pet.ability].name} ability` : ''}.`;
+        if (!window.confirm(confirmMsg)) return;
+        fuseCompanions(p, pet.key, p.activePetKey);
+        autosave();
+        updateHud();
+        renderTamer();
+      });
+      row.appendChild(fuseBtn);
+    }
   }
-  row.appendChild(btn);
   return row;
+}
+
+// Permanently sacrifices sacrificeKey into targetKey: a flat power bump
+// scaling with how leveled the sacrifice was, plus its ability if the
+// target doesn't already have it. The sacrifice's own level/XP resets on
+// re-acquisition later since its progress record is cleared here.
+function fuseCompanions(p, sacrificeKey, targetKey) {
+  const sacrifice = ALL_PET_DEFS[sacrificeKey];
+  const gain = fusionPowerGain(petLevel(p, sacrificeKey));
+  if (!p.fusionBonus[targetKey]) p.fusionBonus[targetKey] = { power: 0, extraAbilities: [] };
+  const fusion = p.fusionBonus[targetKey];
+  fusion.power += gain;
+  if (!petAbilities(p, targetKey).includes(sacrifice.ability) && !fusion.extraAbilities.includes(sacrifice.ability)) {
+    fusion.extraAbilities.push(sacrifice.ability);
+  }
+  p.ownedPets = p.ownedPets.filter((k) => k !== sacrificeKey);
+  delete p.petProgress[sacrificeKey];
+  if (p.activePetKey === sacrificeKey) p.activePetKey = targetKey;
+  p.fusionCount = (p.fusionCount || 0) + 1;
 }
 
 // Charms are never bought — Equip/Equipped only, over whatever's been found.
@@ -1352,6 +1444,10 @@ function wireEvents() {
   // Boss Rush
   el('btn-bossrush-start').addEventListener('click', () => startBossRush());
   el('btn-bossrush-back').addEventListener('click', () => hideModal('modal-bossrush'));
+
+  // Rival Duel
+  el('btn-rival-start').addEventListener('click', () => startRivalBattle());
+  el('btn-rival-back').addEventListener('click', () => hideModal('modal-rival'));
 
   // Deckard Cain
   el('btn-cain-back').addEventListener('click', () => hideModal('modal-cain'));

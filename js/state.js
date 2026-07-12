@@ -213,6 +213,8 @@ export function petEffectivePower(player, petKey) {
   const level = petLevel(player, petKey);
   let power = pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
   if (level >= PET_EVOLVE_LEVEL) power *= PET_EVOLVE_MULTIPLIER;
+  const fusion = player.fusionBonus && player.fusionBonus[petKey];
+  if (fusion && fusion.power) power *= (1 + fusion.power / 100);
   return power;
 }
 
@@ -239,10 +241,24 @@ export function charmPowerBonus(player) {
 // COMPANION_ABILITY_LEVEL) — 0 otherwise, so every call site can just add
 // this straight onto the matching player stat.
 export function companionAbilityBonus(player, abilityKey) {
-  const pet = player.activePetKey && ALL_PET_DEFS[player.activePetKey];
-  if (!pet || pet.ability !== abilityKey) return 0;
-  if (petLevel(player, player.activePetKey) < COMPANION_ABILITY_LEVEL) return 0;
+  const key = player.activePetKey;
+  const pet = key && ALL_PET_DEFS[key];
+  if (!pet) return 0;
+  const fusion = player.fusionBonus && player.fusionBonus[key];
+  const hasAbility = pet.ability === abilityKey || (fusion && fusion.extraAbilities && fusion.extraAbilities.includes(abilityKey));
+  if (!hasAbility) return 0;
+  if (petLevel(player, key) < COMPANION_ABILITY_LEVEL) return 0;
   return COMPANION_ABILITIES[abilityKey].value;
+}
+
+// Every distinct ability a companion currently has — its own assigned one
+// plus anything gained through fusion — for display purposes.
+export function petAbilities(player, petKey) {
+  const pet = ALL_PET_DEFS[petKey];
+  if (!pet) return [];
+  const fusion = player.fusionBonus && player.fusionBonus[petKey];
+  const keys = [pet.ability, ...(fusion && fusion.extraAbilities ? fusion.extraAbilities : [])];
+  return [...new Set(keys)];
 }
 
 // Progress toward the pet's next level, for rendering an XP bar.

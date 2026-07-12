@@ -45,6 +45,7 @@ export function tryMove(state, dx, dy) {
   if (tile === TILE.ARENA) return { type: 'arena' };
   if (tile === TILE.BOSSRUSH) return { type: 'bossrush' };
   if (tile === TILE.IDENTIFIER) return { type: 'identifier' };
+  if (tile === TILE.RIVAL) return { type: 'rival' };
 
   if (tile === TILE.BOSS) {
     // The boss is a permanent, repeatable fight spot — it never turns into
@@ -94,6 +95,7 @@ function makeTheme({ grass, path, water, tree, boss, portal = '#3fd4c4' }) {
     [TILE.ARENA]: grass,
     [TILE.BOSSRUSH]: grass,
     [TILE.IDENTIFIER]: grass,
+    [TILE.RIVAL]: grass,
   };
 }
 
@@ -332,6 +334,16 @@ export function drawMap(ctx, state) {
         ctx.moveTo(px + 18.5, py + 17.5);
         ctx.lineTo(px + 23, py + 22);
         ctx.stroke();
+      } else if (tile === TILE.RIVAL) {
+        // a two-tone diamond split down the middle — "you vs the rival"
+        ctx.fillStyle = '#c94040';
+        ctx.beginPath();
+        ctx.moveTo(px + 16, py + 8); ctx.lineTo(px + 16, py + 24); ctx.lineTo(px + 8, py + 16);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#4a5a8a';
+        ctx.beginPath();
+        ctx.moveTo(px + 16, py + 8); ctx.lineTo(px + 16, py + 24); ctx.lineTo(px + 24, py + 16);
+        ctx.closePath(); ctx.fill();
       }
     }
   }

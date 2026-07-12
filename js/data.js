@@ -21,11 +21,12 @@ export const TILE = {
   NEXT_PORTAL: 11,
   BOSSRUSH: 12,
   IDENTIFIER: 13,
+  RIVAL: 14,
 };
 
 export const WALKABLE = new Set([
   TILE.GRASS, TILE.PATH, TILE.TOWN, TILE.BOSS, TILE.PORTAL, TILE.KNIGHT, TILE.MAGE, TILE.TAMER, TILE.ARENA,
-  TILE.NEXT_PORTAL, TILE.BOSSRUSH, TILE.IDENTIFIER,
+  TILE.NEXT_PORTAL, TILE.BOSSRUSH, TILE.IDENTIFIER, TILE.RIVAL,
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
@@ -283,6 +284,36 @@ export const CHARMS = {
 Object.values(CHARMS).forEach((c) => { c.sprite = `icons/sprites/chm-${c.key}.png`; });
 export const CHARM_ORDER = Object.keys(CHARMS);
 
+// Fusion permanently sacrifices one owned companion into another: the
+// target keeps its own sprite/name (prefixed "Fused" — see
+// petDisplayName in state.js) and gains a flat power bump plus, if the
+// sacrifice knew a different ability, that ability too — stored per
+// target key on player.fusionBonus so it survives switching which
+// companion is active. The power bump scales with how leveled the
+// sacrifice was, rewarding fusing in a companion you've actually invested
+// in rather than a fresh level-1 catch.
+export function fusionPowerGain(sacrificeLevel) {
+  return Math.min(20, 5 + Math.floor(sacrificeLevel / 2));
+}
+
+// A rival trainer's fixed team of three, fought back-to-back with a full
+// heal between each (same shape as Boss Rush) — reuses existing enemy
+// sprites rather than needing new art, and scales with the player's own
+// level so the rival stays a real fight at any point in the game.
+export const RIVAL_TEAM = [
+  { key: 'rivalDirewolf', name: "Rival's Direwolf", baseHp: 60, baseAtk: 20, baseDef: 8, sprite: 'icons/sprites/wolf.png' },
+  { key: 'rivalFalcon', name: "Rival's Falcon", baseHp: 50, baseAtk: 24, baseDef: 6, sprite: 'icons/sprites/hawk.png' },
+  { key: 'rivalShadowfang', name: "Rival's Shadowfang", baseHp: 75, baseAtk: 27, baseDef: 11, sprite: 'icons/sprites/panther.png' },
+];
+export function scaleRivalOpponent(base, playerLevel) {
+  const mult = 1 + playerLevel * 0.06;
+  return {
+    key: base.key, name: base.name, sprite: base.sprite,
+    maxHp: Math.round(base.baseHp * mult), atk: Math.round(base.baseAtk * mult), def: Math.round(base.baseDef * mult),
+    xp: Math.round(30 * mult), goldMin: Math.round(40 * mult), goldMax: Math.round(60 * mult),
+  };
+}
+
 export const PLAYER_BASE = {
   name: 'Kael',
   level: 1,
@@ -311,6 +342,12 @@ export const PLAYER_BASE = {
   petProgress: {},
   charmKey: 'none',
   ownedCharms: ['none'],
+  // { [targetPetKey]: { power: N, extraAbilities: [abilityKey, ...] } } —
+  // built up by fusing other companions into targetPetKey (see
+  // fuseCompanions in ui.js). fusionCount is just a running total for the
+  // "Fusionist" achievement.
+  fusionBonus: {},
+  fusionCount: 0,
   arenaBestWave: 0,
   inventory: { potion: 3, ether: 0, captureOrb: 1 },
   // Marks an enemy key true the first time it's ever been defeated, so the
@@ -709,6 +746,14 @@ export const ACHIEVEMENTS = [
   {
     key: 'charmMaster', name: 'Charm Master', desc: 'Find the Celestial Charm.', rewardGold: 300,
     check: (state) => state.player.ownedCharms.includes('celestialCharm'),
+  },
+  {
+    key: 'fusionist', name: 'Fusionist', desc: 'Fuse 3 companions together.', rewardGold: 200,
+    check: (state) => (state.player.fusionCount || 0) >= 3,
+  },
+  {
+    key: 'rivalDefeated', name: 'Rival Defeated', desc: "Clear the Rival's full team in one duel.", rewardGold: 250,
+    check: (state) => !!state.flags.rivalDefeated,
   },
   {
     key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400,
