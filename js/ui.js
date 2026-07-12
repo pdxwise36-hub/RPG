@@ -1014,27 +1014,42 @@ function renderBounty() {
   });
 }
 
-// ---------- Travel (level select) ----------
-// Lists every level ever reached, in chain order, so you can jump straight
-// to any of them from Town instead of only ever landing back on whichever
-// one is "current" — free exploration/backtracking without walking it.
+// ---------- World Map (level select + progress overview) ----------
+// Lists every zone in the game, in chain order — not just the ones you've
+// reached — each with a boss/bestiary progress readout, so it doubles as a
+// "how much of the game have I seen" overview and not just a travel menu.
+// Unreached zones show their progress as locked instead of a Travel button.
 function renderLevelSelect() {
+  const p = state.player;
   const list = el('levelselect-list');
   list.innerHTML = '';
-  LEVEL_CHAIN.filter((id) => state.reachedLevels.includes(id)).forEach((mapId) => {
+  LEVEL_CHAIN.forEach((mapId) => {
     const map = MAPS[mapId];
+    const reached = state.reachedLevels.includes(mapId);
+    const bossDown = !!state.flags[map.bossFlag];
+    const pool = Object.keys(map.enemyPool);
+    const killed = pool.filter((k) => p.bestiary[k]).length;
+
     const row = document.createElement('div');
     row.className = 'shop-item';
+    const statusBits = reached
+      ? `Boss: ${bossDown ? 'Defeated' : 'Not yet'} — Bestiary ${killed}/${pool.length}${mapId === state.currentLevelId ? ' — current' : ''}`
+      : 'Not yet reached';
     row.innerHTML = `
       <div class="shop-item-info">
-        <span class="shop-item-name">${map.name}</span>
-        <span class="shop-item-desc">Depth ${map.depth}${mapId === state.currentLevelId ? ' — current' : ''}</span>
+        <span class="shop-item-name${reached ? '' : ' bestiary-killed'}">${map.name}</span>
+        <span class="shop-item-desc">Depth ${map.depth} — ${statusBits}</span>
       </div>
     `;
     const btn = document.createElement('button');
     btn.className = 'btn btn-small';
-    btn.textContent = 'Travel';
-    btn.addEventListener('click', () => travelToLevel(mapId));
+    if (reached) {
+      btn.textContent = 'Travel';
+      btn.addEventListener('click', () => travelToLevel(mapId));
+    } else {
+      btn.textContent = 'Locked';
+      btn.disabled = true;
+    }
     row.appendChild(btn);
     list.appendChild(row);
   });
