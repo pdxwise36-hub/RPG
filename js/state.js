@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -131,20 +131,36 @@ function reachedLevelsUpTo(mapId) {
   return idx === -1 ? ['overworld'] : LEVEL_CHAIN.slice(0, idx + 1);
 }
 
-// Wearing all 5 pieces of a SET_BONUSES entry (equipped, not just owned)
-// grants a flat/percent bump on top of each piece's own stats — checked
-// once here and read by every stat accessor below via setBonusValue.
-export function activeSetBonus(player) {
-  return SET_BONUSES.find((set) => Object.entries(set.pieces).every(([slot, key]) => {
-    const equipField = slot === 'weapon' ? 'weaponKey' : slot === 'armor' ? 'armorKey'
-      : slot === 'helmet' ? 'helmKey' : slot === 'gloves' ? 'glovesKey' : 'bootsKey';
-    return player[equipField] === key;
-  })) || null;
+// How many pieces of `set` are currently equipped (not just owned) — used
+// both to find the applicable cumulative threshold and to show progress in
+// the UI even when a set isn't fully worn yet.
+function wornPieceCount(player, set) {
+  return Object.entries(set.pieces).filter(([slot, key]) => player[GEAR_SLOTS[slot].equipField] === key).length;
 }
 
+// The bonus object for whichever threshold `set` currently qualifies for
+// (the highest one at or below the worn count), or null below the 2-piece
+// minimum. Thresholds store the full cumulative bonus at that count, not a
+// delta, so a 4th piece is a strict upgrade over 3.
+function activeThreshold(set, wornCount) {
+  const keys = Object.keys(set.thresholds).map(Number).filter((n) => n <= wornCount).sort((a, b) => b - a);
+  return keys.length > 0 ? set.thresholds[keys[0]] : null;
+}
+
+// Every set with at least a 2-piece bonus currently active, most useful for
+// the Status screen ("which sets am I benefiting from right now").
+export function activeSetProgress(player) {
+  return SET_BONUSES.map((set) => {
+    const wornCount = wornPieceCount(player, set);
+    return { set, wornCount, bonus: activeThreshold(set, wornCount) };
+  }).filter((entry) => entry.bonus);
+}
+
+// Sums `statKey` across every currently-active set bonus — a player could
+// have pieces of more than one set equipped at once (one slot each), so
+// this is a sum, not a single lookup.
 function setBonusValue(player, statKey) {
-  const set = activeSetBonus(player);
-  return (set && set.bonus[statKey]) || 0;
+  return activeSetProgress(player).reduce((sum, { bonus }) => sum + (bonus[statKey] || 0), 0);
 }
 
 export function effectiveAtk(player) {
@@ -257,6 +273,27 @@ export function petDisplayName(player, petKey) {
 // sites for the active pet, not baked into every companion's own number.
 export function charmPowerBonus(player) {
   return (CHARMS[player.charmKey] || CHARMS.none).petPowerBonus;
+}
+
+// Beastmaster's Regalia stacks on top of the Charm bonus at the same call
+// sites (battle.js petAttacks, the Status screen's Pet Damage row) rather
+// than being folded into petEffectivePower, for the same reason charms
+// aren't: it's a player-side upgrade to "whichever companion is active,"
+// not a property of any one companion.
+export function petPowerSetBonus(player) {
+  return setBonusValue(player, 'petPowerBonus');
+}
+
+// Fortune Hunter's Garb — added directly onto the chest-appearance chance
+// in battle.js's rollChest.
+export function itemFindBonus(player) {
+  return setBonusValue(player, 'itemFindBonus');
+}
+
+// Battlemage's Focus — a % multiplier on skill damage, applied in
+// battle.js's playerSkill alongside its own mpCostReduction bonus.
+export function skillPowerBonus(player) {
+  return setBonusValue(player, 'skillPowerBonus');
 }
 
 // Returns the % value of `abilityKey` if the currently active companion has

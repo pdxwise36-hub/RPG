@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -135,7 +135,7 @@ function petAttacks(battle, state) {
   const petKey = player.activePetKey;
   const pet = ALL_PET_DEFS[petKey];
   if (!pet) return;
-  const power = petEffectivePower(player, petKey) * (1 + charmPowerBonus(player) / 100);
+  const power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player)) / 100);
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${petDisplayName(player, petKey)} attacks ${battle.enemy.name} for ${dmg}!`);
@@ -177,7 +177,8 @@ export function playerSkill(battle, state, skillKey) {
     return;
   }
   player.mp -= cost;
-  let dmg = Math.max(2, Math.round(effectiveAtk(player) * skill.power) - battle.enemy.def);
+  const power = skill.power * (1 + skillPowerBonus(player) / 100);
+  let dmg = Math.max(2, Math.round(effectiveAtk(player) * power) - battle.enemy.def);
   const crit = rollCrit(player);
   if (crit) dmg *= 2;
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
@@ -373,8 +374,8 @@ function rollCharm(state, depth) {
 // (same pattern as grantRewards) and returns a description of the loot, or
 // null if no chest appeared.
 export function rollChest(state) {
-  if (Math.random() >= CHEST_CHANCE) return null;
   const player = state.player;
+  if (Math.random() >= CHEST_CHANCE + itemFindBonus(player) / 100) return null;
   const depth = (MAPS[state.mapId] && MAPS[state.mapId].depth) || 0;
   const roll = Math.random();
 

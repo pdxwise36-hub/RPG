@@ -133,17 +133,84 @@ export const GEAR_SLOTS = {
   boots: { registry: BOOTS, order: BOOTS_ORDER, ownedField: 'ownedBoots', equipField: 'bootsKey', label: 'Boots' },
 };
 
-// Wearing all 5 top-tier Celestial pieces at once (equipped, not just
-// owned) grants a bonus on top of each piece's own stats — the Celestial
-// tier already shares a name across every slot, so this reuses that
-// existing naming rather than inventing a separate set-item system.
+// Six 5-piece sets (one item per equipment slot), each with a single clear
+// purpose rather than one do-everything set — every set has value from the
+// moment you have 2 pieces on, not just at a full 5/5, via `thresholds`:
+// each key is a worn-piece-count and its value is the CUMULATIVE bonus at
+// that count (not a delta), so equipping a 4th piece is a strict upgrade
+// over 3. Pieces are drawn from existing gear tiers (no new items needed)
+// — a set's own name/theme is what ties its 5 otherwise-differently-named
+// pieces together, called out via setForPiece() in the Armory/Inventory.
 export const SET_BONUSES = [
   {
-    key: 'celestialSet', name: 'Celestial Radiance',
+    key: 'celestialSet', name: 'Celestial Radiance', desc: 'Makes you personally stronger in a fight.',
     pieces: { weapon: 'celestialEdge', armor: 'celestialAegis', helmet: 'celestialCrown', gloves: 'celestialGauntlets', boots: 'celestialStriders' },
-    bonus: { atk: 15, def: 15, critChance: 10, dodgeChance: 10, mpCostReduction: 10, xpBonusPercent: 10, goldBonusPercent: 10 },
+    thresholds: {
+      2: { atk: 6, def: 6 },
+      3: { atk: 10, def: 10, critChance: 4 },
+      4: { atk: 15, def: 15, critChance: 7, dodgeChance: 7 },
+      5: { atk: 22, def: 22, critChance: 12, dodgeChance: 12 },
+    },
+  },
+  {
+    key: 'beastmasterSet', name: "Beastmaster's Regalia", desc: 'Makes your active companion stronger.',
+    pieces: { weapon: 'frostFang', armor: 'dragonhideArmor', helmet: 'flameguardHelm', gloves: 'flameforgedGloves', boots: 'flamewalkers' },
+    thresholds: {
+      2: { petPowerBonus: 8 },
+      3: { petPowerBonus: 14 },
+      4: { petPowerBonus: 22 },
+      5: { petPowerBonus: 32 },
+    },
+  },
+  {
+    key: 'sageSet', name: "Sage's Vestments", desc: 'Boosts XP gained, so you level up faster.',
+    pieces: { weapon: 'thunderAxe', armor: 'runicPlate', helmet: 'frostcrown', gloves: 'frostbiteGloves', boots: 'frostwalkers' },
+    thresholds: {
+      2: { xpBonusPercent: 8 },
+      3: { xpBonusPercent: 14 },
+      4: { xpBonusPercent: 22 },
+      5: { xpBonusPercent: 32 },
+    },
+  },
+  {
+    key: 'fortuneHunterSet', name: "Fortune Hunter's Garb", desc: 'Raises the odds of finding a chest after a win.',
+    pieces: { weapon: 'mithrilBlade', armor: 'steelMail', helmet: 'steelHelm', gloves: 'steelGauntlets', boots: 'steelBoots' },
+    thresholds: {
+      2: { itemFindBonus: 5 },
+      3: { itemFindBonus: 9 },
+      4: { itemFindBonus: 14 },
+      5: { itemFindBonus: 20 },
+    },
+  },
+  {
+    key: 'prospectorSet', name: "Prospector's Gear", desc: 'Boosts gold found from every source.',
+    pieces: { weapon: 'steelBlade', armor: 'ironPlate', helmet: 'ironHelm', gloves: 'ironGauntlets', boots: 'ironGreaves' },
+    thresholds: {
+      2: { goldBonusPercent: 8 },
+      3: { goldBonusPercent: 14 },
+      4: { goldBonusPercent: 22 },
+      5: { goldBonusPercent: 32 },
+    },
+  },
+  {
+    key: 'battlemageSet', name: "Battlemage's Focus", desc: 'Cuts Skill MP cost and boosts Skill damage.',
+    pieces: { weapon: 'ironSword', armor: 'leatherArmor', helmet: 'leatherCap', gloves: 'leatherGloves', boots: 'leatherBoots' },
+    thresholds: {
+      2: { mpCostReduction: 5 },
+      3: { mpCostReduction: 8, skillPowerBonus: 5 },
+      4: { mpCostReduction: 12, skillPowerBonus: 9 },
+      5: { mpCostReduction: 18, skillPowerBonus: 15 },
+    },
   },
 ];
+
+const PIECE_TO_SET = {};
+SET_BONUSES.forEach((set) => {
+  Object.values(set.pieces).forEach((key) => { PIECE_TO_SET[key] = set; });
+});
+export function setForPiece(key) {
+  return PIECE_TO_SET[key] || null;
+}
 
 // Both the Knight and the Master Mage teach permanent skills for gold — they
 // share one mechanic (spend MP, hit for atk*power - def) so "physical skill"

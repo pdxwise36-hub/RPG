@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SHINY_CHANCE, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetBonus, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SHINY_CHANCE, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -535,6 +535,24 @@ function gearStatLabel(slot, item) {
   }
 }
 
+// Turns a SET_BONUSES threshold's bonus object into a readable summary —
+// e.g. { atk: 15, def: 15, critChance: 10 } -> "+15 ATK, +15 DEF, +10% Crit".
+const SET_STAT_LABELS = {
+  atk: (v) => `+${v} ATK`,
+  def: (v) => `+${v} DEF`,
+  critChance: (v) => `+${v}% Crit`,
+  dodgeChance: (v) => `+${v}% Dodge`,
+  mpCostReduction: (v) => `-${v}% Skill Cost`,
+  xpBonusPercent: (v) => `+${v}% XP`,
+  goldBonusPercent: (v) => `+${v}% Gold`,
+  petPowerBonus: (v) => `+${v}% Pet Damage`,
+  itemFindBonus: (v) => `+${v}% Item Find`,
+  skillPowerBonus: (v) => `+${v}% Skill Power`,
+};
+function describeSetBonus(bonus) {
+  return Object.entries(bonus).map(([key, value]) => (SET_STAT_LABELS[key] ? SET_STAT_LABELS[key](value) : '')).filter(Boolean).join(', ');
+}
+
 // Items are usable right here — no need to be in battle or visit town.
 function buildStatusItemRow(itemKey) {
   const p = state.player;
@@ -628,7 +646,7 @@ function renderStatus() {
   const body = el('status-body');
 
   const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
-  const activePetPower = p.activePetKey ? petEffectivePower(p, p.activePetKey) * (1 + charmPowerBonus(p) / 100) : 0;
+  const activePetPower = p.activePetKey ? petEffectivePower(p, p.activePetKey) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p)) / 100) : 0;
   const petDamageRow = p.activePetKey ? `
     <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * activePetPower))} per hit (+${Math.round(activePetPower * 100)}% ATK)</span></div>
   ` : '';
@@ -645,17 +663,11 @@ function renderStatus() {
       <span class="bar-text">${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP</span>
     </div>
   ` : '';
-  const set = activeSetBonus(p);
-  const setBonusRow = set ? `
-    <div class="status-row"><span>Set Bonus</span><span>${set.name} — Active</span></div>
-  ` : '';
-
   body.innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
     <div class="status-row"><span>Attack</span><span>${effectiveAtk(p)} (${p.baseAtk}+${weapon.atkBonus})</span></div>
     <div class="status-row"><span>Defense</span><span>${effectiveDef(p)} (${p.baseDef}+${armor.defBonus})</span></div>
-    ${setBonusRow}
     <div class="status-row"><span>Crit Chance</span><span>${critChance(p)}%</span></div>
     <div class="status-row"><span>Dodge Chance</span><span>${dodgeChance(p)}%</span></div>
     <div class="status-row"><span>Skill Cost / XP / Gold</span><span>-${mpCostReduction(p)}% / +${xpBonusPercent(p)}% / +${goldBonusPercent(p)}%</span></div>
@@ -671,6 +683,17 @@ function renderStatus() {
     <div class="status-row"><span>Companion Charm</span><span>${CHARMS[p.charmKey].name}${charmPowerBonus(p) > 0 ? ` (+${charmPowerBonus(p)}% pet damage)` : ''}</span></div>
     <div class="status-row"><span>Monsters Caught</span><span>${p.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
   `;
+
+  const activeSets = activeSetProgress(p);
+  if (activeSets.length > 0) {
+    body.appendChild(sectionHeading('Set Bonuses'));
+    activeSets.forEach(({ set, wornCount, bonus }) => {
+      const row = document.createElement('div');
+      row.className = 'status-row';
+      row.innerHTML = `<span>${set.name} (${wornCount}/5)</span><span>${describeSetBonus(bonus)}</span>`;
+      body.appendChild(row);
+    });
+  }
 
   body.appendChild(sectionHeading('Items'));
   CONSUMABLE_ITEMS.forEach((item) => body.appendChild(buildStatusItemRow(item.key)));
@@ -864,10 +887,11 @@ function buildArmoryRow(item, slot) {
   const row = document.createElement('div');
   row.className = 'shop-item';
   const priceLabel = item.price > 0 ? `${item.price}G` : 'Free';
+  const set = setForPiece(item.key);
   row.innerHTML = `
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-name">${item.name}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
       <span class="shop-item-desc">${gearStatLabel(slot, item)} — ${owned ? 'Owned' : priceLabel}</span>
     </div>
   `;
