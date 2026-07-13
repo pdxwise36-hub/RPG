@@ -1,8 +1,8 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty, rollLegendaryDrop } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -361,6 +361,8 @@ function resolveBattleEnd() {
         if (p.difficulty === 'hell') state.flags.hellCleared = true;
       }
       p.bountyProgress.bossWins += 1;
+      const legendarySlot = rollLegendaryDrop(state, battle.enemy.key);
+      if (legendarySlot) msg += ` A Legendary item gleams among the remains: ${LEGENDARIES[legendarySlot].name}!`;
       autosave();
       if (firstTime) {
         if (map.nextMap) {
@@ -606,6 +608,9 @@ const SET_STAT_LABELS = {
   petPowerBonus: (v) => `+${v}% Pet Damage`,
   itemFindBonus: (v) => `+${v}% Item Find`,
   skillPowerBonus: (v) => `+${v}% Skill Power`,
+  elementalBonusPercent: (v) => `+${v}% Elemental Power`,
+  mercPowerBonus: (v) => `+${v}% Mercenary Power`,
+  hpRegenPercent: (v) => `+${v}% HP Regen/turn`,
 };
 function describeSetBonus(bonus) {
   return Object.entries(bonus).map(([key, value]) => (SET_STAT_LABELS[key] ? SET_STAT_LABELS[key](value) : '')).filter(Boolean).join(', ');
@@ -1269,11 +1274,12 @@ function buildArmoryRow(item, slot) {
   const affixKey = p.gearAffixes[slot] && p.gearAffixes[slot][item.key];
   const affix = affixKey && AFFIXES[affixKey];
   const sockets = socketCount(slot, item.key);
+  const legendary = LEGENDARIES[slot] && LEGENDARIES[slot].key === item.key && p.ownedLegendaries.includes(slot) ? LEGENDARIES[slot] : null;
   row.innerHTML = `
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${item.name}${affix ? ` ${affix.name}` : ''}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
-      <span class="shop-item-desc">${gearStatLabel(slot, item)}${affix ? `, ${SET_STAT_LABELS[affix.statKey](affix.value)}` : ''}${sockets > 0 ? ` — ${sockets} Socket` : ''} — ${owned ? 'Owned' : priceLabel}</span>
+      <span class="shop-item-name">${legendary ? legendary.name : item.name}${affix ? ` ${affix.name}` : ''}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
+      <span class="shop-item-desc">${gearStatLabel(slot, item)}${affix ? `, ${SET_STAT_LABELS[affix.statKey](affix.value)}` : ''}${legendary ? `, ${SET_STAT_LABELS[legendary.statKey](legendary.value)}` : ''}${sockets > 0 ? ` — ${sockets} Socket` : ''} — ${owned ? 'Owned' : priceLabel}</span>
     </div>
   `;
   const btn = document.createElement('button');

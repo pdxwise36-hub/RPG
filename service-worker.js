@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v43';
+const CACHE_NAME = 'emberfall-v44';
 const ASSETS = [
   './',
   './index.html',
@@ -93,6 +93,12 @@ const ASSETS = [
   './icons/sprites/emberwraith.png',
   './icons/sprites/cinderfiend.png',
   './icons/sprites/progenitorember.png',
+  './icons/sprites/smolderingwisp.png',
+  './icons/sprites/ashbornstalker.png',
+  './icons/sprites/cinderwarden.png',
+  './icons/sprites/flareling.png',
+  './icons/sprites/emberkin.png',
+  './icons/sprites/undyingember.png',
   './icons/sprites/woollygrazer.png',
   './icons/sprites/strayram.png',
   './icons/sprites/theshepherd.png',

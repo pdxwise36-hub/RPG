@@ -260,6 +260,36 @@ export const SET_BONUSES = [
       5: { mpCostReduction: 18, skillPowerBonus: 15 },
     },
   },
+  {
+    key: 'elementalistSet', name: "Elementalist's Attunement", desc: 'Amplifies your elemental type advantage and resistance.',
+    pieces: { weapon: 'flameSaber', armor: 'mithrilVest', helmet: 'mithrilCirclet', gloves: 'mithrilGrips', boots: 'mithrilStriders' },
+    thresholds: {
+      2: { elementalBonusPercent: 10 },
+      3: { elementalBonusPercent: 18 },
+      4: { elementalBonusPercent: 28 },
+      5: { elementalBonusPercent: 40 },
+    },
+  },
+  {
+    key: 'warlordSet', name: "Warlord's Vanguard", desc: 'Strengthens your hired Mercenary.',
+    pieces: { weapon: 'voidCleaver', armor: 'shadowweaveCloak', helmet: 'thunderHelm', gloves: 'thunderstrikeGauntlets', boots: 'thunderstepBoots' },
+    thresholds: {
+      2: { mercPowerBonus: 8 },
+      3: { mercPowerBonus: 14 },
+      4: { mercPowerBonus: 22 },
+      5: { mercPowerBonus: 32 },
+    },
+  },
+  {
+    key: 'wardenSet', name: "Warden's Bulwark", desc: 'Raises your defense and regenerates HP every turn.',
+    pieces: { weapon: 'dragonfang', armor: 'stormguardArmor', helmet: 'voidsightHelm', gloves: 'voidtouchedGloves', boots: 'voidwalkers' },
+    thresholds: {
+      2: { def: 8, hpRegenPercent: 3 },
+      3: { def: 14, hpRegenPercent: 5 },
+      4: { def: 22, hpRegenPercent: 8 },
+      5: { def: 32, hpRegenPercent: 12 },
+    },
+  },
 ];
 
 const PIECE_TO_SET = {};
@@ -567,6 +597,25 @@ export function elementMultiplier(attackElement, defendElement) {
   return 1;
 }
 
+// Legendary Items: one fixed, permanent bonus per equipment slot, dropped
+// only from that slot's one specific boss and only if you don't already
+// own that slot's Legendary. Reuses the exact same "sticky per-slot+key
+// bonus" plumbing as Affixes/Gems above (player.ownedLegendaries is just
+// a list of slots, not an instanced item) rather than a new item-instancing
+// system — the bonus only applies while that Legendary's specific key is
+// currently equipped in that slot. Deliberately reuses tier keys that also
+// belong to existing gear Sets (e.g. Emberfang's flameSaber is also the
+// Elementalist's Attunement set's weapon piece) since every bonus source in
+// this game (sets/affixes/gems/legendaries) is meant to stack, not compete.
+export const LEGENDARIES = {
+  weapon: { slot: 'weapon', key: 'flameSaber', bossKey: 'moltenwyrm', name: 'Emberfang', statKey: 'atk', value: 15, desc: "A blade quenched in the Molten Wyrm's own heart-fire." },
+  armor: { slot: 'armor', key: 'stormguardArmor', bossKey: 'stormguardtitan', name: "The Stormguard's Legacy", statKey: 'def', value: 15, desc: "Forged from the Titan's own shattered plating." },
+  helmet: { slot: 'helmet', key: 'voidsightHelm', bossKey: 'worldserpent', name: 'Crown of the Deep Unseen', statKey: 'xpBonusPercent', value: 20, desc: 'Lets you see exactly as far into the void as the Serpent once did.' },
+  gloves: { slot: 'gloves', key: 'thunderstrikeGauntlets', bossKey: 'tempestking', name: "The Tempest's Grip", statKey: 'critChance', value: 15, desc: 'Every strike still carries a rumble of thunder.' },
+  boots: { slot: 'boots', key: 'celestialStriders', bossKey: 'eternalsovereign', name: 'Steps of Eternity', statKey: 'goldBonusPercent', value: 25, desc: 'Even the ground remembers whoever wore these last.' },
+};
+export const LEGENDARY_DROP_CHANCE = 0.15;
+
 export const PLAYER_BASE = {
   name: 'Kael',
   level: 1,
@@ -666,6 +715,10 @@ export const PLAYER_BASE = {
   // Which DIFFICULTIES tier is currently active — independent of ngPlusLevel
   // (see DIFFICULTIES in data.js).
   difficulty: 'normal',
+  // Slots (see LEGENDARIES above) whose one-per-slot Legendary drop has
+  // already been earned — permanent once rolled, gates that boss from
+  // ever dropping it again.
+  ownedLegendaries: [],
   // Gear chest drops land here as { slot, key, affixKey? } instead of going
   // straight into ownedWeapons/ownedArmors — Deckard Cain in Town identifies
   // them (for a fee) before you learn what they are (and any affix they
@@ -877,6 +930,25 @@ export const PROGENITOR_EMBER = {
   key: 'progenitorember', name: 'The Progenitor Ember', maxHp: 1340, atk: 80, def: 51, xp: 4050, goldMin: 4050, goldMax: 4050, sprite: 'icons/sprites/progenitorember.png',
 };
 
+// Zone 23: The Cinder Expanse — the chain keeps extending past The First
+// Flame instead of dead-ending there now.
+export const CINDEREXPANSE_ENEMIES = {
+  smolderingWisp: { key: 'smolderingWisp', name: 'Smoldering Wisp', maxHp: 285, atk: 73, def: 39, xp: 225, goldMin: 205, goldMax: 215, weight: 4, sprite: 'icons/sprites/smolderingwisp.png' },
+  ashbornStalker: { key: 'ashbornStalker', name: 'Ashborn Stalker', maxHp: 300, atk: 75, def: 40, xp: 233, goldMin: 212, goldMax: 223, weight: 3, sprite: 'icons/sprites/ashbornstalker.png' },
+};
+export const CINDER_WARDEN = {
+  key: 'cinderwarden', name: 'The Cinder Warden', maxHp: 1480, atk: 88, def: 56, xp: 4450, goldMin: 4450, goldMax: 4450, sprite: 'icons/sprites/cinderwarden.png',
+};
+
+// Zone 24: The Heart of Emberfall — the chain's new true end, for now.
+export const EMBERHEART_ENEMIES = {
+  flareling: { key: 'flareling', name: 'Flareling', maxHp: 310, atk: 79, def: 42, xp: 245, goldMin: 225, goldMax: 235, weight: 4, sprite: 'icons/sprites/flareling.png' },
+  emberkin: { key: 'emberkin', name: 'Emberkin', maxHp: 325, atk: 82, def: 43, xp: 255, goldMin: 232, goldMax: 244, weight: 3, sprite: 'icons/sprites/emberkin.png' },
+};
+export const UNDYING_EMBER = {
+  key: 'undyingember', name: 'The Undying Ember', maxHp: 1620, atk: 96, def: 61, xp: 4850, goldMin: 4850, goldMax: 4850, sprite: 'icons/sprites/undyingember.png',
+};
+
 // A true secret zone in the "Cow Level" tradition — not linked in via
 // nextMap at all (not even by hand, unlike the Abyssal Depths originally
 // was), so it never shows up in LEVEL_CHAIN, the World Map, the Bestiary,
@@ -1047,9 +1119,23 @@ export const MAPS = {
   firstflame: {
     id: 'firstflame', name: 'The First Flame', theme: 'firstflame', depth: 21, element: 'fire',
     bossEnemy: PROGENITOR_EMBER, bossFlag: 'progenitorEmberDefeated', enemyPool: FIRSTFLAME_ENEMIES,
-    // No nextMap — the chain's true end, for now.
+    nextMap: { mapId: 'cinderexpanse' },
     hazard: { type: 'Searing embers', chance: 0.15, damagePercent: 0.05 },
     lore: 'The very ember Emberfall is named for, still burning — the Progenitor Ember guards what started it all.',
+  },
+  cinderexpanse: {
+    id: 'cinderexpanse', name: 'The Cinder Expanse', theme: 'cinderexpanse', depth: 22, element: 'fire',
+    bossEnemy: CINDER_WARDEN, bossFlag: 'cinderWardenDefeated', enemyPool: CINDEREXPANSE_ENEMIES,
+    nextMap: { mapId: 'emberheart' },
+    hazard: { type: 'Searing embers', chance: 0.17, damagePercent: 0.05 },
+    lore: 'Ash drifts here like snow, settled over ground the First Flame scorched long before Emberfall had a name.',
+  },
+  emberheart: {
+    id: 'emberheart', name: 'The Heart of Emberfall', theme: 'emberheart', depth: 23, element: 'fire',
+    bossEnemy: UNDYING_EMBER, bossFlag: 'undyingEmberDefeated', enemyPool: EMBERHEART_ENEMIES,
+    // No nextMap — the chain's new true end, for now.
+    hazard: { type: 'Searing embers', chance: 0.18, damagePercent: 0.06 },
+    lore: "The molten core beneath everything else — the Undying Ember has outlasted every fire that came before it.",
   },
   // Not part of the normal chain at all -- no nextMap points here, and it
   // has none of its own, so LEVEL_CHAIN's walk never reaches it. Reached

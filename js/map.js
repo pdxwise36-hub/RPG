@@ -124,6 +124,8 @@ const PALETTES = {
   sunlessexpanse: makeTheme({ grass: '#0a0a12', path: '#181826', water: '#020204', tree: '#050508', boss: '#5a3aff' }),
   firstflame: makeTheme({ grass: '#3a1508', path: '#5a2810', water: '#ff5a10', tree: '#200a04', boss: '#ffb020' }),
   feralpastures: makeTheme({ grass: '#4a6b3a', path: '#8a9c6a', water: '#3a6a7a', tree: '#2a4a1e', boss: '#6a9c50' }),
+  cinderexpanse: makeTheme({ grass: '#4a2010', path: '#6a3418', water: '#ff6a20', tree: '#2a1208', boss: '#ff8a30' }),
+  emberheart: makeTheme({ grass: '#5a1808', path: '#7a2c10', water: '#ff4a10', tree: '#300e04', boss: '#ffcf40' }),
 };
 
 // Generic per-theme decoration accents (speckle/water/tree rendering), keyed
@@ -138,6 +140,7 @@ const THEME_MOOD = {
   ashenwastes: 'ember', stormcitadel: 'frost', bonewastes: 'arcane',
   chaosrift: 'arcane', throneofeternity: 'warm', abyssaldepths: 'arcane',
   sunlessexpanse: 'arcane', firstflame: 'ember', feralpastures: 'warm',
+  cinderexpanse: 'ember', emberheart: 'ember',
 };
 
 const BOSS_CLEARED_COLOR = '#caa53d';

@@ -1034,6 +1034,34 @@ const buildProgenitorEmber = () => buildRobedBossTemplate({
   'w': [130, 55, 15, 255], 'o': [255, 170, 30, 255],
 });
 
+// ---------- Zone 23: The Cinder Expanse ----------
+const buildSmolderingWisp = () => buildBipedTemplate({
+  'k': [90, 45, 30, 255], 'd': [45, 20, 12, 255], 'v': [220, 110, 40, 255],
+  'r': [255, 160, 60, 255], 'w': [55, 25, 15, 255], 'o': [25, 12, 6, 255],
+});
+const buildAshbornStalker = () => buildQuadrupedTemplate({
+  'b': [70, 35, 25, 255], 'd': [35, 15, 10, 255], 'e': [255, 190, 90, 255],
+});
+const buildCinderWarden = () => buildRobedBossTemplate({
+  'k': [55, 25, 15, 255], 'e': [255, 150, 40, 255], 'j': [20, 8, 5, 255],
+  'r': [95, 40, 15, 255], 'r2': [170, 75, 20, 255], 'd': [38, 16, 8, 255],
+  'w': [110, 50, 18, 255], 'o': [255, 130, 20, 255],
+});
+
+// ---------- Zone 24: The Heart of Emberfall (the chain's new true end) ----------
+const buildFlareling = () => buildBipedTemplate({
+  'k': [140, 50, 15, 255], 'd': [70, 22, 8, 255], 'v': [255, 130, 30, 255],
+  'r': [255, 200, 70, 255], 'w': [80, 30, 10, 255], 'o': [35, 12, 5, 255],
+});
+const buildEmberkin = () => buildQuadrupedTemplate({
+  'b': [110, 40, 18, 255], 'd': [55, 18, 8, 255], 'e': [255, 215, 90, 255],
+});
+const buildUndyingEmber = () => buildRobedBossTemplate({
+  'k': [80, 30, 10, 255], 'e': [255, 225, 100, 255], 'j': [30, 10, 4, 255],
+  'r': [130, 45, 12, 255], 'r2': [220, 100, 20, 255], 'd': [55, 18, 6, 255],
+  'w': [150, 65, 15, 255], 'o': [255, 190, 40, 255],
+});
+
 // ---------- The Feral Pastures (secret zone) ----------
 const buildWoollyGrazer = () => buildQuadrupedTemplate({
   'b': [230, 225, 210, 255], 'd': [180, 172, 155, 255], 'e': [20, 20, 25, 255],
@@ -1304,6 +1332,16 @@ const sprites = {
   'emberwraith.png': buildEmberwraith,
   'cinderfiend.png': buildCinderfiend,
   'progenitorember.png': buildProgenitorEmber,
+
+  // ---------- Zone 23: The Cinder Expanse (post-game) ----------
+  'smolderingwisp.png': buildSmolderingWisp,
+  'ashbornstalker.png': buildAshbornStalker,
+  'cinderwarden.png': buildCinderWarden,
+
+  // ---------- Zone 24: The Heart of Emberfall (post-game) ----------
+  'flareling.png': buildFlareling,
+  'emberkin.png': buildEmberkin,
+  'undyingember.png': buildUndyingEmber,
 
   // ---------- The Feral Pastures (secret zone) ----------
   'woollygrazer.png': buildWoollyGrazer,

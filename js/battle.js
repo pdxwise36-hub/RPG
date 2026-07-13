@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, heldItemHpRegenPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, LEGENDARIES, LEGENDARY_DROP_CHANCE, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, hpRegenPercent, mercPowerSetBonus, elementalBonusPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -202,7 +202,8 @@ function mercAttacks(battle, state) {
   if (player.mercTier < 0) return;
   const merc = MERCENARIES[player.mercTier];
   const weapon = MERC_WEAPONS[player.mercWeaponKey] || MERC_WEAPONS.none;
-  const dmg = Math.max(1, Math.round(effectiveAtk(player) * merc.power) + weapon.atkBonus);
+  const power = merc.power * (1 + mercPowerSetBonus(player) / 100);
+  const dmg = Math.max(1, Math.round(effectiveAtk(player) * power) + weapon.atkBonus);
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${merc.name} strikes ${battle.enemy.name} for ${dmg}!`);
 }
@@ -224,12 +225,12 @@ function applyMpRegen(battle, state) {
 // same cadence/shape as the Amulet's MP regen above.
 function applyHeldItemRegen(battle, state) {
   const player = state.player;
-  const regen = heldItemHpRegenPercent(player);
+  const regen = hpRegenPercent(player);
   if (regen <= 0 || player.hp >= player.maxHp) return;
   const healed = Math.min(player.maxHp - player.hp, Math.max(1, Math.round(player.maxHp * regen / 100)));
   if (healed > 0) {
     player.hp += healed;
-    pushLog(battle, `Your companion's held item restores ${healed} HP.`);
+    pushLog(battle, `You steadily recover, restoring ${healed} HP.`);
   }
 }
 
@@ -329,7 +330,14 @@ export function playerSkill(battle, state, skillKey) {
   // (fought from Town, which carries no element) stay neutral rather than
   // needing every reskinned/scaled enemy def to carry its own element too.
   const defendElement = (MAPS[state.mapId] && MAPS[state.mapId].element) || null;
-  const elementMult = elementMultiplier(skill.element, defendElement);
+  const baseElementMult = elementMultiplier(skill.element, defendElement);
+  // Elementalist's Attunement amplifies an advantage further and softens a
+  // disadvantage, rather than adding a flat stat — a 40% bonus turns 1.5x
+  // into 1.7x and 0.67x into ~0.80x.
+  const elementBonus = elementalBonusPercent(player) / 100;
+  const elementMult = baseElementMult > 1 ? 1 + (baseElementMult - 1) * (1 + elementBonus)
+    : baseElementMult < 1 ? 1 - (1 - baseElementMult) * Math.max(0, 1 - elementBonus)
+    : 1;
   dmg = Math.max(2, Math.round(dmg * elementMult));
   const crit = rollCrit(player);
   if (crit) dmg *= 2;
@@ -472,6 +480,18 @@ function goldDrop(state, depth) {
   const amount = Math.round(rand(15, 40) * (1 + depth * 0.2) * rewardMult);
   state.player.gold += amount;
   return amount;
+}
+
+// Rolls for a Legendary Item drop (see LEGENDARIES in data.js) after a boss
+// kill — one specific boss per slot, and only if that slot hasn't already
+// been earned. Returns the slot name on a hit, null otherwise.
+export function rollLegendaryDrop(state, bossKey) {
+  const player = state.player;
+  const slot = Object.keys(LEGENDARIES).find((s) => LEGENDARIES[s].bossKey === bossKey && !player.ownedLegendaries.includes(s));
+  if (!slot) return null;
+  if (Math.random() >= LEGENDARY_DROP_CHANCE) return null;
+  player.ownedLegendaries.push(slot);
+  return slot;
 }
 
 const GEAR_SLOT_KEYS = Object.keys(GEAR_SLOTS);

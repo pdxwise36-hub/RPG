@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -200,12 +200,23 @@ function gemStatBonus(player, slot, statKey) {
   return gem && gem.statKey === statKey ? gem.value : 0;
 }
 
+// Same shape as affixStatBonus/gemStatBonus but for a Legendary (see
+// LEGENDARIES in data.js) — a slot's Legendary only contributes once it's
+// both been earned (in player.ownedLegendaries) AND its specific key is
+// currently equipped in that slot.
+function legendaryStatBonus(player, slot, statKey) {
+  const leg = LEGENDARIES[slot];
+  if (!leg || !player.ownedLegendaries.includes(slot) || player[GEAR_SLOTS[slot].equipField] !== leg.key) return 0;
+  return leg.statKey === statKey ? leg.value : 0;
+}
+
 // A Gem's type (Ruby=atk, Sapphire=def, ...) is independent of which of the
 // five slots it happens to be socketed into, so unlike Enchant (always the
-// slot's own native stat) this sums affix+gem contributions to `statKey`
-// across ALL five slots — a Ruby socketed into your Boots still boosts ATK.
+// slot's own native stat) this sums affix+gem+legendary contributions to
+// `statKey` across ALL five slots — a Ruby socketed into your Boots still
+// boosts ATK.
 function gearBonusAcrossSlots(player, statKey) {
-  return Object.keys(GEAR_SLOTS).reduce((sum, slot) => sum + affixStatBonus(player, slot, statKey) + gemStatBonus(player, slot, statKey), 0);
+  return Object.keys(GEAR_SLOTS).reduce((sum, slot) => sum + affixStatBonus(player, slot, statKey) + gemStatBonus(player, slot, statKey) + legendaryStatBonus(player, slot, statKey), 0);
 }
 
 export function effectiveAtk(player) {
@@ -275,9 +286,12 @@ export function heldItemPetPowerBonus(player, petKey) {
   return heldItemBonus(player, petKey, 'petPower');
 }
 
-// Leftovers-style per-turn healing (see applyHeldItemRegen in battle.js).
-export function heldItemHpRegenPercent(player) {
-  return activeHeldItemBonus(player, 'hpRegenPercent');
+// Per-turn HP regen, combining Leftovers (the active companion's Held Item,
+// see applyHeldItemRegen in battle.js) with Warden's Bulwark's own set
+// bonus — both feed the same stat, so callers read this one combined total
+// instead of picking a single source.
+export function hpRegenPercent(player) {
+  return activeHeldItemBonus(player, 'hpRegenPercent') + setBonusValue(player, 'hpRegenPercent');
 }
 
 // The hireable Mercenary's own contribution — no XP/leveling, just its tier
@@ -295,6 +309,18 @@ export function mercDamageReduction(player) {
   if (player.mercTier < 0) return 0;
   const armor = MERC_ARMORS[player.mercArmorKey] || MERC_ARMORS.none;
   return Math.min(25, Math.round(armor.defBonus * 0.6));
+}
+// Warlord's Vanguard's own set bonus — a flat % boost to the Mercenary's
+// power, applied in battle.js's mercAttacks alongside its own tier/weapon.
+export function mercPowerSetBonus(player) {
+  return setBonusValue(player, 'mercPowerBonus');
+}
+
+// Elementalist's Attunement's own set bonus — amplifies the elemental
+// effectiveness triangle's swing (see elementMultiplier in data.js) rather
+// than adding a flat stat, applied in battle.js's playerSkill.
+export function elementalBonusPercent(player) {
+  return setBonusValue(player, 'elementalBonusPercent');
 }
 
 // The Amulet slowly restores MP each of your turns (see applyMpRegen in
