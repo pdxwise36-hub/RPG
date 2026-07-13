@@ -440,6 +440,13 @@ export const PET_LEVEL_POWER_BONUS = 0.15;
 export const SHINY_CHANCE = 0.05;
 export const SHINY_POWER_MULTIPLIER = 1.15;
 
+// A companion caught while its wild encounter was rolled Elite (see
+// ELITE_CHANCE below) keeps a permanent power bonus of its own, the same
+// "baked in forever" shape as Shiny above — stacking multiplicatively with
+// it on the rare catch that rolls both. Smaller than Shiny's bonus since
+// Elite (ELITE_CHANCE) comes up more often than Shiny (SHINY_CHANCE).
+export const ELITE_CAPTURE_POWER_MULTIPLIER = 1.1;
+
 // A single equippable trinket that boosts whichever companion is currently
 // active — found only in chests, never sold, so unlike the player's own
 // gear there's no Buy flow, just Equip. Ten tiers, same price-curve shape
@@ -647,28 +654,32 @@ export const PLAYER_BASE = {
   ring2Key: 'none',
   ownedRings: [],
   knownSkills: ['fireball'],
-  ownedPets: [],
+  // Every owned companion is its own INSTANCE, not just a species you
+  // "have" — catching (or adopting) the same species again adds a second
+  // instance instead of being blocked, so an Elite or Shiny catch is always
+  // worth going for even if you already own a plain one. Each instance:
+  // { id (unique, permanent), key (species — looks up ALL_PET_DEFS for
+  // name/sprite/power/ability), level, xp, xpToNext, shiny, elite }.
+  pets: [],
   // The active companion party, in slot order — index 0 is the "leader"
   // (the one Rally/Fusion/the battle-screen main portrait use), up to
-  // PARTY_SIZE total. activePetKey always mirrors partyKeys[0] (or null if
-  // the party is empty) so every existing single-pet call site (Rally,
-  // Fusion, the main battle sprite, the Status screen's headline Pet row)
-  // keeps working unchanged — the rest of the party (partyKeys[1+]) each
+  // PARTY_SIZE total, each entry a pet instance id (not a species key,
+  // since you can now own more than one of the same species). activePetId
+  // always mirrors partyIds[0] (or null if the party is empty) so every
+  // single-pet call site (Rally, Fusion, the main battle sprite) can keep
+  // reading just that one id — the rest of the party (partyIds[1+]) each
   // land their own auto-hit alongside the leader instead of just one pet
   // fighting at a time.
-  partyKeys: [],
-  activePetKey: null,
-  petProgress: {},
+  partyIds: [],
+  activePetId: null,
   charmKey: 'none',
   ownedCharms: ['none'],
-  // { [targetPetKey]: { power: N, extraAbilities: [abilityKey, ...] } } —
-  // built up by fusing other companions into targetPetKey (see
-  // fuseCompanions in ui.js). fusionCount is just a running total for the
-  // "Fusionist" achievement.
+  // { [targetInstanceId]: { power: N, extraAbilities: [abilityKey, ...] } }
+  // — built up by fusing other companion instances into targetInstanceId
+  // (see fuseCompanions in ui.js). fusionCount is just a running total for
+  // the "Fusionist" achievement.
   fusionBonus: {},
   fusionCount: 0,
-  // Companion keys that rolled Shiny on first acquisition — permanent.
-  shinyPets: [],
   // Lifetime totals, never reset (unlike bountyProgress, which rerolls
   // daily) — feeds the Hall of Legacy tab.
   lifetimeKills: 0,
@@ -701,8 +712,9 @@ export const PLAYER_BASE = {
   gearAffixes: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
   socketedGems: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
   // Held Items (see HELD_ITEMS above) stick to one specific companion
-  // permanently: { [petKey]: heldItemKey }. ownedHeldItems is the pool of
-  // chest-found items not currently (or not yet) assigned to anyone.
+  // instance permanently: { [instanceId]: heldItemKey }. ownedHeldItems is
+  // the pool of chest-found items not currently (or not yet) assigned to
+  // anyone.
   heldItems: {},
   ownedHeldItems: [],
   // The hireable Mercenary (distinct from the Pet roster) — -1 means not
@@ -1242,15 +1254,24 @@ export const ACHIEVEMENTS = [
   },
   {
     key: 'petCollector', name: 'Pet Collector', desc: 'Adopt all 10 pets.', rewardGold: 200,
-    check: (state) => Object.keys(PETS).every((k) => state.player.ownedPets.includes(k)),
+    check: (state) => {
+      const owned = new Set(state.player.pets.map((i) => i.key));
+      return Object.keys(PETS).every((k) => owned.has(k));
+    },
   },
   {
     key: 'wildCatcher', name: 'Wild Catcher', desc: 'Capture 10 different wild monsters.', rewardGold: 150,
-    check: (state) => state.player.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length >= 10,
+    check: (state) => {
+      const owned = new Set(state.player.pets.map((i) => i.key));
+      return [...owned].filter((k) => CAPTURABLE_KEYS.has(k)).length >= 10;
+    },
   },
   {
     key: 'monsterTamer', name: 'Monster Tamer', desc: 'Capture every capturable monster in the realm.', rewardGold: 600, title: 'the Beastmaster',
-    check: (state) => CAPTURABLE_MONSTERS.every((m) => state.player.ownedPets.includes(m.key)),
+    check: (state) => {
+      const owned = new Set(state.player.pets.map((i) => i.key));
+      return CAPTURABLE_MONSTERS.every((m) => owned.has(m.key));
+    },
   },
   {
     key: 'charmMaster', name: 'Charm Master', desc: 'Find the Celestial Charm.', rewardGold: 300,
@@ -1266,7 +1287,11 @@ export const ACHIEVEMENTS = [
   },
   {
     key: 'shinyHunter', name: 'Shiny Hunter', desc: 'Acquire a Shiny companion.', rewardGold: 150,
-    check: (state) => (state.player.shinyPets || []).length > 0,
+    check: (state) => state.player.pets.some((i) => i.shiny),
+  },
+  {
+    key: 'eliteHunter', name: 'Elite Hunter', desc: 'Capture an Elite companion.', rewardGold: 150,
+    check: (state) => state.player.pets.some((i) => i.elite),
   },
   {
     key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400, title: 'the Radiant',
@@ -1358,8 +1383,8 @@ export const PET_ENERGY_PER_HIT = 25;
 export const PET_SKILL_MULTIPLIER = 2.5;
 
 // Up to this many companions can be in the active party at once (see
-// player.partyKeys) — every member lands its own auto-hit each round, not
-// just the party leader (partyKeys[0]).
+// player.partyIds) — every member lands its own auto-hit each round, not
+// just the party leader (partyIds[0]).
 export const PARTY_SIZE = 5;
 
 // Bounty Board objective templates — 3 are rolled fresh each real-world day.

@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, LEGENDARIES, LEGENDARY_DROP_CHANCE, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, hpRegenPercent, mercPowerSetBonus, elementalBonusPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, petOwnAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, hpRegenPercent, mercPowerSetBonus, elementalBonusPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, petOwnAbilityBonus, applyLevelUps, findPetInstance, makePetInstance, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -179,15 +179,16 @@ function checkEnemyDefeated(battle) {
 // checked against THIS pet's own ability (petOwnAbilityBonus), not the
 // whole party's combined total, so one companion's hit can't double-count
 // another's Vampiric.
-function onePetAttack(battle, state, petKey) {
+function onePetAttack(battle, state, petId) {
   const player = state.player;
-  const pet = ALL_PET_DEFS[petKey];
+  const instance = findPetInstance(player, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
   if (!pet) return;
-  const power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player) + gearPetPowerBonus(player) + heldItemPetPowerBonus(player, petKey)) / 100);
+  const power = petEffectivePower(player, petId) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player) + gearPetPowerBonus(player) + heldItemPetPowerBonus(player, petId)) / 100);
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `${petDisplayName(player, petKey)} attacks ${battle.enemy.name} for ${dmg}!`);
-  const vampiric = petOwnAbilityBonus(player, petKey, 'vampiric');
+  pushLog(battle, `${petDisplayName(player, petId)} attacks ${battle.enemy.name} for ${dmg}!`);
+  const vampiric = petOwnAbilityBonus(player, petId, 'vampiric');
   if (vampiric > 0 && player.hp < player.maxHp) {
     const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * vampiric / 100));
     if (healed > 0) {
@@ -199,14 +200,14 @@ function onePetAttack(battle, state, petKey) {
 }
 
 // Every party member (leader plus up to 4 support companions, see
-// player.partyKeys) lands its own auto-hit each round, stopping early if an
+// player.partyIds) lands its own auto-hit each round, stopping early if an
 // earlier hit already finishes the enemy off.
 function petAttacks(battle, state) {
   const player = state.player;
-  const party = player.partyKeys && player.partyKeys.length > 0 ? player.partyKeys : (player.activePetKey ? [player.activePetKey] : []);
-  for (const petKey of party) {
+  const party = player.partyIds && player.partyIds.length > 0 ? player.partyIds : (player.activePetId ? [player.activePetId] : []);
+  for (const petId of party) {
     if (checkEnemyDefeated(battle)) break;
-    onePetAttack(battle, state, petKey);
+    onePetAttack(battle, state, petId);
   }
 }
 
@@ -283,17 +284,18 @@ function afterPlayerAction(battle, state) {
 export function petActiveSkill(battle, state) {
   if (battle.over) return;
   const player = state.player;
-  const petKey = player.activePetKey;
-  const pet = ALL_PET_DEFS[petKey];
+  const petId = player.activePetId;
+  const instance = findPetInstance(player, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
   if (!pet || (battle.petEnergy || 0) < PET_ENERGY_MAX) return;
   battle.petEnergy = 0;
-  let power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player) + gearPetPowerBonus(player) + heldItemPetPowerBonus(player, petKey)) / 100) * PET_SKILL_MULTIPLIER;
-  if (petOwnAbilityBonus(player, petKey, 'berserker') > 0) power *= 1.5;
+  let power = petEffectivePower(player, petId) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player) + gearPetPowerBonus(player) + heldItemPetPowerBonus(player, petId)) / 100) * PET_SKILL_MULTIPLIER;
+  if (petOwnAbilityBonus(player, petId, 'berserker') > 0) power *= 1.5;
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `${petDisplayName(player, petKey)} unleashes a Rally on ${battle.enemy.name} for ${dmg}!`);
+  pushLog(battle, `${petDisplayName(player, petId)} unleashes a Rally on ${battle.enemy.name} for ${dmg}!`);
 
-  const vampiric = petOwnAbilityBonus(player, petKey, 'vampiric');
+  const vampiric = petOwnAbilityBonus(player, petId, 'vampiric');
   if (vampiric > 0 && player.hp < player.maxHp) {
     const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * (vampiric * 2) / 100));
     if (healed > 0) {
@@ -301,15 +303,15 @@ export function petActiveSkill(battle, state) {
       pushLog(battle, `${pet.name}'s bite heals you for ${healed}!`);
     }
   }
-  if (petOwnAbilityBonus(player, petKey, 'guardian') > 0) {
+  if (petOwnAbilityBonus(player, petId, 'guardian') > 0) {
     battle.shieldActive = true;
     pushLog(battle, `${pet.name} braces to shield your next hit!`);
   }
-  if (petOwnAbilityBonus(player, petKey, 'swift') > 0) {
+  if (petOwnAbilityBonus(player, petId, 'swift') > 0) {
     battle.guaranteedDodge = true;
     pushLog(battle, `${pet.name}'s speed guarantees your next dodge!`);
   }
-  if (petOwnAbilityBonus(player, petKey, 'blessed') > 0 && battle.enemy.hp <= 0) {
+  if (petOwnAbilityBonus(player, petId, 'blessed') > 0 && battle.enemy.hp <= 0) {
     const bonus = 30;
     player.gold += bonus;
     pushLog(battle, `${pet.name}'s luck finds an extra ${bonus}G!`);
@@ -392,10 +394,14 @@ export function playerItem(battle, state, itemKey) {
 }
 
 // Pokemon-style capture: consumes a Capture Orb for a chance to add the
-// current enemy to ownedPets as a usable companion instead of defeating it
+// current enemy as a brand-new companion INSTANCE instead of defeating it
 // for the usual gold/XP/bestiary credit — catching is a genuine alternative
 // to a kill, not a strictly-better bonus on top of one. Bosses can never be
 // captured, so the boss-gated level chain is untouched by this system.
+// Already owning a species never blocks a new attempt — an Elite or Shiny
+// catch is worth going for even if you've already got a plain one, and each
+// catch is its own permanent instance rather than a single "do you have
+// this species" flag.
 export function playerCapture(battle, state, itemKey) {
   if (battle.over) return;
   const player = state.player;
@@ -405,27 +411,28 @@ export function playerCapture(battle, state, itemKey) {
     pushLog(battle, `${battle.enemy.name} is too powerful to capture!`);
     return;
   }
-  if (player.ownedPets.includes(battle.enemy.key)) {
-    pushLog(battle, `You already have a ${battle.enemy.name}!`);
-    return;
-  }
   player.inventory[itemKey] -= 1;
   const hpPercent = battle.enemy.hp / battle.enemy.maxHp;
   const chance = Math.min(0.95, item.captureBase + (1 - hpPercent) * item.captureHpBonus);
   if (Math.random() < chance) {
-    player.ownedPets.push(battle.enemy.key);
     const shiny = Math.random() < SHINY_CHANCE;
-    if (shiny) player.shinyPets.push(battle.enemy.key);
+    const elite = !!battle.enemy.isElite;
+    const instance = makePetInstance(battle.enemy.key, { shiny, elite });
+    player.pets.push(instance);
     // Only auto-join the party for your very first-ever companion — later
     // captures just join the owned roster, added to the party by hand from
     // the Pet Tamer screen.
-    if (player.partyKeys.length === 0) {
-      player.partyKeys.push(battle.enemy.key);
-      player.activePetKey = battle.enemy.key;
+    if (player.partyIds.length === 0) {
+      player.partyIds.push(instance.id);
+      player.activePetId = instance.id;
     }
     battle.over = true;
     battle.result = 'captured';
-    pushLog(battle, shiny ? `Gotcha! A Shiny ${battle.enemy.name} was captured!` : `Gotcha! ${battle.enemy.name} was captured!`);
+    // battle.enemy.name is already "Elite <name>" when isElite is true (see
+    // makeElite in data.js) — only Shiny needs a prefix of its own here, to
+    // avoid saying "Elite" twice.
+    const tag = shiny ? 'A Shiny ' : (elite ? 'An ' : '');
+    pushLog(battle, tag ? `Gotcha! ${tag}${battle.enemy.name} was captured!` : `Gotcha! ${battle.enemy.name} was captured!`);
   } else {
     pushLog(battle, `The ${battle.enemy.name} broke free!`);
     afterPlayerAction(battle, state);
@@ -479,13 +486,14 @@ export function grantRewards(state, enemyDef) {
     player.mp = player.maxMp;
   }
 
-  const party = player.partyKeys && player.partyKeys.length > 0 ? player.partyKeys : (player.activePetKey ? [player.activePetKey] : []);
+  const party = player.partyIds && player.partyIds.length > 0 ? player.partyIds : (player.activePetId ? [player.activePetId] : []);
   const petLevelUps = [];
-  party.forEach((petKey) => {
-    const progress = ensurePetProgress(player, petKey);
-    progress.xp += xpWon;
-    const petLevels = applyLevelUps(progress);
-    if (petLevels > 0) petLevelUps.push({ petKey, levels: petLevels, newLevel: progress.level });
+  party.forEach((petId) => {
+    const instance = findPetInstance(player, petId);
+    if (!instance) return;
+    instance.xp += xpWon;
+    const petLevels = applyLevelUps(instance);
+    if (petLevels > 0) petLevelUps.push({ petId, key: instance.key, levels: petLevels, newLevel: instance.level });
   });
 
   return {

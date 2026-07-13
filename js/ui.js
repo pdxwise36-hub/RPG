@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, PARTY_SIZE, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petIsElite, petDisplayName, petAbilities, findPetInstance, makePetInstance, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty, rollLegendaryDrop } from './battle.js';
@@ -9,6 +9,15 @@ let battle = null;
 let prevPos = null;
 let bossRush = null;
 let rivalBattle = null;
+
+// Pet Tamer sub-navigation: 'list' (species roster + Adopt/Charm/Held
+// Items/Mercenary), 'species' (every owned instance of one species), or
+// the two-step Fusion picker ('fusionBase' then 'fusionMaterial'). Kept as
+// simple module state (like battle/bossRush above) rather than in the save
+// — it's pure navigation, reset every time the modal is (re)opened.
+let tamerView = 'list';
+let tamerSpeciesKey = null;
+let fusionBaseId = null;
 
 const el = (id) => document.getElementById(id);
 
@@ -146,6 +155,9 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'tamer') {
+    tamerView = 'list';
+    tamerSpeciesKey = null;
+    fusionBaseId = null;
     renderTamer();
     showModal('modal-tamer');
     return;
@@ -218,11 +230,13 @@ function renderBattle() {
 
   const petEl = el('pet-sprite');
   const energyTrack = el('pet-energy-track');
-  if (p.activePetKey) {
-    petEl.style.backgroundImage = `url('${ALL_PET_DEFS[p.activePetKey].sprite}')`;
+  const leaderInstance = p.activePetId ? findPetInstance(p, p.activePetId) : null;
+  if (leaderInstance) {
+    petEl.style.backgroundImage = `url('${ALL_PET_DEFS[leaderInstance.key].sprite}')`;
     petEl.classList.remove('hidden');
-    petEl.classList.toggle('pet-evolved', petIsEvolved(p, p.activePetKey));
-    petEl.classList.toggle('pet-shiny', petIsShiny(p, p.activePetKey));
+    petEl.classList.toggle('pet-evolved', petIsEvolved(p, p.activePetId));
+    petEl.classList.toggle('pet-shiny', petIsShiny(p, p.activePetId));
+    petEl.classList.toggle('pet-elite', petIsElite(p, p.activePetId));
     energyTrack.classList.remove('hidden');
     const energy = battle.petEnergy || 0;
     el('pet-energy-fill').style.width = `${pct(energy, PET_ENERGY_MAX)}%`;
@@ -232,20 +246,22 @@ function renderBattle() {
     energyTrack.classList.add('hidden');
   }
 
-  // Support party members (partyKeys[1+]) each get a small icon of their
+  // Support party members (partyIds[1+]) each get a small icon of their
   // own alongside the leader's main pet-sprite — every one of them lands
   // its own hit each round (see petAttacks in battle.js), not just the
   // leader.
   const partyEl = el('party-sprites');
   partyEl.innerHTML = '';
-  p.partyKeys.slice(1).forEach((petKey) => {
-    const pet = ALL_PET_DEFS[petKey];
+  p.partyIds.slice(1).forEach((petId) => {
+    const instance = findPetInstance(p, petId);
+    const pet = instance && ALL_PET_DEFS[instance.key];
     if (!pet) return;
     const icon = document.createElement('div');
     icon.className = 'sprite party-pet-sprite';
     icon.style.backgroundImage = `url('${pet.sprite}')`;
-    icon.classList.toggle('pet-evolved', petIsEvolved(p, petKey));
-    icon.classList.toggle('pet-shiny', petIsShiny(p, petKey));
+    icon.classList.toggle('pet-evolved', petIsEvolved(p, petId));
+    icon.classList.toggle('pet-shiny', petIsShiny(p, petId));
+    icon.classList.toggle('pet-elite', petIsElite(p, petId));
     partyEl.appendChild(icon);
   });
 
@@ -268,19 +284,19 @@ function renderBattle() {
   const captureBtn = el('btn-capture');
   const captureItem = ITEMS[p.selectedCaptureOrb];
   const captureCount = captureItem ? (p.inventory[captureItem.key] || 0) : 0;
-  const alreadyOwned = captureItem && p.ownedPets.includes(battle.enemy.key);
+  // Already owning a species no longer blocks capturing another copy of
+  // it — an Elite or Shiny catch is always worth going for.
   if (battle.isBoss) captureBtn.textContent = "Can't Capture";
-  else if (alreadyOwned) captureBtn.textContent = 'Already Caught';
   else captureBtn.textContent = captureItem ? `Capture (${captureCount})` : 'Capture (none selected)';
-  captureBtn.disabled = !captureItem || battle.isBoss || alreadyOwned || captureCount <= 0;
+  captureBtn.disabled = !captureItem || battle.isBoss || captureCount <= 0;
 
   // The Companion Skill button charges from the pet's own normal auto-hits
   // (see PET_ENERGY_PER_HIT in data.js) and spends the full bar on one big
   // burst that replaces the pet's hit for that round instead of adding to
   // your own action.
   const skillBtn = el('btn-companion-skill');
-  const energyReady = p.activePetKey && (battle.petEnergy || 0) >= PET_ENERGY_MAX;
-  skillBtn.textContent = !p.activePetKey ? 'No Companion' : energyReady ? 'Companion Skill!' : `Charging (${battle.petEnergy || 0}/${PET_ENERGY_MAX})`;
+  const energyReady = p.activePetId && (battle.petEnergy || 0) >= PET_ENERGY_MAX;
+  skillBtn.textContent = !p.activePetId ? 'No Companion' : energyReady ? 'Companion Skill!' : `Charging (${battle.petEnergy || 0}/${PET_ENERGY_MAX})`;
   skillBtn.disabled = !energyReady;
 
   if (battle.over) {
@@ -313,11 +329,11 @@ function resolveBattleEnd() {
     if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
     // Every party member levels from the same kill (see grantRewards), so
     // this announces each one that leveled up, not just the leader.
-    rewards.petLevelUps.forEach(({ petKey, levels, newLevel }) => {
-      const pet = ALL_PET_DEFS[petKey];
+    rewards.petLevelUps.forEach(({ petId, key, levels, newLevel }) => {
+      const pet = ALL_PET_DEFS[key];
       msg += ` ${pet.name} is now Lv. ${newLevel}!`;
       if (newLevel >= PET_EVOLVE_LEVEL && newLevel - levels < PET_EVOLVE_LEVEL) {
-        msg += ` ${pet.name} evolved into ${petDisplayName(p, petKey)}!`;
+        msg += ` ${pet.name} evolved into ${petDisplayName(p, petId)}!`;
       }
     });
     if (battle.isBossRush) {
@@ -762,7 +778,7 @@ function renderStatus() {
     <div class="status-row"><span>Difficulty</span><span>${difficultyByKey(p.difficulty).name}${p.ngPlusLevel > 0 ? ` (NG+${p.ngPlusLevel})` : ''}</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
-    <div class="status-row"><span>Monsters Caught</span><span>${p.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
+    <div class="status-row"><span>Monsters Caught</span><span>${[...new Set(p.pets.map((i) => i.key))].filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
   `;
 
   const activeSets = activeSetProgress(p);
@@ -792,14 +808,14 @@ function renderParty() {
   const body = el('party-body');
   body.innerHTML = '';
 
-  body.appendChild(sectionHeading(`Party (${p.partyKeys.length}/${PARTY_SIZE})`));
-  if (p.partyKeys.length === 0) {
+  body.appendChild(sectionHeading(`Party (${p.partyIds.length}/${PARTY_SIZE})`));
+  if (p.partyIds.length === 0) {
     const row = document.createElement('div');
     row.className = 'status-row';
     row.innerHTML = '<span>No companions in your party.</span><span>See the Pet Tamer in Town.</span>';
     body.appendChild(row);
   } else {
-    p.partyKeys.forEach((petKey, i) => body.appendChild(buildPartyMemberCard(petKey, i === 0)));
+    p.partyIds.forEach((petId, i) => body.appendChild(buildPartyMemberCard(petId, i === 0)));
   }
 
   body.appendChild(sectionHeading('Companion Charm'));
@@ -819,30 +835,33 @@ function renderParty() {
 // One party member's full card: sprite, name (with Leader tag/Shiny/Evolved
 // styling), level, per-hit damage, ability (locked or unlocked), any Held
 // Item, any Fusion bonus, and its own XP bar.
-function buildPartyMemberCard(petKey, isLeader) {
+function buildPartyMemberCard(petId, isLeader) {
   const p = state.player;
-  const pet = ALL_PET_DEFS[petKey];
-  const level = petLevel(p, petKey);
-  const evolved = petIsEvolved(p, petKey);
-  const shiny = petIsShiny(p, petKey);
-  const power = petEffectivePower(p, petKey) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p) + gearPetPowerBonus(p) + heldItemPetPowerBonus(p, petKey)) / 100);
+  const instance = findPetInstance(p, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
+  if (!pet) return document.createElement('div');
+  const level = petLevel(p, petId);
+  const evolved = petIsEvolved(p, petId);
+  const shiny = petIsShiny(p, petId);
+  const elite = petIsElite(p, petId);
+  const power = petEffectivePower(p, petId) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p) + gearPetPowerBonus(p) + heldItemPetPowerBonus(p, petId)) / 100);
   const dmg = Math.max(1, Math.round(effectiveAtk(p) * power));
-  const abilities = petAbilities(p, petKey).map((k) => COMPANION_ABILITIES[k]);
+  const abilities = petAbilities(p, petId).map((k) => COMPANION_ABILITIES[k]);
   const abilityUnlocked = level >= COMPANION_ABILITY_LEVEL;
   const abilityLabel = abilities.length > 0
     ? (abilityUnlocked ? abilities.map((a) => a.name).join(', ') : `${abilities.map((a) => a.name).join(', ')} (unlocks at Lv. ${COMPANION_ABILITY_LEVEL})`)
     : null;
-  const heldItemKey = p.heldItems[petKey];
-  const fusion = p.fusionBonus && p.fusionBonus[petKey];
-  const progress = petXpProgress(p, petKey);
+  const heldItemKey = p.heldItems[petId];
+  const fusion = p.fusionBonus && p.fusionBonus[petId];
+  const progress = petXpProgress(p, petId);
 
   const card = document.createElement('div');
   card.className = 'shop-item';
-  const iconClass = `${evolved ? ' pet-evolved' : ''}${shiny ? ' pet-shiny' : ''}`;
+  const iconClass = `${evolved ? ' pet-evolved' : ''}${shiny ? ' pet-shiny' : ''}${elite ? ' pet-elite' : ''}`;
   card.innerHTML = `
     <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${petDisplayName(p, petKey)}${isLeader ? ' <span class="bestiary-caught">(Leader)</span>' : ''}</span>
+      <span class="shop-item-name">${petDisplayName(p, petId)}${isLeader ? ' <span class="bestiary-caught">(Leader)</span>' : ''}</span>
       <span class="shop-item-desc">Lv. ${level} — ${dmg} dmg/hit (+${Math.round(power * 100)}% ATK)${abilityLabel ? ` — ${abilityLabel}` : ''}${heldItemKey ? ` — Holding ${HELD_ITEMS[heldItemKey].name}` : ''}${fusion && fusion.power ? ` — +${fusion.power}% from Fusion` : ''}</span>
       <div class="bar-track pet-xp">
         <div class="bar-fill" style="width:${Math.round((progress.xpIntoLevel / progress.xpNeeded) * 100)}%"></div>
@@ -982,7 +1001,7 @@ function renderBestiary() {
       const row = document.createElement('div');
       row.className = 'status-row';
       const killed = !!p.bestiary[enemy.key];
-      const caught = p.ownedPets.includes(enemy.key);
+      const caught = p.pets.some((i) => i.key === enemy.key);
       row.innerHTML = `<span class="${killed ? 'bestiary-killed' : ''}">${enemy.name}</span>${caught ? '<span class="bestiary-caught">Caught</span>' : ''}`;
       body.appendChild(row);
     });
@@ -1145,8 +1164,8 @@ function renderCodex() {
 // ---------- Hall of Legacy ----------
 // A single aggregated "how far have you gotten" screen, mostly derived
 // from state already tracked elsewhere (bestiary, achievements, flags,
-// ownedPets/Charms) plus two new lifetime counters (kills, gold earned)
-// that — unlike bountyProgress — never reset.
+// pets/Charms) plus two new lifetime counters (kills, gold earned) that —
+// unlike bountyProgress — never reset.
 function renderLegacy() {
   const p = state.player;
   const body = el('legacy-body');
@@ -1155,6 +1174,9 @@ function renderLegacy() {
   const monstersKilled = LEVEL_CHAIN.reduce((sum, id) => sum + Object.keys(MAPS[id].enemyPool).filter((k) => p.bestiary[k]).length, 0);
   const achievementsUnlocked = ACHIEVEMENTS.filter((a) => p.achievements[a.key]).length;
   const totalCompanions = Object.keys(ALL_PET_DEFS).length;
+  const speciesOwned = new Set(p.pets.map((i) => i.key)).size;
+  const shinyCount = p.pets.filter((i) => i.shiny).length;
+  const eliteCount = p.pets.filter((i) => i.elite).length;
   const totalCharms = CHARM_ORDER.length - 1; // "No Charm" doesn't count as a find
 
   body.innerHTML = `
@@ -1165,8 +1187,10 @@ function renderLegacy() {
     <div class="status-row"><span>Gold on Hand</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Bosses Defeated</span><span>${bossesDefeated}/${LEVEL_CHAIN.length}</span></div>
     <div class="status-row"><span>Bestiary</span><span>${monstersKilled}/${totalMonsters}</span></div>
-    <div class="status-row"><span>Companions Owned</span><span>${p.ownedPets.length}/${totalCompanions}</span></div>
-    <div class="status-row"><span>Shiny Companions</span><span>${(p.shinyPets || []).length}</span></div>
+    <div class="status-row"><span>Companion Species Owned</span><span>${speciesOwned}/${totalCompanions}</span></div>
+    <div class="status-row"><span>Total Companions Caught</span><span>${p.pets.length}</span></div>
+    <div class="status-row"><span>Shiny Companions</span><span>${shinyCount}</span></div>
+    <div class="status-row"><span>Elite Companions</span><span>${eliteCount}</span></div>
     <div class="status-row"><span>Charms Found</span><span>${Math.max(0, p.ownedCharms.length - 1)}/${totalCharms}</span></div>
     <div class="status-row"><span>Achievements</span><span>${achievementsUnlocked}/${ACHIEVEMENTS.length}</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
@@ -1704,8 +1728,23 @@ function travelToLevel(mapId) {
 }
 
 // ---------- Pet Tamer ----------
+// The Tamer modal has three sub-views, toggled via the module-level
+// tamerView/tamerSpeciesKey/fusionBaseId state (reset to 'list' whenever
+// the modal is (re)opened — see the 'tamer' map-tile handler): the main
+// roster ('list'), one species' full instance roster ('species', opened by
+// tapping a species row — since you can now own more than one of the same
+// monster), and the two-step Fusion picker ('fusionBase' then
+// 'fusionMaterial').
 function renderTamer() {
+  if (tamerView === 'species') return renderTamerSpecies();
+  if (tamerView === 'fusionBase') return renderTamerFusionBase();
+  if (tamerView === 'fusionMaterial') return renderTamerFusionMaterial();
+  renderTamerList();
+}
+
+function renderTamerList() {
   const p = state.player;
+  el('tamer-title').textContent = 'The Pet Tamer';
   el('tamer-gold').textContent = p.gold;
   const list = el('tamer-list');
   list.innerHTML = '';
@@ -1715,19 +1754,19 @@ function renderTamer() {
   noneRow.innerHTML = `
     <div class="shop-item-info">
       <span class="shop-item-name">No Party</span>
-      <span class="shop-item-desc">Fight alone — up to ${PARTY_SIZE} companions can fight together (${p.partyKeys.length}/${PARTY_SIZE} in your party)</span>
+      <span class="shop-item-desc">Fight alone — up to ${PARTY_SIZE} companions can fight together (${p.partyIds.length}/${PARTY_SIZE} in your party)</span>
     </div>
   `;
   const noneBtn = document.createElement('button');
   noneBtn.className = 'btn btn-small';
-  if (p.partyKeys.length === 0) {
+  if (p.partyIds.length === 0) {
     noneBtn.textContent = 'Active';
     noneBtn.disabled = true;
   } else {
     noneBtn.textContent = 'Clear Party';
     noneBtn.addEventListener('click', () => {
-      p.partyKeys = [];
-      p.activePetKey = null;
+      p.partyIds = [];
+      p.activePetId = null;
       autosave();
       renderTamer();
     });
@@ -1736,28 +1775,36 @@ function renderTamer() {
   list.appendChild(noneRow);
 
   // Companions can come from the Tamer's own catalog or from capturing wild
-  // monsters in battle — both live in the same ownedPets list, so this
-  // section lists whichever ones you actually have before the shop catalog
-  // of ones you don't.
-  if (p.ownedPets.length > 0) {
+  // monsters in battle — every owned copy of every species lives in
+  // player.pets, so this groups them by species (tap a row to see and
+  // manage every instance of it) rather than listing every single copy
+  // flat here.
+  const speciesKeys = [...new Set(p.pets.map((i) => i.key))];
+  if (speciesKeys.length > 0) {
     list.appendChild(sectionHeading('Your Companions'));
-    p.ownedPets
+    speciesKeys
       .map((key) => ALL_PET_DEFS[key])
       .filter(Boolean)
       .sort((a, b) => a.power - b.power)
-      .forEach((pet) => list.appendChild(buildCompanionRow(pet)));
+      .forEach((pet) => list.appendChild(buildSpeciesRow(pet)));
   }
 
+  list.appendChild(sectionHeading('Fusion'));
+  list.appendChild(buildFusionEntryRow());
+
+  // Adopting is always available, even for a species you already own —
+  // building a whole team of the same starter is just as valid as
+  // spreading across every species.
   list.appendChild(sectionHeading('Adopt a Pet'));
-  Object.values(PETS).filter((pet) => !p.ownedPets.includes(pet.key)).forEach((pet) => list.appendChild(buildTamerRow(pet)));
+  Object.values(PETS).forEach((pet) => list.appendChild(buildTamerRow(pet)));
 
   // Charms are chest-only finds, never sold here — just an Equip list over
   // whatever you've already picked up (the free "No Charm" is always owned).
   list.appendChild(sectionHeading('Companion Charm'));
   CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => list.appendChild(buildCharmRow(CHARMS[key], renderTamer)));
 
-  // Held Items (chest-only) stick to one SPECIFIC companion permanently,
-  // unlike a Charm which boosts whichever pet is currently active.
+  // Held Items (chest-only) stick to one SPECIFIC companion instance
+  // permanently, unlike a Charm which boosts the whole party.
   if (p.ownedHeldItems.length > 0) {
     list.appendChild(sectionHeading('Held Items'));
     HELD_ITEM_ORDER.filter((key) => p.ownedHeldItems.includes(key)).forEach((key) => list.appendChild(buildHeldItemRow(key)));
@@ -1766,14 +1813,288 @@ function renderTamer() {
   renderMercenaryCamp(list);
 }
 
-// A held item can only be held by one companion at a time — "Give to
-// Active" reassigns it to whichever pet you currently have out, clearing
-// whoever held it before.
+// A back-navigation row, shared by every Tamer sub-view.
+function buildTamerBackRow(label, onClick) {
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `<div class="shop-item-info"><span class="shop-item-name">${label}</span></div>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  btn.textContent = 'Back';
+  btn.addEventListener('click', onClick);
+  row.appendChild(btn);
+  return row;
+}
+
+// One row per SPECIES you own at least one copy of — tapping "Manage"
+// opens the species view listing every individual instance (each with its
+// own level/Shiny/Elite status) instead of cramming every copy into this
+// top-level list.
+function buildSpeciesRow(pet) {
+  const p = state.player;
+  const instances = p.pets.filter((i) => i.key === pet.key);
+  const bestLevel = Math.max(...instances.map((i) => i.level));
+  const shinyCount = instances.filter((i) => i.shiny).length;
+  const eliteCount = instances.filter((i) => i.elite).length;
+  const inPartyCount = instances.filter((i) => p.partyIds.includes(i.id)).length;
+  const badges = `${shinyCount > 0 ? ` <span class="bestiary-caught">${shinyCount} Shiny</span>` : ''}${eliteCount > 0 ? ` <span class="bestiary-caught">${eliteCount} Elite</span>` : ''}`;
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-icon" style="background-image:url('${pet.sprite}')"></div>
+    <div class="shop-item-info">
+      <span class="shop-item-name">${pet.name}${badges}</span>
+      <span class="shop-item-desc">${instances.length} owned — best Lv. ${bestLevel}${inPartyCount > 0 ? ` — ${inPartyCount} in party` : ''}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  btn.textContent = 'Manage';
+  btn.addEventListener('click', () => {
+    tamerView = 'species';
+    tamerSpeciesKey = pet.key;
+    renderTamer();
+  });
+  row.appendChild(btn);
+  return row;
+}
+
+// Every owned instance of one species (Leader/In Party/Add to Party/Remove
+// controls per copy, same as the old flat companion list, just scoped to
+// one species at a time now that there can be several copies of it).
+function renderTamerSpecies() {
+  const p = state.player;
+  const speciesDef = ALL_PET_DEFS[tamerSpeciesKey];
+  el('tamer-title').textContent = speciesDef ? speciesDef.name : 'Companions';
+  el('tamer-gold').textContent = p.gold;
+  const list = el('tamer-list');
+  list.innerHTML = '';
+  list.appendChild(buildTamerBackRow('← Back to Companions', () => {
+    tamerView = 'list';
+    tamerSpeciesKey = null;
+    renderTamer();
+  }));
+
+  const instances = p.pets.filter((i) => i.key === tamerSpeciesKey).sort((a, b) => b.level - a.level);
+  if (instances.length === 0) {
+    tamerView = 'list';
+    tamerSpeciesKey = null;
+    renderTamer();
+    return;
+  }
+  instances.forEach((instance) => list.appendChild(buildInstanceRow(instance, { showPartyControls: true })));
+}
+
+// A single owned companion instance's row — used both in the per-species
+// view (with party controls) and the Fusion picker (with a plain Select
+// button instead). Shows everything about that ONE copy: level, per-hit
+// power, ability, Held Item, Fusion bonus, and its own XP bar.
+function buildInstanceRow(instance, opts = {}) {
+  const p = state.player;
+  const pet = ALL_PET_DEFS[instance.key];
+  const level = instance.level;
+  const evolved = petIsEvolved(p, instance.id);
+  const powerPct = Math.round(petEffectivePower(p, instance.id) * 100);
+  const abilityNames = petAbilities(p, instance.id).map((k) => COMPANION_ABILITIES[k].name);
+  const abilityLabel = abilityNames.length > 0
+    ? (level >= COMPANION_ABILITY_LEVEL ? abilityNames.join(', ') : `${abilityNames.join(', ')} at Lv. ${COMPANION_ABILITY_LEVEL}`)
+    : null;
+  const fusion = p.fusionBonus && p.fusionBonus[instance.id];
+  const fusionLabel = fusion && fusion.power ? ` — +${fusion.power}% from Fusion` : '';
+  const heldItemKey = p.heldItems[instance.id];
+  const heldLabel = heldItemKey ? ` — Holding ${HELD_ITEMS[heldItemKey].name}` : '';
+  const isLeader = p.activePetId === instance.id;
+  const inParty = p.partyIds.includes(instance.id);
+  const partyLabel = opts.showPartyControls ? (isLeader ? ' — Leader' : inParty ? ' — In Party' : '') : '';
+  const progress = petXpProgress(p, instance.id);
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  const iconClass = `${evolved ? ' pet-evolved' : ''}${instance.shiny ? ' pet-shiny' : ''}${instance.elite ? ' pet-elite' : ''}`;
+  row.innerHTML = `
+    <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
+    <div class="shop-item-info">
+      <span class="shop-item-name">${petDisplayName(p, instance.id)}</span>
+      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${abilityLabel ? ` — ${abilityLabel}` : ''}${heldLabel}${fusionLabel}${partyLabel}</span>
+      <div class="bar-track pet-xp">
+        <div class="bar-fill" style="width:${Math.round((progress.xpIntoLevel / progress.xpNeeded) * 100)}%"></div>
+        <span class="bar-text">${progress.xpIntoLevel}/${progress.xpNeeded} XP</span>
+      </div>
+    </div>
+  `;
+
+  if (opts.onSelect) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    btn.textContent = opts.selectLabel || 'Select';
+    btn.addEventListener('click', () => opts.onSelect(instance.id));
+    row.appendChild(btn);
+    return row;
+  }
+
+  if (opts.showPartyControls) {
+    if (isLeader) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-small';
+      btn.textContent = 'Leader';
+      btn.disabled = true;
+      row.appendChild(btn);
+    } else if (inParty) {
+      const leaderBtn = document.createElement('button');
+      leaderBtn.className = 'btn btn-small';
+      leaderBtn.textContent = 'Make Leader';
+      leaderBtn.addEventListener('click', () => {
+        p.partyIds = [instance.id, ...p.partyIds.filter((id) => id !== instance.id)];
+        p.activePetId = instance.id;
+        autosave();
+        renderTamer();
+      });
+      row.appendChild(leaderBtn);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn btn-small';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        p.partyIds = p.partyIds.filter((id) => id !== instance.id);
+        p.activePetId = p.partyIds[0] || null;
+        autosave();
+        renderTamer();
+      });
+      row.appendChild(removeBtn);
+    } else {
+      const partyFull = p.partyIds.length >= PARTY_SIZE;
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn btn-small';
+      addBtn.textContent = partyFull ? 'Party Full' : 'Add to Party';
+      addBtn.disabled = partyFull;
+      addBtn.addEventListener('click', () => {
+        if (p.partyIds.length >= PARTY_SIZE) return;
+        p.partyIds.push(instance.id);
+        if (!p.activePetId) p.activePetId = p.partyIds[0];
+        autosave();
+        renderTamer();
+      });
+      row.appendChild(addBtn);
+    }
+  }
+  return row;
+}
+
+// A single entry point into the Fusion flow — pick a Base (the companion
+// that keeps fighting and gains the bonus), then a different companion to
+// sacrifice as Fusion Material.
+function buildFusionEntryRow() {
+  const p = state.player;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">Fuse Companions</span>
+      <span class="shop-item-desc">Choose a Base to keep, then a different companion to sacrifice as Fusion Material.</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  btn.textContent = 'Open';
+  btn.disabled = p.pets.length < 2;
+  btn.addEventListener('click', () => {
+    tamerView = 'fusionBase';
+    fusionBaseId = null;
+    renderTamer();
+  });
+  row.appendChild(btn);
+  return row;
+}
+
+function renderTamerFusionBase() {
+  const p = state.player;
+  el('tamer-title').textContent = 'Fusion — Choose a Base';
+  el('tamer-gold').textContent = p.gold;
+  const list = el('tamer-list');
+  list.innerHTML = '';
+  list.appendChild(buildTamerBackRow('← Cancel Fusion', () => {
+    tamerView = 'list';
+    fusionBaseId = null;
+    renderTamer();
+  }));
+  const info = document.createElement('div');
+  info.className = 'shop-item';
+  info.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">Pick the companion that will keep fighting — it gains the Fusion bonus.</span></div>';
+  list.appendChild(info);
+  p.pets.slice().sort((a, b) => b.level - a.level).forEach((instance) => {
+    list.appendChild(buildInstanceRow(instance, {
+      onSelect: (id) => {
+        fusionBaseId = id;
+        tamerView = 'fusionMaterial';
+        renderTamer();
+      },
+      selectLabel: 'Choose as Base',
+    }));
+  });
+}
+
+function renderTamerFusionMaterial() {
+  const p = state.player;
+  const base = p.pets.find((i) => i.id === fusionBaseId);
+  if (!base) {
+    tamerView = 'fusionBase';
+    fusionBaseId = null;
+    renderTamer();
+    return;
+  }
+  el('tamer-title').textContent = 'Fusion — Choose Material';
+  el('tamer-gold').textContent = p.gold;
+  const list = el('tamer-list');
+  list.innerHTML = '';
+  list.appendChild(buildTamerBackRow('← Cancel Fusion', () => {
+    tamerView = 'list';
+    fusionBaseId = null;
+    renderTamer();
+  }));
+
+  list.appendChild(sectionHeading('Base (kept)'));
+  list.appendChild(buildInstanceRow(base, {}));
+
+  list.appendChild(sectionHeading('Choose Material to Sacrifice'));
+  const candidates = p.pets.filter((i) => i.id !== base.id).sort((a, b) => b.level - a.level);
+  if (candidates.length === 0) {
+    const emptyRow = document.createElement('div');
+    emptyRow.className = 'shop-item';
+    emptyRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">No other companions to fuse in.</span></div>';
+    list.appendChild(emptyRow);
+    return;
+  }
+  candidates.forEach((instance) => {
+    list.appendChild(buildInstanceRow(instance, {
+      onSelect: (materialId) => {
+        const material = p.pets.find((i) => i.id === materialId);
+        const gain = fusionPowerGain(material.level);
+        const baseAbility = ALL_PET_DEFS[base.key].ability;
+        const materialAbility = ALL_PET_DEFS[material.key].ability;
+        const gainsAbility = materialAbility !== baseAbility && !petAbilities(p, base.id).includes(materialAbility);
+        const confirmMsg = `Fuse ${petDisplayName(p, material.id)} (Lv. ${material.level}) into ${petDisplayName(p, base.id)}? This permanently removes ${ALL_PET_DEFS[material.key].name} from your team and grants +${gain}% power${gainsAbility ? ` plus the ${COMPANION_ABILITIES[materialAbility].name} ability` : ''}.`;
+        if (!window.confirm(confirmMsg)) return;
+        fuseCompanions(p, materialId, base.id);
+        autosave();
+        updateHud();
+        tamerView = 'list';
+        fusionBaseId = null;
+        renderTamer();
+      },
+      selectLabel: 'Fuse',
+    }));
+  });
+}
+
+// A held item can only be held by one companion instance at a time —
+// "Give to Leader" reassigns it to the party leader, clearing whoever held
+// it before.
 function buildHeldItemRow(itemKey) {
   const p = state.player;
   const item = HELD_ITEMS[itemKey];
-  const holderKey = Object.entries(p.heldItems).find(([, held]) => held === itemKey)?.[0];
-  const holderName = holderKey ? petDisplayName(p, holderKey) : null;
+  const holderId = Object.entries(p.heldItems).find(([, held]) => held === itemKey)?.[0];
+  const holderName = holderId ? petDisplayName(p, holderId) : null;
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
@@ -1785,17 +2106,17 @@ function buildHeldItemRow(itemKey) {
   `;
   const btn = document.createElement('button');
   btn.className = 'btn btn-small';
-  if (!p.activePetKey) {
+  if (!p.activePetId) {
     btn.textContent = 'No Active Pet';
     btn.disabled = true;
-  } else if (holderKey === p.activePetKey) {
+  } else if (holderId === p.activePetId) {
     btn.textContent = 'Held';
     btn.disabled = true;
   } else {
-    btn.textContent = 'Give to Active';
+    btn.textContent = 'Give to Leader';
     btn.addEventListener('click', () => {
-      if (holderKey) delete p.heldItems[holderKey];
-      p.heldItems[p.activePetKey] = itemKey;
+      if (holderId) delete p.heldItems[holderId];
+      p.heldItems[p.activePetId] = itemKey;
       autosave();
       renderTamer();
     });
@@ -1887,122 +2208,35 @@ function buildMercGearRow(item, label, ownedList, ownedField, equipField) {
   return row;
 }
 
-// Any owned companion (bought or caught) — party management (Leader/In
-// Party/Add to Party/Remove/Make Leader) plus Fuse, no buy flow. Up to
-// PARTY_SIZE companions can be in the party at once, all fighting together;
-// slot 0 (the "Leader") is the one Rally/Fusion/the main battle sprite use.
-function buildCompanionRow(pet) {
-  const p = state.player;
-  const isLeader = p.activePetKey === pet.key;
-  const inParty = p.partyKeys.includes(pet.key);
-  const partyFull = p.partyKeys.length >= PARTY_SIZE;
-  const level = petLevel(p, pet.key);
-  const evolved = petIsEvolved(p, pet.key);
-  const shiny = petIsShiny(p, pet.key);
-  const powerPct = Math.round(petEffectivePower(p, pet.key) * 100);
-  const abilityNames = petAbilities(p, pet.key).map((k) => COMPANION_ABILITIES[k].name);
-  const abilityLabel = abilityNames.length > 0
-    ? (level >= COMPANION_ABILITY_LEVEL ? abilityNames.join(', ') : `${abilityNames.join(', ')} at Lv. ${COMPANION_ABILITY_LEVEL}`)
-    : null;
-  const fusion = p.fusionBonus && p.fusionBonus[pet.key];
-  const fusionLabel = fusion && fusion.power ? ` — +${fusion.power}% from Fusion` : '';
-  const partyLabel = isLeader ? ' — Leader' : inParty ? ' — In Party' : '';
-
-  const row = document.createElement('div');
-  row.className = 'shop-item';
-  const iconClass = `${evolved ? ' pet-evolved' : ''}${shiny ? ' pet-shiny' : ''}`;
-  row.innerHTML = `
-    <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
-    <div class="shop-item-info">
-      <span class="shop-item-name">${petDisplayName(p, pet.key)}</span>
-      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}${fusionLabel}${partyLabel}</span>
-    </div>
-  `;
-  if (isLeader) {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-small';
-    btn.textContent = 'Leader';
-    btn.disabled = true;
-    row.appendChild(btn);
-  } else if (inParty) {
-    const leaderBtn = document.createElement('button');
-    leaderBtn.className = 'btn btn-small';
-    leaderBtn.textContent = 'Make Leader';
-    leaderBtn.addEventListener('click', () => {
-      p.partyKeys = [pet.key, ...p.partyKeys.filter((k) => k !== pet.key)];
-      p.activePetKey = pet.key;
-      autosave();
-      renderTamer();
-    });
-    row.appendChild(leaderBtn);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'btn btn-small';
-    removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', () => {
-      p.partyKeys = p.partyKeys.filter((k) => k !== pet.key);
-      p.activePetKey = p.partyKeys[0] || null;
-      autosave();
-      renderTamer();
-    });
-    row.appendChild(removeBtn);
-  } else {
-    const addBtn = document.createElement('button');
-    addBtn.className = 'btn btn-small';
-    addBtn.textContent = partyFull ? 'Party Full' : 'Add to Party';
-    addBtn.disabled = partyFull;
-    addBtn.addEventListener('click', () => {
-      if (p.partyKeys.length >= PARTY_SIZE) return;
-      p.partyKeys.push(pet.key);
-      if (!p.activePetKey) p.activePetKey = p.partyKeys[0];
-      autosave();
-      renderTamer();
-    });
-    row.appendChild(addBtn);
-
-    if (p.activePetKey) {
-      const fuseBtn = document.createElement('button');
-      fuseBtn.className = 'btn btn-small';
-      fuseBtn.textContent = 'Fuse';
-      fuseBtn.addEventListener('click', () => {
-        const activeName = petDisplayName(p, p.activePetKey);
-        const gain = fusionPowerGain(level);
-        const activeAbility = ALL_PET_DEFS[p.activePetKey].ability;
-        const gainsAbility = pet.ability !== activeAbility && !petAbilities(p, p.activePetKey).includes(pet.ability);
-        const confirmMsg = `Fuse ${petDisplayName(p, pet.key)} (Lv. ${level}) into ${activeName}? This permanently removes ${pet.name} from your team and grants +${gain}% power${gainsAbility ? ` plus the ${COMPANION_ABILITIES[pet.ability].name} ability` : ''}.`;
-        if (!window.confirm(confirmMsg)) return;
-        fuseCompanions(p, pet.key, p.activePetKey);
-        autosave();
-        updateHud();
-        renderTamer();
-      });
-      row.appendChild(fuseBtn);
-    }
-  }
-  return row;
-}
-
-// Permanently sacrifices sacrificeKey into targetKey: a flat power bump
-// scaling with how leveled the sacrifice was, plus its ability if the
-// target doesn't already have it. The sacrifice's own level/XP resets on
-// re-acquisition later since its progress record is cleared here.
-function fuseCompanions(p, sacrificeKey, targetKey) {
-  const sacrifice = ALL_PET_DEFS[sacrificeKey];
-  const gain = fusionPowerGain(petLevel(p, sacrificeKey));
-  if (!p.fusionBonus[targetKey]) p.fusionBonus[targetKey] = { power: 0, extraAbilities: [] };
-  const fusion = p.fusionBonus[targetKey];
+// Permanently sacrifices the instance sacrificeId into targetId: a flat
+// power bump scaling with how leveled the sacrifice was, plus its ability
+// if the target doesn't already have it. The sacrifice instance is deleted
+// outright (unlike the old species-keyed model, there's no "re-acquiring"
+// it later — it's simply gone).
+function fuseCompanions(p, sacrificeId, targetId) {
+  const sacrifice = p.pets.find((i) => i.id === sacrificeId);
+  if (!sacrifice) return;
+  const sacrificeDef = ALL_PET_DEFS[sacrifice.key];
+  const gain = fusionPowerGain(sacrifice.level);
+  if (!p.fusionBonus[targetId]) p.fusionBonus[targetId] = { power: 0, extraAbilities: [] };
+  const fusion = p.fusionBonus[targetId];
   fusion.power += gain;
-  if (!petAbilities(p, targetKey).includes(sacrifice.ability) && !fusion.extraAbilities.includes(sacrifice.ability)) {
-    fusion.extraAbilities.push(sacrifice.ability);
+  if (!petAbilities(p, targetId).includes(sacrificeDef.ability) && !fusion.extraAbilities.includes(sacrificeDef.ability)) {
+    fusion.extraAbilities.push(sacrificeDef.ability);
   }
-  p.ownedPets = p.ownedPets.filter((k) => k !== sacrificeKey);
-  delete p.petProgress[sacrificeKey];
-  // The sacrifice can no longer be in the party once it's gone — drop it
-  // from partyKeys too, promoting targetKey to Leader if it was the leader
-  // being fused away (shouldn't normally happen since Fuse only appears on
-  // non-leader rows, but kept correct either way).
-  p.partyKeys = (p.partyKeys || []).filter((k) => k !== sacrificeKey);
-  if (p.activePetKey === sacrificeKey) p.activePetKey = targetKey;
+  p.pets = p.pets.filter((i) => i.id !== sacrificeId);
+  delete p.fusionBonus[sacrificeId];
+  delete p.heldItems[sacrificeId];
+  p.partyIds = (p.partyIds || []).filter((id) => id !== sacrificeId);
+  if (p.activePetId === sacrificeId) {
+    // The sacrifice was the party Leader — the base being fused into takes
+    // over leadership, moved to the front of the party if it wasn't
+    // already a member.
+    p.partyIds = p.partyIds.includes(targetId) ? [targetId, ...p.partyIds.filter((id) => id !== targetId)] : [targetId, ...p.partyIds];
+    p.activePetId = targetId;
+  } else if (!p.activePetId && p.partyIds.length > 0) {
+    p.activePetId = p.partyIds[0];
+  }
   p.fusionCount = (p.fusionCount || 0) + 1;
 }
 
@@ -2042,12 +2276,13 @@ function buildCharmRow(charm, onEquip) {
 // Only called for pets not yet owned — always the "Adopt" flow.
 function buildTamerRow(pet) {
   const p = state.player;
+  const owned = p.pets.filter((i) => i.key === pet.key).length;
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
     <div class="shop-item-info">
       <span class="shop-item-name">${pet.name}</span>
-      <span class="shop-item-desc">+${Math.round(pet.power * 100)}% ATK per turn — ${pet.price}G</span>
+      <span class="shop-item-desc">+${Math.round(pet.power * 100)}% ATK per turn — ${pet.price}G${owned > 0 ? ` — ${owned} owned` : ''}</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -2057,15 +2292,15 @@ function buildTamerRow(pet) {
   btn.addEventListener('click', () => {
     if (p.gold < pet.price) return;
     p.gold -= pet.price;
-    p.ownedPets.push(pet.key);
     const shiny = Math.random() < SHINY_CHANCE;
-    if (shiny) p.shinyPets.push(pet.key);
-    if (p.partyKeys.length < PARTY_SIZE) {
-      p.partyKeys.push(pet.key);
-      if (!p.activePetKey) p.activePetKey = p.partyKeys[0];
+    const instance = makePetInstance(pet.key, { shiny });
+    p.pets.push(instance);
+    if (p.partyIds.length < PARTY_SIZE) {
+      p.partyIds.push(instance.id);
+      if (!p.activePetId) p.activePetId = p.partyIds[0];
     }
     autosave();
-    if (shiny) showToast(`It's Shiny! ${petDisplayName(p, pet.key)} joined your team!`, 2800);
+    if (shiny) showToast(`It's Shiny! ${petDisplayName(p, instance.id)} joined your team!`, 2800);
     renderTamer();
   });
   row.appendChild(btn);

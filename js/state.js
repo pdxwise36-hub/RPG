@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, ELITE_CAPTURE_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -88,16 +88,6 @@ export function fromSaveObject(saved) {
     // replace enchantLevels and drop the newer slots' empty defaults.
     enchantLevels: { ...PLAYER_BASE.enchantLevels, ...saved.player.enchantLevels },
   };
-  // Migrate pre-Party saves: old shape only ever had a single activePetKey,
-  // no partyKeys array at all — carry that one companion over as a 1-member
-  // party rather than losing it. Newer saves already have their own
-  // partyKeys, which the spread above preserved.
-  if ((!player.partyKeys || player.partyKeys.length === 0) && saved.player.activePetKey) {
-    player.partyKeys = [saved.player.activePetKey];
-  }
-  // activePetKey is always partyKeys[0] (or null) — reassert this on load in
-  // case a save was hand-edited or predates the invariant.
-  player.activePetKey = player.partyKeys.length > 0 ? player.partyKeys[0] : null;
   // Migrate pre-equipment saves: old shape had flat atk/def instead of
   // baseAtk/baseDef, and no weapon/armor keys. Carry the old totals over as
   // the new base stats so returning players don't get quietly nerfed.
@@ -109,17 +99,50 @@ export function fromSaveObject(saved) {
   // number per pet (under petXp) on a flat +50/level curve instead of the
   // current {level, xp, xpToNext} shape. Replay that cumulative total
   // through the current shared curve so an already-leveled pet keeps its
-  // progress instead of getting quietly reset to level 1.
-  if (saved.player.petXp && Object.keys(saved.player.petXp).length > 0
-    && (!saved.player.petProgress || Object.keys(saved.player.petProgress).length === 0)) {
+  // progress — computed here (rather than mutating player.petProgress,
+  // which no longer exists) purely to feed the instance migration below.
+  let legacyProgress = saved.player.petProgress || {};
+  if (saved.player.petXp && Object.keys(saved.player.petXp).length > 0 && Object.keys(legacyProgress).length === 0) {
     const migrated = {};
     for (const [petKey, oldXp] of Object.entries(saved.player.petXp)) {
       const progress = { level: 1, xp: oldXp, xpToNext: PLAYER_BASE.xpToNext };
       applyLevelUps(progress);
       migrated[petKey] = progress;
     }
-    player.petProgress = migrated;
+    legacyProgress = migrated;
   }
+  // Migrate pre-instance saves: a companion used to be "own one copy of
+  // this species, period" — a flat ownedPets list of species keys plus
+  // per-species progress/shiny state. Turn each into its own instance
+  // (using the species key itself as that instance's id, since at
+  // migration time there's exactly one per species already) so it slots
+  // straight into the "own as many of each species as you want" model.
+  // Newer saves already have their own `pets` array, which the initial
+  // spread above preserved untouched, so this only fires once per save.
+  if ((!player.pets || player.pets.length === 0) && saved.player.ownedPets && saved.player.ownedPets.length > 0) {
+    const legacyShiny = saved.player.shinyPets || [];
+    player.pets = saved.player.ownedPets.map((key) => {
+      const prog = legacyProgress[key] || { level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext };
+      return { id: key, key, level: prog.level, xp: prog.xp, xpToNext: prog.xpToNext, shiny: legacyShiny.includes(key), elite: false };
+    });
+    // Legacy heldItems/fusionBonus were already keyed by species key, which
+    // is exactly the instance id just assigned above, so both carry over
+    // unchanged via the initial spread — nothing further to migrate there.
+    player.partyIds = (saved.player.partyKeys && saved.player.partyKeys.length > 0)
+      ? saved.player.partyKeys
+      : (saved.player.activePetKey ? [saved.player.activePetKey] : []);
+  }
+  // activePetId always mirrors partyIds[0] (or null) — reassert this on
+  // load in case a save was hand-edited or predates the invariant.
+  player.activePetId = player.partyIds.length > 0 ? player.partyIds[0] : null;
+  // Legacy fields have no meaning under the instance model — drop them so
+  // they don't linger as stale clutter in the save.
+  delete player.ownedPets;
+  delete player.petProgress;
+  delete player.shinyPets;
+  delete player.activePetKey;
+  delete player.partyKeys;
+  delete player.petXp;
   return {
     player,
     // Older saves predate later zones/flags — default to the overworld.
@@ -240,10 +263,10 @@ export function effectiveDef(player) {
 }
 
 // Held Items (see HELD_ITEMS in data.js) stick to one specific companion
-// permanently — this reads whichever item (if any) `petKey` holds, 0 if it
-// doesn't touch `statKey`.
-export function heldItemBonus(player, petKey, statKey) {
-  const itemKey = player.heldItems && player.heldItems[petKey];
+// instance permanently — this reads whichever item (if any) `petId` holds,
+// 0 if it doesn't touch `statKey`.
+export function heldItemBonus(player, petId, statKey) {
+  const itemKey = player.heldItems && player.heldItems[petId];
   const item = itemKey && HELD_ITEMS[itemKey];
   return item && item.statKey === statKey ? item.value : 0;
 }
@@ -253,7 +276,7 @@ export function heldItemBonus(player, petKey, statKey) {
 // Items only apply "while this companion is active," same condition as a
 // Companion Charm.
 function activeHeldItemBonus(player, statKey) {
-  return player.activePetKey ? heldItemBonus(player, player.activePetKey, statKey) : 0;
+  return player.activePetId ? heldItemBonus(player, player.activePetId, statKey) : 0;
 }
 
 // Helmets, Gloves, and Boots each carry their own unique mechanic instead of
@@ -292,8 +315,8 @@ export function gearPetPowerBonus(player) {
 // from petPowerSetBonus/charmPowerBonus/gearPetPowerBonus, which all boost
 // "whichever companion is active" instead) — applied in battle.js's
 // petAttacks alongside those.
-export function heldItemPetPowerBonus(player, petKey) {
-  return heldItemBonus(player, petKey, 'petPower');
+export function heldItemPetPowerBonus(player, petId) {
+  return heldItemBonus(player, petId, 'petPower');
 }
 
 // Per-turn HP regen, combining Leftovers (the active companion's Held Item,
@@ -347,6 +370,19 @@ export function reflectPercent(player) {
   return r1 + r2;
 }
 
+// Mints a fresh, permanently-unique id for a newly caught/adopted companion
+// instance — a counter alone would collide across page reloads, and a
+// timestamp alone could collide within the same millisecond, so both
+// combine. Legacy migrated instances instead reuse their old bare species
+// key as the id (see fromSaveObject above), which never collides with this
+// shape since it always carries an underscore suffix.
+let petInstanceCounter = 0;
+export function makePetInstance(key, { shiny = false, elite = false } = {}) {
+  petInstanceCounter += 1;
+  const id = `${key}_${Date.now().toString(36)}_${petInstanceCounter.toString(36)}`;
+  return { id, key, level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext, shiny, elite };
+}
+
 // Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the
 // shared curve (compounds through xpFactorCapLevel, then a flat step per
 // level after that). Both the player and pets use this exact function with
@@ -365,18 +401,17 @@ export function applyLevelUps(entity, growth = LEVEL_GROWTH) {
   return levels;
 }
 
-// Lazily creates a pet's progress record, starting at the exact same
-// level 1 / xp 0 / xpToNext as a brand-new player.
-export function ensurePetProgress(player, petKey) {
-  if (!player.petProgress[petKey]) {
-    player.petProgress[petKey] = { level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext };
-  }
-  return player.petProgress[petKey];
+// Every owned companion is its own instance (see player.pets in data.js) so
+// the same species can be owned more than once — this is the one place
+// that resolves an instance id down to its actual record, null if it's not
+// (or no longer) owned.
+export function findPetInstance(player, petId) {
+  return (player.pets || []).find((i) => i.id === petId) || null;
 }
 
-export function petLevel(player, petKey) {
-  const progress = player.petProgress && player.petProgress[petKey];
-  return progress ? progress.level : 1;
+export function petLevel(player, petId) {
+  const instance = findPetInstance(player, petId);
+  return instance ? instance.level : 1;
 }
 
 // Level-scaling plus the flat evolution multiplier once a companion hits
@@ -386,32 +421,41 @@ export function petLevel(player, petKey) {
 // deliberately NOT folded in here since it only affects whichever companion
 // is actually out (see charmPowerBonus below, applied at the real damage
 // call sites instead).
-export function petEffectivePower(player, petKey) {
-  const pet = ALL_PET_DEFS[petKey];
+export function petEffectivePower(player, petId) {
+  const instance = findPetInstance(player, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
   if (!pet) return 0;
-  const level = petLevel(player, petKey);
-  let power = pet.power * (1 + (level - 1) * PET_LEVEL_POWER_BONUS);
-  if (level >= PET_EVOLVE_LEVEL) power *= PET_EVOLVE_MULTIPLIER;
-  if (petIsShiny(player, petKey)) power *= SHINY_POWER_MULTIPLIER;
-  const fusion = player.fusionBonus && player.fusionBonus[petKey];
+  let power = pet.power * (1 + (instance.level - 1) * PET_LEVEL_POWER_BONUS);
+  if (instance.level >= PET_EVOLVE_LEVEL) power *= PET_EVOLVE_MULTIPLIER;
+  if (instance.shiny) power *= SHINY_POWER_MULTIPLIER;
+  if (instance.elite) power *= ELITE_CAPTURE_POWER_MULTIPLIER;
+  const fusion = player.fusionBonus && player.fusionBonus[petId];
   if (fusion && fusion.power) power *= (1 + fusion.power / 100);
   return power;
 }
 
-export function petIsEvolved(player, petKey) {
-  return petLevel(player, petKey) >= PET_EVOLVE_LEVEL;
+export function petIsEvolved(player, petId) {
+  return petLevel(player, petId) >= PET_EVOLVE_LEVEL;
 }
 
-export function petIsShiny(player, petKey) {
-  return !!(player.shinyPets && player.shinyPets.includes(petKey));
+export function petIsShiny(player, petId) {
+  const instance = findPetInstance(player, petId);
+  return !!(instance && instance.shiny);
 }
 
-export function petDisplayName(player, petKey) {
-  const pet = ALL_PET_DEFS[petKey];
+export function petIsElite(player, petId) {
+  const instance = findPetInstance(player, petId);
+  return !!(instance && instance.elite);
+}
+
+export function petDisplayName(player, petId) {
+  const instance = findPetInstance(player, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
   if (!pet) return '';
-  const shiny = petIsShiny(player, petKey) ? 'Shiny ' : '';
-  const evolved = petIsEvolved(player, petKey) ? 'Evolved ' : '';
-  return `${shiny}${evolved}${pet.name}`;
+  const shiny = instance.shiny ? 'Shiny ' : '';
+  const elite = instance.elite ? 'Elite ' : '';
+  const evolved = petIsEvolved(player, petId) ? 'Evolved ' : '';
+  return `${shiny}${elite}${evolved}${pet.name}`;
 }
 
 // The Companion Charm boosts whichever pet is currently active — it's a
@@ -443,18 +487,20 @@ export function skillPowerBonus(player) {
   return setBonusValue(player, 'skillPowerBonus');
 }
 
-// The % value of `abilityKey` for one SPECIFIC companion (own ability, or
-// gained through fusion) if it's reached COMPANION_ABILITY_LEVEL — 0
-// otherwise. Used for on-hit effects that belong to whichever single
-// companion actually landed the hit (Vampiric's heal, Blessed's Rally gold
-// bonus) rather than the whole party's combined total.
-export function petOwnAbilityBonus(player, petKey, abilityKey) {
-  const pet = petKey && ALL_PET_DEFS[petKey];
+// The % value of `abilityKey` for one SPECIFIC companion instance (own
+// ability, or gained through fusion) if it's reached
+// COMPANION_ABILITY_LEVEL — 0 otherwise. Used for on-hit effects that
+// belong to whichever single companion actually landed the hit (Vampiric's
+// heal, Blessed's Rally gold bonus) rather than the whole party's combined
+// total.
+export function petOwnAbilityBonus(player, petId, abilityKey) {
+  const instance = findPetInstance(player, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
   if (!pet) return 0;
-  const fusion = player.fusionBonus && player.fusionBonus[petKey];
+  const fusion = player.fusionBonus && player.fusionBonus[petId];
   const hasAbility = pet.ability === abilityKey || (fusion && fusion.extraAbilities && fusion.extraAbilities.includes(abilityKey));
   if (!hasAbility) return 0;
-  if (petLevel(player, petKey) < COMPANION_ABILITY_LEVEL) return 0;
+  if (instance.level < COMPANION_ABILITY_LEVEL) return 0;
   return COMPANION_ABILITIES[abilityKey].value;
 }
 
@@ -466,25 +512,26 @@ export function petOwnAbilityBonus(player, petKey, abilityKey) {
 // bonus) intentionally use petOwnAbilityBonus above instead, so a hit from
 // one companion doesn't double-count another's.
 export function companionAbilityBonus(player, abilityKey) {
-  const keys = (player.partyKeys && player.partyKeys.length > 0) ? player.partyKeys : (player.activePetKey ? [player.activePetKey] : []);
-  return keys.reduce((sum, key) => sum + petOwnAbilityBonus(player, key, abilityKey), 0);
+  const ids = (player.partyIds && player.partyIds.length > 0) ? player.partyIds : (player.activePetId ? [player.activePetId] : []);
+  return ids.reduce((sum, id) => sum + petOwnAbilityBonus(player, id, abilityKey), 0);
 }
 
-// Every distinct ability a companion currently has — its own assigned one
-// plus anything gained through fusion — for display purposes.
-export function petAbilities(player, petKey) {
-  const pet = ALL_PET_DEFS[petKey];
+// Every distinct ability a companion instance currently has — its own
+// assigned one plus anything gained through fusion — for display purposes.
+export function petAbilities(player, petId) {
+  const instance = findPetInstance(player, petId);
+  const pet = instance && ALL_PET_DEFS[instance.key];
   if (!pet) return [];
-  const fusion = player.fusionBonus && player.fusionBonus[petKey];
+  const fusion = player.fusionBonus && player.fusionBonus[petId];
   const keys = [pet.ability, ...(fusion && fusion.extraAbilities ? fusion.extraAbilities : [])];
   return [...new Set(keys)];
 }
 
 // Progress toward the pet's next level, for rendering an XP bar.
-export function petXpProgress(player, petKey) {
-  const progress = player.petProgress && player.petProgress[petKey];
-  if (!progress) return { level: 1, xpIntoLevel: 0, xpNeeded: PLAYER_BASE.xpToNext };
-  return { level: progress.level, xpIntoLevel: progress.xp, xpNeeded: progress.xpToNext };
+export function petXpProgress(player, petId) {
+  const instance = findPetInstance(player, petId);
+  if (!instance) return { level: 1, xpIntoLevel: 0, xpNeeded: PLAYER_BASE.xpToNext };
+  return { level: instance.level, xpIntoLevel: instance.xp, xpNeeded: instance.xpToNext };
 }
 
 // A handful of the harder Achievements grant a cosmetic title (see the
