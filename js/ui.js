@@ -2074,35 +2074,55 @@ function renderTamerFusionMaterial() {
   list.appendChild(sectionHeading('Base (kept)'));
   list.appendChild(buildInstanceRow(base, {}));
 
-  list.appendChild(sectionHeading('Choose Material to Sacrifice'));
   const candidates = p.pets.filter((i) => i.id !== base.id).sort((a, b) => b.level - a.level);
   if (candidates.length === 0) {
+    list.appendChild(sectionHeading('Choose Material to Sacrifice'));
     const emptyRow = document.createElement('div');
     emptyRow.className = 'shop-item';
     emptyRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">No other companions to fuse in.</span></div>';
     list.appendChild(emptyRow);
     return;
   }
-  candidates.forEach((instance) => {
-    list.appendChild(buildInstanceRow(instance, {
-      onSelect: (materialId) => {
-        const material = p.pets.find((i) => i.id === materialId);
-        const gain = fusionPowerGain(material.level);
-        const baseAbility = ALL_PET_DEFS[base.key].ability;
-        const materialAbility = ALL_PET_DEFS[material.key].ability;
-        const gainsAbility = materialAbility !== baseAbility && !petAbilities(p, base.id).includes(materialAbility);
-        const confirmMsg = `Fuse ${petDisplayName(p, material.id)} (Lv. ${material.level}) into ${petDisplayName(p, base.id)}? This permanently removes ${ALL_PET_DEFS[material.key].name} from your team and grants +${gain}% power${gainsAbility ? ` plus the ${COMPANION_ABILITIES[materialAbility].name} ability` : ''}.`;
-        if (!window.confirm(confirmMsg)) return;
-        fuseCompanions(p, materialId, base.id);
-        autosave();
-        updateHud();
-        tamerView = 'list';
-        fusionBaseId = null;
-        renderTamer();
-      },
-      selectLabel: 'Fuse',
-    }));
+
+  const buildMaterialRow = (instance) => buildInstanceRow(instance, {
+    onSelect: (materialId) => {
+      const material = p.pets.find((i) => i.id === materialId);
+      const gain = fusionPowerGain(material.level);
+      const baseAbility = ALL_PET_DEFS[base.key].ability;
+      const materialAbility = ALL_PET_DEFS[material.key].ability;
+      const gainsAbility = materialAbility !== baseAbility && !petAbilities(p, base.id).includes(materialAbility);
+      // Extra-loud warning when the material about to be permanently
+      // destroyed is Shiny or Elite, specifically so a Shiny/Elite catch is
+      // never lost to a misclick.
+      const specialWarning = (material.shiny || material.elite)
+        ? `⚠ ${petDisplayName(p, material.id)} is ${material.shiny && material.elite ? 'Shiny AND Elite' : material.shiny ? 'Shiny' : 'Elite'} — this cannot be undone. `
+        : '';
+      const confirmMsg = `${specialWarning}Fuse ${petDisplayName(p, material.id)} (Lv. ${material.level}) into ${petDisplayName(p, base.id)}? This permanently removes ${ALL_PET_DEFS[material.key].name} from your team and grants +${gain}% power${gainsAbility ? ` plus the ${COMPANION_ABILITIES[materialAbility].name} ability` : ''}.`;
+      if (!window.confirm(confirmMsg)) return;
+      fuseCompanions(p, materialId, base.id);
+      autosave();
+      updateHud();
+      tamerView = 'list';
+      fusionBaseId = null;
+      renderTamer();
+    },
+    selectLabel: 'Fuse',
   });
+
+  // Plain copies are listed first (safe to fuse without a second thought);
+  // any Shiny/Elite candidate is called out separately under its own loud
+  // warning heading so it's never mixed in with — or mistaken for — an
+  // ordinary duplicate.
+  const plainCandidates = candidates.filter((i) => !i.shiny && !i.elite);
+  const specialCandidates = candidates.filter((i) => i.shiny || i.elite);
+  if (plainCandidates.length > 0) {
+    list.appendChild(sectionHeading('Choose Material to Sacrifice'));
+    plainCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
+  }
+  if (specialCandidates.length > 0) {
+    list.appendChild(sectionHeading('⚠ Shiny/Elite — fusing these away is permanent'));
+    specialCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
+  }
 }
 
 // A held item can only be held by one companion instance at a time —
