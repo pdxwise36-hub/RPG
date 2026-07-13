@@ -121,6 +121,8 @@ const PALETTES = {
   chaosrift: makeTheme({ grass: '#2a0a25', path: '#4a1a40', water: '#100510', tree: '#180814', boss: '#c92f9f' }),
   throneofeternity: makeTheme({ grass: '#4a4025', path: '#6a5f3a', water: '#2a2510', tree: '#1a1810', boss: '#f4d84d' }),
   abyssaldepths: makeTheme({ grass: '#150a1a', path: '#2a1530', water: '#050208', tree: '#0d0612', boss: '#e02fb0' }),
+  sunlessexpanse: makeTheme({ grass: '#0a0a12', path: '#181826', water: '#020204', tree: '#050508', boss: '#5a3aff' }),
+  firstflame: makeTheme({ grass: '#3a1508', path: '#5a2810', water: '#ff5a10', tree: '#200a04', boss: '#ffb020' }),
 };
 
 // Generic per-theme decoration accents (speckle/water/tree rendering), keyed
@@ -134,6 +136,7 @@ const THEME_MOOD = {
   shadowfen: 'arcane', celestial: 'frost', voidrift: 'arcane',
   ashenwastes: 'ember', stormcitadel: 'frost', bonewastes: 'arcane',
   chaosrift: 'arcane', throneofeternity: 'warm', abyssaldepths: 'arcane',
+  sunlessexpanse: 'arcane', firstflame: 'ember',
 };
 
 const BOSS_CLEARED_COLOR = '#caa53d';

@@ -251,6 +251,14 @@ html, body {
 }
 .combatant.enemy { align-items: flex-end; text-align: right; }
 .combatant.enemy .bar-track { align-self: stretch; }
+.enemy-elite {
+  box-shadow: 0 0 10px 3px #ff5a3a, inset 0 0 6px #ff5a3a;
+  filter: saturate(1.4) brightness(1.1);
+  border-radius: 6px;
+}
+
+.bar-track.pet-energy { height: 12px; margin-top: 4px; align-self: stretch; }
+.bar-track.pet-energy .bar-fill { background: linear-gradient(90deg, #4a2a6a, #b070f0); }
 
 .battle-log {
   width: 100%;
@@ -396,6 +404,8 @@ html, body {
 .inventory-tile-name { font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.15; }
 .inventory-tile-stat { font-size: 0.68rem; color: var(--text-dim); }
 .inventory-tile-badge { font-size: 0.65rem; color: var(--gold-bright); font-weight: 700; }
+.inventory-tile-ring-btns { display: flex; gap: 4px; width: 100%; }
+.inventory-tile-ring-btns .btn { flex: 1; font-size: 0.65rem; padding: 4px 2px; min-height: 26px; }
 
 /* ---------- Inventory paper doll (Diablo-style equipment layout) ---------- */
 .paperdoll {
@@ -457,6 +467,7 @@ html, body {
   border: 2px solid var(--gold);
   background-color: var(--bg-alt);
 }
+.slot-amulet, .slot-ring1, .slot-ring2 { cursor: pointer; }
 
 #inventory-name { text-align: center; }
 

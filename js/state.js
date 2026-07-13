@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ENCHANT_BONUS_PER_LEVEL } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -83,6 +83,10 @@ export function fromSaveObject(saved) {
     ...structuredClone(PLAYER_BASE),
     ...saved.player,
     inventory: { ...PLAYER_BASE.inventory, ...saved.player.inventory },
+    // Saves predating the Helmet/Gloves/Boots Enchant expansion only have
+    // weapon/armor keys here — a plain spread would otherwise wholesale
+    // replace enchantLevels and drop the newer slots' empty defaults.
+    enchantLevels: { ...PLAYER_BASE.enchantLevels, ...saved.player.enchantLevels },
   };
   // Migrate pre-equipment saves: old shape had flat atk/def instead of
   // baseAtk/baseDef, and no weapon/armor keys. Carry the old totals over as
@@ -165,41 +169,63 @@ function setBonusValue(player, statKey) {
   return activeSetProgress(player).reduce((sum, { bonus }) => sum + (bonus[statKey] || 0), 0);
 }
 
-export function effectiveAtk(player) {
-  const weapon = WEAPONS[player.weaponKey] || WEAPONS.rustySword;
-  return player.baseAtk + weapon.atkBonus + enchantLevel(player, 'weapon', player.weaponKey) * ENCHANT_BONUS_PER_LEVEL + setBonusValue(player, 'atk');
-}
-
-export function effectiveDef(player) {
-  const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
-  return player.baseDef + armor.defBonus + enchantLevel(player, 'armor', player.armorKey) * ENCHANT_BONUS_PER_LEVEL + setBonusValue(player, 'def');
-}
-
 export function enchantLevel(player, slot, key) {
   return (player.enchantLevels && player.enchantLevels[slot] && player.enchantLevels[slot][key]) || 0;
 }
 
+// The enchant bonus for one specific stat field on whichever piece is
+// currently equipped in `slot` — 0 if that slot's ENCHANT_STATS doesn't
+// touch that field at all.
+function enchantStatBonus(player, slot, equippedKey, statKey) {
+  const perLevel = (ENCHANT_STATS[slot] && ENCHANT_STATS[slot][statKey]) || 0;
+  return perLevel * enchantLevel(player, slot, equippedKey);
+}
+
+export function effectiveAtk(player) {
+  const weapon = WEAPONS[player.weaponKey] || WEAPONS.rustySword;
+  return player.baseAtk + weapon.atkBonus + enchantStatBonus(player, 'weapon', player.weaponKey, 'atkBonus') + setBonusValue(player, 'atk');
+}
+
+export function effectiveDef(player) {
+  const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
+  return player.baseDef + armor.defBonus + enchantStatBonus(player, 'armor', player.armorKey, 'defBonus') + setBonusValue(player, 'def');
+}
+
 // Helmets, Gloves, and Boots each carry their own unique mechanic instead of
 // flat ATK/DEF — these read the equipped piece the same way effectiveAtk/Def
-// read the weapon/armor.
+// read the weapon/armor, each also picking up its own slot's Enchant bonus.
 export function mpCostReduction(player) {
-  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction + setBonusValue(player, 'mpCostReduction');
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction + enchantStatBonus(player, 'helmet', player.helmKey, 'mpCostReduction') + setBonusValue(player, 'mpCostReduction');
 }
 
 export function xpBonusPercent(player) {
-  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent + setBonusValue(player, 'xpBonusPercent');
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent + enchantStatBonus(player, 'helmet', player.helmKey, 'xpBonusPercent') + setBonusValue(player, 'xpBonusPercent');
 }
 
 export function critChance(player) {
-  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance + setBonusValue(player, 'critChance');
+  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance + enchantStatBonus(player, 'gloves', player.glovesKey, 'critChance') + setBonusValue(player, 'critChance');
 }
 
 export function dodgeChance(player) {
-  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance + setBonusValue(player, 'dodgeChance');
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance + enchantStatBonus(player, 'boots', player.bootsKey, 'dodgeChance') + setBonusValue(player, 'dodgeChance');
 }
 
 export function goldBonusPercent(player) {
-  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent + setBonusValue(player, 'goldBonusPercent');
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent + enchantStatBonus(player, 'boots', player.bootsKey, 'goldBonusPercent') + setBonusValue(player, 'goldBonusPercent');
+}
+
+// The Amulet slowly restores MP each of your turns (see applyMpRegen in
+// battle.js) — chest-only, not part of GEAR_SLOTS/SET_BONUSES.
+export function mpRegenPercent(player) {
+  return (AMULETS[player.amuletKey] || AMULETS.none).mpRegenPercent;
+}
+
+// Both Ring slots share the same RINGS registry and stack — reflects a % of
+// incoming damage back at the attacker (see enemyStrikes in battle.js).
+export function reflectPercent(player) {
+  const r1 = (RINGS[player.ring1Key] || RINGS.none).reflectPercent;
+  const r2 = (RINGS[player.ring2Key] || RINGS.none).reflectPercent;
+  return r1 + r2;
 }
 
 // Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the
@@ -328,4 +354,22 @@ export function petXpProgress(player, petKey) {
   const progress = player.petProgress && player.petProgress[petKey];
   if (!progress) return { level: 1, xpIntoLevel: 0, xpNeeded: PLAYER_BASE.xpToNext };
   return { level: progress.level, xpIntoLevel: progress.xp, xpNeeded: progress.xpToNext };
+}
+
+// A handful of the harder Achievements grant a cosmetic title (see the
+// `title` field in ACHIEVEMENTS) instead of just a one-time gold payout —
+// this is every title the player has actually earned, for the Achievements
+// tab's picker to choose among.
+export function unlockedTitles(player) {
+  return ACHIEVEMENTS.filter((a) => a.title && player.achievements[a.key]).map((a) => a.title);
+}
+
+// The player's name plus whichever earned title they've chosen to display
+// (or just the bare name if none is selected, or the selected one was
+// somehow never actually earned) — read by the HUD and the Status header.
+export function playerDisplayName(player) {
+  if (player.selectedTitle && unlockedTitles(player).includes(player.selectedTitle)) {
+    return `${player.name} ${player.selectedTitle}`;
+  }
+  return player.name;
 }

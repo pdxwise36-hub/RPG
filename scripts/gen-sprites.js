@@ -1006,6 +1006,34 @@ const buildFormlessKing = () => buildRobedBossTemplate({
   'w': [62, 42, 82, 255], 'o': [225, 42, 182, 255],
 });
 
+// ---------- Zone 21: The Sunless Expanse (post-game, past the Abyss) ----------
+const buildDuskcrawler = () => buildBipedTemplate({
+  'k': [35, 20, 50, 255], 'd': [15, 8, 25, 255], 'v': [55, 30, 80, 255],
+  'r': [90, 50, 130, 255], 'w': [25, 15, 40, 255], 'o': [10, 5, 18, 255],
+});
+const buildHollowRevenant = () => buildQuadrupedTemplate({
+  'b': [70, 65, 90, 255], 'd': [30, 28, 42, 255], 'e': [180, 255, 240, 255],
+});
+const buildDuskboundTyrant = () => buildRobedBossTemplate({
+  'k': [30, 15, 45, 255], 'e': [140, 60, 255, 255], 'j': [10, 5, 18, 255],
+  'r': [18, 8, 30, 255], 'r2': [45, 20, 65, 255], 'd': [8, 4, 14, 255],
+  'w': [55, 35, 75, 255], 'o': [120, 50, 235, 255],
+});
+
+// ---------- Zone 22: The First Flame (the chain's true end, for now) ----------
+const buildEmberwraith = () => buildBipedTemplate({
+  'k': [120, 40, 20, 255], 'd': [60, 18, 8, 255], 'v': [200, 90, 30, 255],
+  'r': [255, 140, 40, 255], 'w': [70, 25, 12, 255], 'o': [30, 10, 5, 255],
+});
+const buildCinderfiend = () => buildQuadrupedTemplate({
+  'b': [90, 30, 15, 255], 'd': [40, 12, 6, 255], 'e': [255, 200, 60, 255],
+});
+const buildProgenitorEmber = () => buildRobedBossTemplate({
+  'k': [70, 25, 10, 255], 'e': [255, 210, 80, 255], 'j': [25, 8, 4, 255],
+  'r': [110, 35, 10, 255], 'r2': [200, 90, 20, 255], 'd': [45, 15, 6, 255],
+  'w': [130, 55, 15, 255], 'o': [255, 170, 30, 255],
+});
+
 // ---------- Inventory icons — small item art for the Armory/Enchant/
 // Inventory grids. Same "one shared template, recolor per tier" approach
 // as the monster/boss templates above.
@@ -1103,6 +1131,31 @@ function buildCharmIcon({ main, trim, dark }) {
   return rasterize(g, { m: main, t: trim, d: dark }, 6);
 }
 
+// 14x14 rounded pendant on a chain, shared by all Amulet tiers plus the
+// neutral "No Amulet" default — a wider, rounder silhouette than the Charm
+// icon above so the two read as distinct trinkets at a glance.
+function buildAmuletIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 6, 0, 2, 3, 't');
+  fillRect(g, 5, 2, 4, 2, 't');
+  fillRect(g, 3, 4, 8, 7, 'm');
+  fillRect(g, 5, 6, 4, 3, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
+// 14x14 open ring band with a set gem, shared by all Ring tiers plus the
+// neutral "No Ring" default.
+function buildRingIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 3, 7, 3, 4, 'm');
+  fillRect(g, 8, 7, 3, 4, 'm');
+  fillRect(g, 3, 10, 8, 2, 'm');
+  fillRect(g, 5, 3, 4, 4, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
 // One shared 10-tier color ramp (rusty -> iron -> steel -> mithril -> flame
 // -> frost -> thunder -> void -> dragon -> celestial) reused across helms,
 // gloves, and boots so a tier reads the same regardless of slot.
@@ -1127,6 +1180,8 @@ const HELMET_KEYS = ['clothCap', 'leatherCap', 'ironHelm', 'steelHelm', 'mithril
 const GLOVES_KEYS = ['clothWraps', 'leatherGloves', 'ironGauntlets', 'steelGauntlets', 'mithrilGrips', 'flameforgedGloves', 'frostbiteGloves', 'thunderstrikeGauntlets', 'voidtouchedGloves', 'celestialGauntlets'];
 const BOOTS_KEYS = ['wornSandals', 'leatherBoots', 'ironGreaves', 'steelBoots', 'mithrilStriders', 'flamewalkers', 'frostwalkers', 'thunderstepBoots', 'voidwalkers', 'celestialStriders'];
 const CHARM_KEYS = ['frayedCharm', 'carvedCharm', 'ironCharm', 'steelCharm', 'mithrilCharm', 'flameforgedCharm', 'frostboundCharm', 'thunderCharm', 'voidboundCharm', 'celestialCharm'];
+const AMULET_KEYS = ['tarnishedAmulet', 'bronzeAmulet', 'jadeAmulet', 'silverAmulet', 'runedAmulet', 'enchantedAmulet', 'frostkissedAmulet', 'stormboundAmulet', 'voidwovenAmulet', 'celestialAmulet'];
+const RING_KEYS = ['wornRing', 'copperRing', 'jadeRing', 'mithrilRing', 'runicRing', 'emberRing', 'frostRing', 'stormRing', 'voidRing', 'celestialRing'];
 
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
@@ -1208,6 +1263,16 @@ const sprites = {
   'gloomfang.png': buildGloomfang,
   'formlessking.png': buildFormlessKing,
 
+  // ---------- Zone 21: The Sunless Expanse (post-game) ----------
+  'duskcrawler.png': buildDuskcrawler,
+  'hollowrevenant.png': buildHollowRevenant,
+  'duskboundtyrant.png': buildDuskboundTyrant,
+
+  // ---------- Zone 22: The First Flame (post-game) ----------
+  'emberwraith.png': buildEmberwraith,
+  'cinderfiend.png': buildCinderfiend,
+  'progenitorember.png': buildProgenitorEmber,
+
   'wpn-rustySword.png': buildRustySwordIcon,
   'wpn-ironSword.png': buildIronSwordIcon,
   'wpn-steelBlade.png': buildSteelBladeIcon,
@@ -1236,6 +1301,10 @@ GLOVES_KEYS.forEach((key, i) => { sprites[`glv-${key}.png`] = () => buildGlovesI
 BOOTS_KEYS.forEach((key, i) => { sprites[`bts-${key}.png`] = () => buildBootsIcon(tierColors(i)); });
 sprites['chm-none.png'] = () => buildCharmIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });
 CHARM_KEYS.forEach((key, i) => { sprites[`chm-${key}.png`] = () => buildCharmIcon(tierColors(i)); });
+sprites['amu-none.png'] = () => buildAmuletIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });
+AMULET_KEYS.forEach((key, i) => { sprites[`amu-${key}.png`] = () => buildAmuletIcon(tierColors(i)); });
+sprites['rng-none.png'] = () => buildRingIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });
+RING_KEYS.forEach((key, i) => { sprites[`rng-${key}.png`] = () => buildRingIcon(tierColors(i)); });
 
 for (const [filename, build] of Object.entries(sprites)) {
   const png = build();

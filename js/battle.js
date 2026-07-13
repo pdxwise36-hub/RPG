@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, ngPlusMultiplier } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier } from './data.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -66,6 +66,10 @@ export function createBattle(enemyDef, isBoss = false) {
     result: null, // 'win' | 'lose' | 'fled'
     playerTurn: true,
     isBoss,
+    // Charges from the active pet's normal auto-hits, spent on the
+    // Companion Skill battle button (see petActiveSkill) — battle-scoped
+    // only, never persisted, so every fight starts uncharged.
+    petEnergy: 0,
   };
 }
 
@@ -110,11 +114,21 @@ function enemyStrikes(battle, state) {
     if (guardian > 0) dmg = Math.max(1, Math.round(dmg * (1 - guardian / 100)));
     player.hp = Math.max(0, player.hp - dmg);
     pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
+    const reflect = reflectPercent(player);
+    if (reflect > 0) {
+      const reflected = Math.max(1, Math.round(dmg * reflect / 100));
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - reflected);
+      pushLog(battle, `Your ring lashes back for ${reflected}!`);
+    }
     if (player.hp <= 0) {
       battle.over = true;
       battle.result = 'lose';
     }
   }
+  // A reflect can finish the enemy off mid-strike — check for that (but only
+  // if the player didn't just lose, which takes priority) before moving on
+  // to the zone hazard roll.
+  if (!battle.over && checkEnemyDefeated(battle)) return;
   if (!battle.over) applyZoneHazard(battle, state);
 }
 
@@ -147,13 +161,63 @@ function petAttacks(battle, state) {
       pushLog(battle, `${pet.name}'s bite heals you for ${healed}!`);
     }
   }
+  battle.petEnergy = Math.min(PET_ENERGY_MAX, (battle.petEnergy || 0) + PET_ENERGY_PER_HIT);
+}
+
+// The Amulet slowly tops the player's MP back up each round — rolled once
+// per player action, same cadence as the enemy's own turn.
+function applyMpRegen(battle, state) {
+  const player = state.player;
+  const regen = mpRegenPercent(player);
+  if (regen <= 0 || player.mp >= player.maxMp) return;
+  const restored = Math.min(player.maxMp - player.mp, Math.max(1, Math.round(player.maxMp * regen / 100)));
+  if (restored > 0) {
+    player.mp += restored;
+    pushLog(battle, `Your amulet hums, restoring ${restored} MP.`);
+  }
+}
+
+// Shared tail end of a round once the pet's own contribution (if any) is
+// settled — used both after a normal petAttacks and after the Companion
+// Skill burst, which replaces petAttacks for that round instead of adding
+// to it.
+function finishRound(battle, state) {
+  if (checkEnemyDefeated(battle)) return;
+  applyMpRegen(battle, state);
+  enemyStrikes(battle, state);
 }
 
 function afterPlayerAction(battle, state) {
   if (checkEnemyDefeated(battle)) return;
   petAttacks(battle, state);
-  if (checkEnemyDefeated(battle)) return;
-  enemyStrikes(battle, state);
+  finishRound(battle, state);
+}
+
+// The active companion's charged-up burst move (see PET_ENERGY_MAX/PET_
+// ENERGY_PER_HIT/PET_SKILL_MULTIPLIER in data.js) — a genuine alternative to
+// Attack/Skill for that round rather than a bonus on top: it replaces the
+// pet's normal small auto-hit with one much bigger one, so choosing it means
+// forgoing your own action that round.
+export function petActiveSkill(battle, state) {
+  if (battle.over) return;
+  const player = state.player;
+  const petKey = player.activePetKey;
+  const pet = ALL_PET_DEFS[petKey];
+  if (!pet || (battle.petEnergy || 0) < PET_ENERGY_MAX) return;
+  battle.petEnergy = 0;
+  const power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player)) / 100) * PET_SKILL_MULTIPLIER;
+  const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
+  battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
+  pushLog(battle, `${petDisplayName(player, petKey)} unleashes a Rally on ${battle.enemy.name} for ${dmg}!`);
+  const vampiric = companionAbilityBonus(player, 'vampiric');
+  if (vampiric > 0 && player.hp < player.maxHp) {
+    const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * vampiric / 100));
+    if (healed > 0) {
+      player.hp += healed;
+      pushLog(battle, `${pet.name}'s bite heals you for ${healed}!`);
+    }
+  }
+  finishRound(battle, state);
 }
 
 export function playerAttack(battle, state) {
@@ -283,6 +347,7 @@ export function grantRewards(state, enemyDef) {
   player.bountyProgress.gold += goldWon;
   player.lifetimeKills = (player.lifetimeKills || 0) + 1;
   player.lifetimeGoldEarned = (player.lifetimeGoldEarned || 0) + goldWon;
+  if (enemyDef.isElite) player.lifetimeElites = (player.lifetimeElites || 0) + 1;
   const levels = applyLevelUps(player);
   if (levels > 0) {
     player.maxHp += LEVEL_GROWTH.hp * levels;
@@ -370,20 +435,41 @@ function rollCharm(state, depth) {
   return { type: 'charm', key };
 }
 
+// Same "nearest unowned tier anchored to zone depth" search as rollCharm,
+// generalized over any {order, ownedField} pair — Amulet and both Ring
+// slots are chest-only exactly like Charms, just two more parallel lists.
+function rollTrinket(state, depth, order, ownedField) {
+  const player = state.player;
+  const owned = player[ownedField];
+  const anchor = Math.max(0, Math.min(order.length - 1, depth + rand(-1, 1)));
+  let key = null;
+  for (let offset = 0; offset < order.length && !key; offset++) {
+    for (const candidate of [anchor + offset, anchor - offset]) {
+      if (candidate < 0 || candidate >= order.length) continue;
+      const candidateKey = order[candidate];
+      if (candidateKey !== 'none' && !owned.includes(candidateKey)) { key = candidateKey; break; }
+    }
+  }
+  if (!key) return null;
+  player[ownedField].push(key);
+  return key;
+}
+
 // Rolls a chest drop after a non-boss win. Mutates player state directly
 // (same pattern as grantRewards) and returns a description of the loot, or
-// null if no chest appeared.
-export function rollChest(state) {
+// null if no chest appeared. `guaranteed` skips the appearance roll
+// entirely — used for Elite kills, which always drop something.
+export function rollChest(state, guaranteed = false) {
   const player = state.player;
-  if (Math.random() >= CHEST_CHANCE + itemFindBonus(player) / 100) return null;
+  if (!guaranteed && Math.random() >= CHEST_CHANCE + itemFindBonus(player) / 100) return null;
   const depth = (MAPS[state.mapId] && MAPS[state.mapId].depth) || 0;
   const roll = Math.random();
 
-  if (roll < 0.25) {
+  if (roll < 0.20) {
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.45) {
+  if (roll < 0.38) {
     // Deeper zones have a rising chance of the Greater tier instead of the
     // basic potion/ether — same "deeper = better loot" pattern as gold/gear.
     const greaterChance = Math.min(0.5, depth * 0.04);
@@ -397,15 +483,27 @@ export function rollChest(state) {
     return { type: 'item', itemKey };
   }
 
-  if (roll < 0.65) {
+  if (roll < 0.56) {
     const gear = rollGear(state, depth);
     if (gear) return gear;
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.78) {
+  if (roll < 0.68) {
     const charm = rollCharm(state, depth);
     if (charm) return charm;
+    return { type: 'gold', amount: goldDrop(state, depth) };
+  }
+
+  if (roll < 0.76) {
+    const key = rollTrinket(state, depth, AMULET_ORDER, 'ownedAmulets');
+    if (key) return { type: 'amulet', key };
+    return { type: 'gold', amount: goldDrop(state, depth) };
+  }
+
+  if (roll < 0.84) {
+    const key = rollTrinket(state, depth, RING_ORDER, 'ownedRings');
+    if (key) return { type: 'ring', key };
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 

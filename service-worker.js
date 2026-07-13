@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v40';
+const CACHE_NAME = 'emberfall-v41';
 const ASSETS = [
   './',
   './index.html',
@@ -87,6 +87,12 @@ const ASSETS = [
   './icons/sprites/mawofthedeep.png',
   './icons/sprites/gloomfang.png',
   './icons/sprites/formlessking.png',
+  './icons/sprites/duskcrawler.png',
+  './icons/sprites/hollowrevenant.png',
+  './icons/sprites/duskboundtyrant.png',
+  './icons/sprites/emberwraith.png',
+  './icons/sprites/cinderfiend.png',
+  './icons/sprites/progenitorember.png',
   './icons/sprites/wpn-rustySword.png',
   './icons/sprites/wpn-ironSword.png',
   './icons/sprites/wpn-steelBlade.png',
@@ -148,6 +154,28 @@ const ASSETS = [
   './icons/sprites/chm-thunderCharm.png',
   './icons/sprites/chm-voidboundCharm.png',
   './icons/sprites/chm-celestialCharm.png',
+  './icons/sprites/amu-none.png',
+  './icons/sprites/amu-tarnishedAmulet.png',
+  './icons/sprites/amu-bronzeAmulet.png',
+  './icons/sprites/amu-jadeAmulet.png',
+  './icons/sprites/amu-silverAmulet.png',
+  './icons/sprites/amu-runedAmulet.png',
+  './icons/sprites/amu-enchantedAmulet.png',
+  './icons/sprites/amu-frostkissedAmulet.png',
+  './icons/sprites/amu-stormboundAmulet.png',
+  './icons/sprites/amu-voidwovenAmulet.png',
+  './icons/sprites/amu-celestialAmulet.png',
+  './icons/sprites/rng-none.png',
+  './icons/sprites/rng-wornRing.png',
+  './icons/sprites/rng-copperRing.png',
+  './icons/sprites/rng-jadeRing.png',
+  './icons/sprites/rng-mithrilRing.png',
+  './icons/sprites/rng-runicRing.png',
+  './icons/sprites/rng-emberRing.png',
+  './icons/sprites/rng-frostRing.png',
+  './icons/sprites/rng-stormRing.png',
+  './icons/sprites/rng-voidRing.png',
+  './icons/sprites/rng-celestialRing.png',
 ];
 
 self.addEventListener('install', (event) => {

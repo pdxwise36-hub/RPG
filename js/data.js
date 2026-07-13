@@ -370,6 +370,46 @@ export const CHARMS = {
 Object.values(CHARMS).forEach((c) => { c.sprite = `icons/sprites/chm-${c.key}.png`; });
 export const CHARM_ORDER = Object.keys(CHARMS);
 
+// Amulet and the two Ring slots (see the Inventory paper doll's long-reserved
+// "coming soon" spots) are chest-only finds, same as Companion Charms — no
+// Buy flow at any vendor, just Equip once found. Each has its own single
+// mechanic instead of flat ATK/DEF, same spirit as Helmets/Gloves/Boots:
+// the Amulet slowly restores MP each of your turns, the Ring reflects a % of
+// incoming damage back at the attacker. Two Ring slots share this one
+// registry and stack, so a second ring is a real (if smaller) upgrade over
+// carrying just one.
+export const AMULETS = {
+  none: { key: 'none', name: 'No Amulet', mpRegenPercent: 0 },
+  tarnishedAmulet: { key: 'tarnishedAmulet', name: 'Tarnished Amulet', mpRegenPercent: 3 },
+  bronzeAmulet: { key: 'bronzeAmulet', name: 'Bronze Amulet', mpRegenPercent: 5 },
+  jadeAmulet: { key: 'jadeAmulet', name: 'Jade Amulet', mpRegenPercent: 7 },
+  silverAmulet: { key: 'silverAmulet', name: 'Silver Amulet', mpRegenPercent: 10 },
+  runedAmulet: { key: 'runedAmulet', name: 'Runed Amulet', mpRegenPercent: 13 },
+  enchantedAmulet: { key: 'enchantedAmulet', name: 'Enchanted Amulet', mpRegenPercent: 16 },
+  frostkissedAmulet: { key: 'frostkissedAmulet', name: 'Frostkissed Amulet', mpRegenPercent: 20 },
+  stormboundAmulet: { key: 'stormboundAmulet', name: 'Stormbound Amulet', mpRegenPercent: 24 },
+  voidwovenAmulet: { key: 'voidwovenAmulet', name: 'Voidwoven Amulet', mpRegenPercent: 29 },
+  celestialAmulet: { key: 'celestialAmulet', name: 'Celestial Amulet', mpRegenPercent: 35 },
+};
+Object.values(AMULETS).forEach((a) => { a.sprite = `icons/sprites/amu-${a.key}.png`; });
+export const AMULET_ORDER = Object.keys(AMULETS);
+
+export const RINGS = {
+  none: { key: 'none', name: 'No Ring', reflectPercent: 0 },
+  wornRing: { key: 'wornRing', name: 'Worn Ring', reflectPercent: 2 },
+  copperRing: { key: 'copperRing', name: 'Copper Ring', reflectPercent: 4 },
+  jadeRing: { key: 'jadeRing', name: 'Jade Ring', reflectPercent: 6 },
+  mithrilRing: { key: 'mithrilRing', name: 'Mithril Ring', reflectPercent: 8 },
+  runicRing: { key: 'runicRing', name: 'Runic Ring', reflectPercent: 10 },
+  emberRing: { key: 'emberRing', name: 'Ember Ring', reflectPercent: 13 },
+  frostRing: { key: 'frostRing', name: 'Frost Ring', reflectPercent: 16 },
+  stormRing: { key: 'stormRing', name: 'Storm Ring', reflectPercent: 19 },
+  voidRing: { key: 'voidRing', name: 'Void Ring', reflectPercent: 23 },
+  celestialRing: { key: 'celestialRing', name: 'Celestial Ring', reflectPercent: 28 },
+};
+Object.values(RINGS).forEach((r) => { r.sprite = `icons/sprites/rng-${r.key}.png`; });
+export const RING_ORDER = Object.keys(RINGS);
+
 // Fusion permanently sacrifices one owned companion into another: the
 // target keeps its own sprite/name (prefixed "Fused" — see
 // petDisplayName in state.js) and gains a flat power bump plus, if the
@@ -422,6 +462,14 @@ export const PLAYER_BASE = {
   ownedHelmets: ['clothCap'],
   ownedGloves: ['clothWraps'],
   ownedBoots: ['wornSandals'],
+  // Amulet and the two Rings are chest-only (see AMULETS/RINGS above) —
+  // 'none' is always a valid equipped value even though it's never added to
+  // the owned lists, so there's nothing to migrate for saves predating them.
+  amuletKey: 'none',
+  ownedAmulets: [],
+  ring1Key: 'none',
+  ring2Key: 'none',
+  ownedRings: [],
   knownSkills: ['fireball'],
   ownedPets: [],
   activePetKey: null,
@@ -440,7 +488,12 @@ export const PLAYER_BASE = {
   // daily) — feeds the Hall of Legacy tab.
   lifetimeKills: 0,
   lifetimeGoldEarned: 0,
+  lifetimeElites: 0,
   arenaBestWave: 0,
+  // A cosmetic suffix shown next to your name, chosen from whichever
+  // Achievement-granted titles you've unlocked (see ACHIEVEMENTS' `title`
+  // field and the Titles section on the Achievements tab).
+  selectedTitle: null,
   inventory: { potion: 3, ether: 0, captureOrb: 1 },
   // Which Capture Orb type the battle screen's dedicated Capture button
   // uses — chosen from the Status screen's Items section, so there's no
@@ -453,9 +506,10 @@ export const PLAYER_BASE = {
   // permanent once earned, checked on every autosave.
   achievements: {},
   // Per-gear-key enchant levels, e.g. { weapon: { rustySword: 2 }, armor: {} }
-  // — an extra flat stat bonus on top of the gear's own atkBonus/defBonus,
-  // bought repeatedly at the Armory regardless of which piece is equipped.
-  enchantLevels: { weapon: {}, armor: {} },
+  // — an extra stat bonus (see ENCHANT_STATS) on top of the gear's own
+  // stats, bought repeatedly at the Armory regardless of which piece is
+  // equipped.
+  enchantLevels: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
   // Today's 3 Bounty Board objectives and progress toward them; regenerated
   // whenever the real-world date changes. bountyDate is a toDateString().
   bountyDate: null,
@@ -653,6 +707,27 @@ export const FORMLESS_KING = {
   key: 'formlessking', name: 'The Formless King', maxHp: 1100, atk: 66, def: 42, xp: 3300, goldMin: 3300, goldMax: 3300, sprite: 'icons/sprites/formlessking.png',
 };
 
+// Zone 21: The Sunless Expanse — the Abyssal Depths now chains onward into
+// this one instead of being a dead end, same nextMap mechanism as every
+// regular level (see LEVEL_CHAIN's second walk below).
+export const SUNLESS_ENEMIES = {
+  duskcrawler: { key: 'duskcrawler', name: 'Duskcrawler', maxHp: 235, atk: 60, def: 32, xp: 185, goldMin: 168, goldMax: 178, weight: 4, sprite: 'icons/sprites/duskcrawler.png' },
+  hollowRevenant: { key: 'hollowRevenant', name: 'Hollow Revenant', maxHp: 245, atk: 62, def: 33, xp: 192, goldMin: 172, goldMax: 182, weight: 3, sprite: 'icons/sprites/hollowrevenant.png' },
+};
+export const DUSKBOUND_TYRANT = {
+  key: 'duskboundtyrant', name: 'The Duskbound Tyrant', maxHp: 1210, atk: 73, def: 46, xp: 3650, goldMin: 3650, goldMax: 3650, sprite: 'icons/sprites/duskboundtyrant.png',
+};
+
+// Zone 22: The First Flame — the very ember Emberfall is named for, and the
+// last stop of the chain (no nextMap of its own).
+export const FIRSTFLAME_ENEMIES = {
+  emberwraith: { key: 'emberwraith', name: 'Emberwraith', maxHp: 260, atk: 67, def: 36, xp: 205, goldMin: 188, goldMax: 198, weight: 4, sprite: 'icons/sprites/emberwraith.png' },
+  cinderfiend: { key: 'cinderfiend', name: 'Cinderfiend', maxHp: 272, atk: 69, def: 37, xp: 213, goldMin: 194, goldMax: 205, weight: 3, sprite: 'icons/sprites/cinderfiend.png' },
+};
+export const PROGENITOR_EMBER = {
+  key: 'progenitorember', name: 'The Progenitor Ember', maxHp: 1340, atk: 80, def: 51, xp: 4050, goldMin: 4050, goldMax: 4050, sprite: 'icons/sprites/progenitorember.png',
+};
+
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
 // ui.js all key off state.mapId instead of hardcoding a single map). Layouts
 // are no longer stored here — mapgen.js procedurally builds a fresh grid for
@@ -671,107 +746,145 @@ export const MAPS = {
     id: 'overworld', name: 'The Emberfall Outskirts', theme: 'overworld', depth: 0,
     bossEnemy: BOSS, bossFlag: 'bossDefeated', enemyPool: ENEMIES,
     nextMap: { mapId: 'depths' },
+    lore: "Where Emberfall's story begins — quiet fields turned dangerous once the Dark Knight made them his.",
   },
   depths: {
     id: 'depths', name: 'The Ember Depths', theme: 'depths', depth: 1,
     bossEnemy: LICH, bossFlag: 'lichDefeated', enemyPool: DEPTHS_ENEMIES,
     nextMap: { mapId: 'frostreach' },
+    lore: 'A collapsed mine turned crypt, where the Lich hoards centuries of stolen light.',
   },
   frostreach: {
     id: 'frostreach', name: 'The Frostreach', theme: 'frostreach', depth: 2,
     bossEnemy: GLACIAL_TITAN, bossFlag: 'titanDefeated', enemyPool: FROSTREACH_ENEMIES,
     nextMap: { mapId: 'spire' },
     hazard: { type: 'Frostbite', chance: 0.15, damagePercent: 0.04 },
+    lore: 'An endless glacier where the Glacial Titan sleeps beneath the ice, and rarely wakes gently.',
   },
   spire: {
     id: 'spire', name: "The Dragon's Spire", theme: 'spire', depth: 3,
     bossEnemy: ANCIENT_DRAGON, bossFlag: 'dragonDefeated', enemyPool: SPIRE_ENEMIES,
     nextMap: { mapId: 'sunkenruins' },
+    lore: 'A volcanic tower home to the Ancient Dragon, coiled atop a hoard older than the town itself.',
   },
   sunkenruins: {
     id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins', depth: 4,
     bossEnemy: DROWNED_QUEEN, bossFlag: 'drownedQueenDefeated', enemyPool: SUNKENRUINS_ENEMIES,
     nextMap: { mapId: 'whisperingwoods' },
+    lore: "A drowned city whose Drowned Queen still holds court over halls no one else can breathe in.",
   },
   whisperingwoods: {
     id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods', depth: 5,
     bossEnemy: ELDER_ENT, bossFlag: 'elderEntDefeated', enemyPool: WHISPERINGWOODS_ENEMIES,
     nextMap: { mapId: 'sandscar' },
+    lore: "A forest that listens back — the Elder Ent has stood watch here since before Emberfall had a name.",
   },
   sandscar: {
     id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar', depth: 6,
     bossEnemy: SAND_REAVER, bossFlag: 'sandReaverDefeated', enemyPool: SANDSCAR_ENEMIES,
     nextMap: { mapId: 'volcanic' },
+    lore: 'A cracked, sun-blasted waste where the Sand Reaver drags the unwary under the dunes.',
   },
   volcanic: {
     id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic', depth: 7,
     bossEnemy: MOLTEN_WYRM, bossFlag: 'moltenWyrmDefeated', enemyPool: VOLCANIC_ENEMIES,
     nextMap: { mapId: 'shatteredpeaks' },
     hazard: { type: 'Scorching heat', chance: 0.15, damagePercent: 0.04 },
+    lore: 'Rivers of magma cut through blackened stone, and the Molten Wyrm calls every one of them home.',
   },
   shatteredpeaks: {
     id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks', depth: 8,
     bossEnemy: STORMGUARD_TITAN, bossFlag: 'stormguardTitanDefeated', enemyPool: SHATTEREDPEAKS_ENEMIES,
     nextMap: { mapId: 'blightmarsh' },
+    lore: 'Wind-torn cliffs where the Stormguard Titan commands lightning like a weapon.',
   },
   blightmarsh: {
     id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh', depth: 9,
     bossEnemy: ROTLORD, bossFlag: 'rotlordDefeated', enemyPool: BLIGHTMARSH_ENEMIES,
     nextMap: { mapId: 'crystalcaverns' },
     hazard: { type: 'Toxic fumes', chance: 0.15, damagePercent: 0.04 },
+    lore: "A poisoned swamp the Rotlord has been quietly spreading for longer than anyone's noticed.",
   },
   crystalcaverns: {
     id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns', depth: 10,
     bossEnemy: PRISM_COLOSSUS, bossFlag: 'prismColossusDefeated', enemyPool: CRYSTALCAVERNS_ENEMIES,
     nextMap: { mapId: 'shadowfen' },
+    lore: "Light refracts endlessly through these tunnels, and so does the Prism Colossus's patience.",
   },
   shadowfen: {
     id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen', depth: 11,
     bossEnemy: NIGHTMARE_DRAKE, bossFlag: 'nightmareDrakeDefeated', enemyPool: SHADOWFEN_ENEMIES,
     nextMap: { mapId: 'celestial' },
+    lore: 'A fog-choked bog where the Nightmare Drake feeds on whatever dreams wander too close.',
   },
   celestial: {
     id: 'celestial', name: 'The Celestial Spire', theme: 'celestial', depth: 12,
     bossEnemy: ASTRAL_GUARDIAN, bossFlag: 'astralGuardianDefeated', enemyPool: CELESTIAL_ENEMIES,
     nextMap: { mapId: 'voidrift' },
+    lore: "A spire that seems to touch the sky itself, guarded by the Astral Guardian's unblinking watch.",
   },
   voidrift: {
     id: 'voidrift', name: 'The Void Rift', theme: 'voidrift', depth: 13,
     bossEnemy: WORLD_SERPENT, bossFlag: 'worldSerpentDefeated', enemyPool: VOIDRIFT_ENEMIES,
     nextMap: { mapId: 'ashenwastes' },
+    lore: "A tear in the world's fabric, where the World Serpent coils through what shouldn't exist.",
   },
   ashenwastes: {
     id: 'ashenwastes', name: 'The Ashen Wastes', theme: 'ashenwastes', depth: 14,
     bossEnemy: ASHLORD, bossFlag: 'ashlordDefeated', enemyPool: ASHENWASTES_ENEMIES,
     nextMap: { mapId: 'stormcitadel' },
+    lore: 'A land burned to cinders long ago — the Ashlord remembers exactly who lit the fire.',
   },
   stormcitadel: {
     id: 'stormcitadel', name: 'The Storm Citadel', theme: 'stormcitadel', depth: 15,
     bossEnemy: TEMPEST_KING, bossFlag: 'tempestKingDefeated', enemyPool: STORMCITADEL_ENEMIES,
     nextMap: { mapId: 'bonewastes' },
+    lore: 'A fortress built into the eye of a permanent storm, ruled by the Tempest King.',
   },
   bonewastes: {
     id: 'bonewastes', name: 'The Bone Wastes', theme: 'bonewastes', depth: 16,
     bossEnemy: BONE_EMPEROR, bossFlag: 'boneEmperorDefeated', enemyPool: BONEWASTES_ENEMIES,
     nextMap: { mapId: 'chaosrift' },
+    lore: "A graveyard the size of a kingdom, watched over by the Bone Emperor's silent legions.",
   },
   chaosrift: {
     id: 'chaosrift', name: 'The Chaos Rift', theme: 'chaosrift', depth: 17,
     bossEnemy: CHAOS_HARBINGER, bossFlag: 'chaosHarbingerDefeated', enemyPool: CHAOSRIFT_ENEMIES,
     nextMap: { mapId: 'throneofeternity' },
+    lore: 'Reality frays at the edges here, and the Chaos Harbinger is only too happy to unravel it further.',
   },
   throneofeternity: {
     id: 'throneofeternity', name: 'The Throne of Eternity', theme: 'throneofeternity', depth: 18,
     bossEnemy: ETERNAL_SOVEREIGN, bossFlag: 'eternalSovereignDefeated', enemyPool: THRONEOFETERNITY_ENEMIES,
     // No nextMap — defeating the Eternal Sovereign is the true ending.
+    lore: 'The final seat of power — the Eternal Sovereign has held this throne since before memory.',
   },
   // Post-game only — reached via a Town button (see ui.js), not the normal
-  // nextMap chain. No nextMap of its own either: it's a dead-end, farmable
-  // endgame zone same as any other, not a new "true ending."
+  // nextMap chain from throneofeternity (that would replace the true-ending
+  // victory screen with a mere "the way onward has opened" toast). It DOES
+  // carry its own nextMap onward though, so once you're here the rest of
+  // the post-game chain (sunlessexpanse, firstflame) opens up exactly like
+  // any other level's boss fight would.
   abyssaldepths: {
     id: 'abyssaldepths', name: 'The Abyssal Depths', theme: 'abyssaldepths', depth: 19,
     bossEnemy: FORMLESS_KING, bossFlag: 'formlessKingDefeated', enemyPool: ABYSSAL_ENEMIES,
+    nextMap: { mapId: 'sunlessexpanse' },
     hazard: { type: 'The Abyss itself', chance: 0.15, damagePercent: 0.05 },
+    lore: 'A trench beneath everything else, opened only after the Sovereign falls — the Formless King was waiting.',
+  },
+  sunlessexpanse: {
+    id: 'sunlessexpanse', name: 'The Sunless Expanse', theme: 'sunlessexpanse', depth: 20,
+    bossEnemy: DUSKBOUND_TYRANT, bossFlag: 'duskboundTyrantDefeated', enemyPool: SUNLESS_ENEMIES,
+    nextMap: { mapId: 'firstflame' },
+    hazard: { type: 'Crushing darkness', chance: 0.15, damagePercent: 0.05 },
+    lore: 'A lightless plain past even the Abyss, where the Duskbound Tyrant rules an audience of none.',
+  },
+  firstflame: {
+    id: 'firstflame', name: 'The First Flame', theme: 'firstflame', depth: 21,
+    bossEnemy: PROGENITOR_EMBER, bossFlag: 'progenitorEmberDefeated', enemyPool: FIRSTFLAME_ENEMIES,
+    // No nextMap — the chain's true end, for now.
+    hazard: { type: 'Searing embers', chance: 0.15, damagePercent: 0.05 },
+    lore: 'The very ember Emberfall is named for, still burning — the Progenitor Ember guards what started it all.',
   },
 };
 
@@ -779,17 +892,21 @@ export const MAPS = {
 // nextMap links from the outskirts — used for the Travel menu and Bestiary
 // so both always match the real unlock order without hand-maintaining a list.
 export const LEVEL_CHAIN = (() => {
-  const order = [];
-  let cur = 'overworld';
-  while (cur) {
-    order.push(cur);
-    cur = MAPS[cur].nextMap ? MAPS[cur].nextMap.mapId : null;
-  }
-  // The Abyssal Depths isn't linked via nextMap (see its comment in MAPS
-  // above), so it's appended by hand — this is what makes it show up in
-  // the World Map, Bestiary, and the "every boss/monster" achievements.
-  order.push('abyssaldepths');
-  return order;
+  const walk = (start) => {
+    const order = [];
+    let cur = start;
+    while (cur) {
+      order.push(cur);
+      cur = MAPS[cur].nextMap ? MAPS[cur].nextMap.mapId : null;
+    }
+    return order;
+  };
+  // The Abyssal Depths isn't linked in from throneofeternity via nextMap
+  // (see its comment in MAPS above), so its whole post-game branch is
+  // walked separately and appended by hand — this is what makes it (and
+  // anything chained onward from it) show up in the World Map, Bestiary,
+  // and the "every boss/monster" achievements.
+  return [...walk('overworld'), ...walk('abyssaldepths')];
 })();
 
 // Every non-boss monster across every zone is a potential companion — catch
@@ -844,15 +961,15 @@ export const ACHIEVEMENTS = [
     check: (state) => state.player.level >= 10,
   },
   {
-    key: 'levelFifty', name: 'Legend', desc: 'Reach character level 50.', rewardGold: 300,
+    key: 'levelFifty', name: 'Legend', desc: 'Reach character level 50.', rewardGold: 300, title: 'the Legend',
     check: (state) => state.player.level >= 50,
   },
   {
-    key: 'allBossesDefeated', name: 'Boss Slayer', desc: 'Defeat every boss in the realm.', rewardGold: 1000,
+    key: 'allBossesDefeated', name: 'Boss Slayer', desc: 'Defeat every boss in the realm.', rewardGold: 1000, title: 'the Boss Slayer',
     check: (state) => LEVEL_CHAIN.every((id) => state.flags[MAPS[id].bossFlag]),
   },
   {
-    key: 'trueEnding', name: 'Savior of Emberfall', desc: 'Defeat the Eternal Sovereign.', rewardGold: 500,
+    key: 'trueEnding', name: 'Savior of Emberfall', desc: 'Defeat the Eternal Sovereign.', rewardGold: 500, title: 'the Savior',
     check: (state) => !!state.flags.eternalSovereignDefeated,
   },
   {
@@ -864,7 +981,7 @@ export const ACHIEVEMENTS = [
     check: (state) => state.player.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length >= 10,
   },
   {
-    key: 'monsterTamer', name: 'Monster Tamer', desc: 'Capture every capturable monster in the realm.', rewardGold: 600,
+    key: 'monsterTamer', name: 'Monster Tamer', desc: 'Capture every capturable monster in the realm.', rewardGold: 600, title: 'the Beastmaster',
     check: (state) => CAPTURABLE_MONSTERS.every((m) => state.player.ownedPets.includes(m.key)),
   },
   {
@@ -884,26 +1001,30 @@ export const ACHIEVEMENTS = [
     check: (state) => (state.player.shinyPets || []).length > 0,
   },
   {
-    key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400,
+    key: 'fullyGeared', name: 'Fully Geared', desc: 'Own the top tier of every equipment slot.', rewardGold: 400, title: 'the Radiant',
     check: (state) => Object.values(GEAR_SLOTS).every((slot) => {
       const topKey = slot.order[slot.order.length - 1];
       return state.player[slot.ownedField].includes(topKey);
     }),
   },
   {
-    key: 'bestiaryComplete', name: 'Monster Hunter', desc: 'Defeat every kind of monster and every boss.', rewardGold: 750,
+    key: 'bestiaryComplete', name: 'Monster Hunter', desc: 'Defeat every kind of monster and every boss.', rewardGold: 750, title: 'the Monster Hunter',
     check: (state) => LEVEL_CHAIN.every((id) => {
       const map = MAPS[id];
       return Object.keys(map.enemyPool).every((k) => state.player.bestiary[k]) && state.flags[map.bossFlag];
     }),
   },
   {
-    key: 'arenaChampion', name: 'Arena Champion', desc: 'Reach Arena wave 20.', rewardGold: 400,
+    key: 'arenaChampion', name: 'Arena Champion', desc: 'Reach Arena wave 20.', rewardGold: 400, title: 'the Undefeated',
     check: (state) => state.player.arenaBestWave >= 20,
   },
   {
     key: 'richAndFamous', name: 'Rich and Famous', desc: 'Amass 10,000 gold at once.', rewardGold: 0,
     check: (state) => state.player.gold >= 10000,
+  },
+  {
+    key: 'eliteHunter', name: 'Elite Hunter', desc: 'Defeat 15 Elite monsters.', rewardGold: 250,
+    check: (state) => (state.player.lifetimeElites || 0) >= 15,
   },
 ];
 
@@ -916,6 +1037,53 @@ export const ENCHANT_BASE_COST = 40;
 export function enchantCost(level) {
   return ENCHANT_BASE_COST * (level + 1);
 }
+
+// Which stat field(s) each slot's Enchant increments, and by how much per
+// level — Weapon/Armor get the original flat bump (their own spread runs
+// 0-70), while the percent-based slots (whose own spread tops out around
+// 20-40%) get a smaller +1%/level so 10 levels is a meaningful but not
+// game-breaking top-up, applied on top of whichever piece in that slot is
+// currently equipped (same "per-key, not per-slot" progress as Weapon/Armor
+// already had — swap gear out and back in and the enchant is still there).
+export const ENCHANT_STATS = {
+  weapon: { atkBonus: ENCHANT_BONUS_PER_LEVEL },
+  armor: { defBonus: ENCHANT_BONUS_PER_LEVEL },
+  helmet: { mpCostReduction: 1, xpBonusPercent: 1 },
+  gloves: { critChance: 1 },
+  boots: { dodgeChance: 1, goldBonusPercent: 1 },
+};
+
+// A small chance for a regular encounter to be an "Elite" — a buffed
+// reskin of the same monster (bigger stats, better payout, a guaranteed
+// chest) rather than a whole separate roster to author. Capturing one just
+// captures the normal companion at its normal power — the Elite multiplier
+// only ever applies to this one transient battle copy, never to
+// ALL_PET_DEFS or anything persisted.
+export const ELITE_CHANCE = 0.08;
+export const ELITE_STAT_MULTIPLIER = 1.6;
+export const ELITE_REWARD_MULTIPLIER = 2;
+export function makeElite(enemyDef) {
+  return {
+    ...enemyDef,
+    name: `Elite ${enemyDef.name}`,
+    maxHp: Math.round(enemyDef.maxHp * ELITE_STAT_MULTIPLIER),
+    atk: Math.round(enemyDef.atk * ELITE_STAT_MULTIPLIER),
+    def: Math.round(enemyDef.def * ELITE_STAT_MULTIPLIER),
+    xp: Math.round(enemyDef.xp * ELITE_REWARD_MULTIPLIER),
+    goldMin: Math.round(enemyDef.goldMin * ELITE_REWARD_MULTIPLIER),
+    goldMax: Math.round(enemyDef.goldMax * ELITE_REWARD_MULTIPLIER),
+    isElite: true,
+  };
+}
+
+// The active companion "Rally" skill (see petActiveSkill in battle.js): the
+// pet's normal auto-hit each round charges a battle-scoped energy meter
+// (never persisted — it's reset by createBattle every fight); once full, a
+// dedicated battle button spends it on one big burst hit instead of the
+// pet's usual small one, replacing its normal auto-hit for that round.
+export const PET_ENERGY_MAX = 100;
+export const PET_ENERGY_PER_HIT = 25;
+export const PET_SKILL_MULTIPLIER = 2.5;
 
 // Bounty Board objective templates — 3 are rolled fresh each real-world day.
 // `progressKey` names which counter in player.bountyProgress to read.

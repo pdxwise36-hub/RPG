@@ -1,8 +1,8 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SHINY_CHANCE, SET_BONUSES, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -61,7 +61,7 @@ function redrawMap() {
 
 function updateHud() {
   const p = state.player;
-  el('hud-name').textContent = p.name;
+  el('hud-name').textContent = playerDisplayName(p);
   el('hud-level').textContent = `Lv. ${p.level}`;
   el('hud-gold').textContent = `${p.gold} G`;
   el('hud-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
@@ -185,7 +185,9 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'encounter') {
-    startBattle(scaleForNGPlus(pickRandomEnemy(MAPS[state.mapId].enemyPool), state.player.ngPlusLevel), false);
+    let enemy = scaleForNGPlus(pickRandomEnemy(MAPS[state.mapId].enemyPool), state.player.ngPlusLevel);
+    if (Math.random() < ELITE_CHANCE) enemy = makeElite(enemy);
+    startBattle(enemy, false);
   }
 }
 
@@ -197,7 +199,8 @@ function renderBattle() {
   el('enemy-hp-text').textContent = `${battle.enemy.hp}/${battle.enemy.maxHp}`;
   el('enemy-sprite').style.backgroundImage = battle.enemy.sprite ? `url('${battle.enemy.sprite}')` : '';
   el('enemy-sprite').classList.toggle('boss-sprite', battle.isBoss);
-  el('battle-player-name').textContent = `${p.name} (Lv. ${p.level})`;
+  el('enemy-sprite').classList.toggle('enemy-elite', !!battle.enemy.isElite);
+  el('battle-player-name').textContent = `${playerDisplayName(p)} (Lv. ${p.level})`;
   el('battle-hp-fill').style.width = `${pct(p.hp, p.maxHp)}%`;
   el('battle-hp-text').textContent = `${p.hp}/${p.maxHp}`;
   el('battle-mp-fill').style.width = `${pct(p.mp, p.maxMp)}%`;
@@ -205,13 +208,19 @@ function renderBattle() {
   el('battle-log').innerHTML = battle.log.map((l) => `<div>${l}</div>`).join('');
 
   const petEl = el('pet-sprite');
+  const energyTrack = el('pet-energy-track');
   if (p.activePetKey) {
     petEl.style.backgroundImage = `url('${ALL_PET_DEFS[p.activePetKey].sprite}')`;
     petEl.classList.remove('hidden');
     petEl.classList.toggle('pet-evolved', petIsEvolved(p, p.activePetKey));
     petEl.classList.toggle('pet-shiny', petIsShiny(p, p.activePetKey));
+    energyTrack.classList.remove('hidden');
+    const energy = battle.petEnergy || 0;
+    el('pet-energy-fill').style.width = `${pct(energy, PET_ENERGY_MAX)}%`;
+    el('pet-energy-text').textContent = `${energy}/${PET_ENERGY_MAX}`;
   } else {
     petEl.classList.add('hidden');
+    energyTrack.classList.add('hidden');
   }
 
   const menuMain = el('battle-menu-main');
@@ -230,6 +239,15 @@ function renderBattle() {
   else if (alreadyOwned) captureBtn.textContent = 'Already Caught';
   else captureBtn.textContent = captureItem ? `Capture (${captureCount})` : 'Capture (none selected)';
   captureBtn.disabled = !captureItem || battle.isBoss || alreadyOwned || captureCount <= 0;
+
+  // The Companion Skill button charges from the pet's own normal auto-hits
+  // (see PET_ENERGY_PER_HIT in data.js) and spends the full bar on one big
+  // burst that replaces the pet's hit for that round instead of adding to
+  // your own action.
+  const skillBtn = el('btn-companion-skill');
+  const energyReady = p.activePetKey && (battle.petEnergy || 0) >= PET_ENERGY_MAX;
+  skillBtn.textContent = !p.activePetKey ? 'No Companion' : energyReady ? 'Companion Skill!' : `Charging (${battle.petEnergy || 0}/${PET_ENERGY_MAX})`;
+  skillBtn.disabled = !energyReady;
 
   if (battle.over) {
     menuMain.classList.add('hidden');
@@ -349,7 +367,8 @@ function resolveBattleEnd() {
       showModal('modal-arena');
       return;
     }
-    const chest = rollChest(state);
+    // Elite kills always drop a chest, on top of their own bigger gold/XP.
+    const chest = rollChest(state, !!battle.enemy.isElite);
     showToast(msg, 2400);
     autosave();
     goToMap();
@@ -492,6 +511,10 @@ function renderChest(chest) {
     desc = `You found an Unidentified ${GEAR_SLOTS[chest.slot].label}! Bring it to Deckard Cain in Town to find out what it is.`;
   } else if (chest.type === 'charm') {
     desc = `You found a ${CHARMS[chest.key].name}! Equip it on your active companion from the Pet Tamer.`;
+  } else if (chest.type === 'amulet') {
+    desc = `You found an ${AMULETS[chest.key].name}! Equip it from your Inventory.`;
+  } else if (chest.type === 'ring') {
+    desc = `You found a ${RINGS[chest.key].name}! Equip it from your Inventory.`;
   } else {
     desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
   }
@@ -506,7 +529,7 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body', abilities: 'abilities-body' };
+const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body', abilities: 'abilities-body', codex: 'codex-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
@@ -517,6 +540,7 @@ function showStatusTab(tab) {
   if (tab === 'legacy') renderLegacy();
   if (tab === 'sets') renderSets();
   if (tab === 'abilities') renderAbilities();
+  if (tab === 'codex') renderCodex();
 }
 
 // Weapon/Armor add flat ATK/DEF; Helmet/Gloves/Boots each carry their own
@@ -657,7 +681,7 @@ function renderStatus() {
   const p = state.player;
   const weapon = WEAPONS[p.weaponKey];
   const armor = ARMORS[p.armorKey];
-  el('status-name').textContent = `${p.name} — Lv. ${p.level}`;
+  el('status-name').textContent = `${playerDisplayName(p)} — Lv. ${p.level}`;
   const body = el('status-body');
 
   const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
@@ -686,6 +710,7 @@ function renderStatus() {
     <div class="status-row"><span>Crit Chance</span><span>${critChance(p)}%</span></div>
     <div class="status-row"><span>Dodge Chance</span><span>${dodgeChance(p)}%</span></div>
     <div class="status-row"><span>Skill Cost / XP / Gold</span><span>-${mpCostReduction(p)}% / +${xpBonusPercent(p)}% / +${goldBonusPercent(p)}%</span></div>
+    <div class="status-row"><span>MP Regen / Reflect</span><span>+${mpRegenPercent(p)}% per turn / ${reflectPercent(p)}%</span></div>
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
@@ -739,7 +764,29 @@ function renderInventoryModal() {
     cfg.order.filter((key) => p[cfg.ownedField].includes(key) && key !== equippedKey)
       .forEach((key) => grid.appendChild(buildInventoryTile(cfg.registry[key], slot)));
   });
+
+  // Amulet and both Rings are chest-only finds (see rollChest in battle.js)
+  // — no Buy flow, so they're wired up separately from the five GEAR_SLOTS
+  // above instead of folding them in (which the Armory and the "Fully
+  // Geared" achievement both assume is a fully-buyable set of slots).
+  const amulet = AMULETS[p.amuletKey];
+  el('slot-amulet').style.backgroundImage = `url('${amulet.sprite}')`;
+  el('slot-amulet').title = p.amuletKey === 'none' ? 'No Amulet' : `${amulet.name} — ${amuletStatLabel(amulet)} (tap to unequip)`;
+  AMULET_ORDER.filter((key) => key !== 'none' && p.ownedAmulets.includes(key) && key !== p.amuletKey)
+    .forEach((key) => grid.appendChild(buildAmuletTile(AMULETS[key])));
+
+  const ring1 = RINGS[p.ring1Key];
+  const ring2 = RINGS[p.ring2Key];
+  el('slot-ring1').style.backgroundImage = `url('${ring1.sprite}')`;
+  el('slot-ring1').title = p.ring1Key === 'none' ? 'No Ring' : `${ring1.name} — ${ringStatLabel(ring1)} (tap to unequip)`;
+  el('slot-ring2').style.backgroundImage = `url('${ring2.sprite}')`;
+  el('slot-ring2').title = p.ring2Key === 'none' ? 'No Ring' : `${ring2.name} — ${ringStatLabel(ring2)} (tap to unequip)`;
+  RING_ORDER.filter((key) => key !== 'none' && p.ownedRings.includes(key))
+    .forEach((key) => grid.appendChild(buildRingTile(RINGS[key])));
 }
+
+function amuletStatLabel(amulet) { return `${amulet.mpRegenPercent}% MP Regen/turn`; }
+function ringStatLabel(ring) { return `${ring.reflectPercent}% Damage Reflect`; }
 
 function buildInventoryTile(gear, slot) {
   const p = state.player;
@@ -753,6 +800,59 @@ function buildInventoryTile(gear, slot) {
   `;
   tile.addEventListener('click', () => {
     p[cfg.equipField] = gear.key;
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
+  return tile;
+}
+
+function buildAmuletTile(amulet) {
+  const p = state.player;
+  const tile = document.createElement('button');
+  tile.className = 'inventory-tile';
+  tile.innerHTML = `
+    <div class="inventory-tile-icon" style="background-image:url('${amulet.sprite}')"></div>
+    <span class="inventory-tile-name">${amulet.name}</span>
+    <span class="inventory-tile-stat">${amuletStatLabel(amulet)}</span>
+  `;
+  tile.addEventListener('click', () => {
+    p.amuletKey = amulet.key;
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
+  return tile;
+}
+
+// Both Ring slots share this one pool, so a backpack ring tile offers a
+// button per slot instead of the single whole-tile click the other
+// gear/amulet tiles use — equipping into one slot auto-clears the other if
+// it happened to hold the exact same physical ring, so one found ring can
+// never double-count its own bonus across both slots.
+function buildRingTile(ring) {
+  const p = state.player;
+  const tile = document.createElement('div');
+  tile.className = 'inventory-tile inventory-tile-ring';
+  tile.innerHTML = `
+    <div class="inventory-tile-icon" style="background-image:url('${ring.sprite}')"></div>
+    <span class="inventory-tile-name">${ring.name}</span>
+    <span class="inventory-tile-stat">${ringStatLabel(ring)}</span>
+    <div class="inventory-tile-ring-btns">
+      <button class="btn btn-small" data-ring="1">Ring 1</button>
+      <button class="btn btn-small" data-ring="2">Ring 2</button>
+    </div>
+  `;
+  tile.querySelector('[data-ring="1"]').addEventListener('click', () => {
+    p.ring1Key = ring.key;
+    if (p.ring2Key === ring.key) p.ring2Key = 'none';
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
+  tile.querySelector('[data-ring="2"]').addEventListener('click', () => {
+    p.ring2Key = ring.key;
+    if (p.ring1Key === ring.key) p.ring1Key = 'none';
     autosave();
     updateHud();
     renderInventoryModal();
@@ -789,6 +889,39 @@ function renderAchievements() {
   const p = state.player;
   const body = el('achievements-body');
   body.innerHTML = '';
+
+  const titles = unlockedTitles(p);
+  if (titles.length > 0) {
+    body.appendChild(sectionHeading('Titles'));
+    const noneRow = document.createElement('div');
+    noneRow.className = 'shop-item';
+    noneRow.innerHTML = `<div class="shop-item-info"><span class="shop-item-name">No Title</span></div>`;
+    const noneBtn = document.createElement('button');
+    noneBtn.className = 'btn btn-small';
+    if (!p.selectedTitle) { noneBtn.textContent = 'Selected'; noneBtn.disabled = true; }
+    else {
+      noneBtn.textContent = 'Select';
+      noneBtn.addEventListener('click', () => { p.selectedTitle = null; autosave(); updateHud(); renderAchievements(); });
+    }
+    noneRow.appendChild(noneBtn);
+    body.appendChild(noneRow);
+    titles.forEach((title) => {
+      const row = document.createElement('div');
+      row.className = 'shop-item';
+      row.innerHTML = `<div class="shop-item-info"><span class="shop-item-name">${title}</span></div>`;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-small';
+      if (p.selectedTitle === title) { btn.textContent = 'Selected'; btn.disabled = true; }
+      else {
+        btn.textContent = 'Select';
+        btn.addEventListener('click', () => { p.selectedTitle = title; autosave(); updateHud(); renderAchievements(); });
+      }
+      row.appendChild(btn);
+      body.appendChild(row);
+    });
+    body.appendChild(sectionHeading('Achievements'));
+  }
+
   ACHIEVEMENTS.forEach((ach) => {
     const unlocked = !!p.achievements[ach.key];
     const row = document.createElement('div');
@@ -796,7 +929,7 @@ function renderAchievements() {
     row.innerHTML = `
       <div class="shop-item-info">
         <span class="shop-item-name ${unlocked ? 'bestiary-killed' : ''}">${ach.name}</span>
-        <span class="shop-item-desc">${ach.desc}${ach.rewardGold > 0 ? ` — Reward: ${ach.rewardGold}G` : ''}</span>
+        <span class="shop-item-desc">${ach.desc}${ach.rewardGold > 0 ? ` — Reward: ${ach.rewardGold}G` : ''}${ach.title ? ` — Title: "${ach.title}"` : ''}</span>
       </div>
       <span class="achievement-status">${unlocked ? 'Unlocked' : 'Locked'}</span>
     `;
@@ -878,6 +1011,28 @@ function renderAbilities() {
   });
 }
 
+// ---------- Codex (zone lore) ----------
+// A short flavor blurb per zone (see `lore` in each MAPS entry), unlocked
+// as you actually reach that zone (reusing state.reachedLevels, already
+// tracked for the World Map) instead of spoiling the whole chain up front.
+function renderCodex() {
+  const body = el('codex-body');
+  body.innerHTML = '';
+  LEVEL_CHAIN.forEach((mapId) => {
+    const map = MAPS[mapId];
+    const reached = state.reachedLevels.includes(mapId);
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name${reached ? '' : ' bestiary-killed'}">${reached ? map.name : '???'}</span>
+        <span class="shop-item-desc">${reached ? map.lore : 'Not yet reached.'}</span>
+      </div>
+    `;
+    body.appendChild(row);
+  });
+}
+
 // ---------- Hall of Legacy ----------
 // A single aggregated "how far have you gotten" screen, mostly derived
 // from state already tracked elsewhere (bestiary, achievements, flags,
@@ -897,6 +1052,7 @@ function renderLegacy() {
     <div class="status-row"><span>Character</span><span>Lv. ${p.level}${p.ngPlusLevel > 0 ? ` (NG+${p.ngPlusLevel})` : ''}</span></div>
     <div class="status-row"><span>Lifetime Kills</span><span>${p.lifetimeKills || 0}</span></div>
     <div class="status-row"><span>Lifetime Gold Earned</span><span>${p.lifetimeGoldEarned || 0}</span></div>
+    <div class="status-row"><span>Elites Defeated</span><span>${p.lifetimeElites || 0}</span></div>
     <div class="status-row"><span>Gold on Hand</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Bosses Defeated</span><span>${bossesDefeated}/${LEVEL_CHAIN.length}</span></div>
     <div class="status-row"><span>Bestiary</span><span>${monstersKilled}/${totalMonsters}</span></div>
@@ -919,22 +1075,41 @@ function renderArmory() {
     Object.values(cfg.registry).forEach((item) => list.appendChild(buildArmoryRow(item, slot)));
   });
 
-  // Enchanting only makes sense for Weapon/Armor's flat ATK/DEF bonus — the
-  // other three slots carry percent-based mechanics instead.
-  if (p.ownedWeapons.length > 0 || p.ownedArmors.length > 0) {
+  // Every slot can be enchanted now — Weapon/Armor get flat ATK/DEF,
+  // Helmet/Gloves/Boots get a smaller top-up on whichever percent stat(s)
+  // that slot already carries (see ENCHANT_STATS in data.js).
+  const anyOwnedGear = Object.values(GEAR_SLOTS).some((cfg) => p[cfg.ownedField].length > 0);
+  if (anyOwnedGear) {
     list.appendChild(sectionHeading('Enchant'));
-    GEAR_SLOTS.weapon.order.filter((key) => p.ownedWeapons.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(WEAPONS[key], 'weapon')));
-    GEAR_SLOTS.armor.order.filter((key) => p.ownedArmors.includes(key)).forEach((key) => list.appendChild(buildEnchantRow(ARMORS[key], 'armor')));
+    Object.entries(GEAR_SLOTS).forEach(([slot, cfg]) => {
+      cfg.order.filter((key) => p[cfg.ownedField].includes(key)).forEach((key) => list.appendChild(buildEnchantRow(cfg.registry[key], slot)));
+    });
   }
 }
 
-// A flat stat bonus per owned gear key, stacked regardless of which piece
-// is currently equipped — a gold sink and a reason to keep favorite gear.
+// Human-readable labels for every field ENCHANT_STATS might touch — mirrors
+// gearStatLabel/SET_STAT_LABELS' shape but keyed by the gear object's own
+// raw field names (atkBonus/defBonus/...) rather than the summarized ones.
+const ENCHANT_STAT_LABELS = {
+  atkBonus: (v) => `+${v} ATK`,
+  defBonus: (v) => `+${v} DEF`,
+  mpCostReduction: (v) => `-${v}% Skill Cost`,
+  xpBonusPercent: (v) => `+${v}% XP`,
+  critChance: (v) => `+${v}% Crit`,
+  dodgeChance: (v) => `+${v}% Dodge`,
+  goldBonusPercent: (v) => `+${v}% Gold`,
+};
+
+// A stat bonus (see ENCHANT_STATS) per owned gear key, stacked regardless of
+// which piece is currently equipped — a gold sink and a reason to keep
+// favorite gear instead of only ever buying the next tier.
 function buildEnchantRow(item, slot) {
   const p = state.player;
   const level = enchantLevel(p, slot, item.key);
   const maxed = level >= ENCHANT_MAX_LEVEL;
-  const statLabel = slot === 'weapon' ? 'ATK' : 'DEF';
+  const statLine = Object.entries(ENCHANT_STATS[slot])
+    .map(([statKey, perLevel]) => ENCHANT_STAT_LABELS[statKey](level * perLevel))
+    .join(', ');
 
   const row = document.createElement('div');
   row.className = 'shop-item';
@@ -942,7 +1117,7 @@ function buildEnchantRow(item, slot) {
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${item.name}</span>
-      <span class="shop-item-desc">+${level * ENCHANT_BONUS_PER_LEVEL} ${statLabel} (${level}/${ENCHANT_MAX_LEVEL})</span>
+      <span class="shop-item-desc">${statLine} (${level}/${ENCHANT_MAX_LEVEL})</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -1522,12 +1697,38 @@ function wireEvents() {
   el('tab-legacy').addEventListener('click', () => showStatusTab('legacy'));
   el('tab-sets').addEventListener('click', () => showStatusTab('sets'));
   el('tab-abilities').addEventListener('click', () => showStatusTab('abilities'));
+  el('tab-codex').addEventListener('click', () => showStatusTab('codex'));
 
   el('btn-character').addEventListener('click', () => {
     renderInventoryModal();
     showModal('modal-inventory');
   });
   el('btn-inventory-close').addEventListener('click', () => hideModal('modal-inventory'));
+
+  // Amulet/Ring slots have no "always some piece equipped" starter gear
+  // like Weapon/Armor/etc do, so tapping the doll slot itself unequips
+  // back to 'none' — the backpack tiles handle equipping.
+  el('slot-amulet').addEventListener('click', () => {
+    if (state.player.amuletKey === 'none') return;
+    state.player.amuletKey = 'none';
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
+  el('slot-ring1').addEventListener('click', () => {
+    if (state.player.ring1Key === 'none') return;
+    state.player.ring1Key = 'none';
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
+  el('slot-ring2').addEventListener('click', () => {
+    if (state.player.ring2Key === 'none') return;
+    state.player.ring2Key = 'none';
+    autosave();
+    updateHud();
+    renderInventoryModal();
+  });
 
   el('btn-levelselect-back').addEventListener('click', () => hideModal('modal-levelselect'));
 
@@ -1660,6 +1861,10 @@ function wireEvents() {
   el('btn-run').addEventListener('click', () => { playerRun(battle, state); renderBattle(); });
   el('btn-capture').addEventListener('click', () => {
     if (state.player.selectedCaptureOrb) playerCapture(battle, state, state.player.selectedCaptureOrb);
+    renderBattle();
+  });
+  el('btn-companion-skill').addEventListener('click', () => {
+    petActiveSkill(battle, state);
     renderBattle();
   });
   el('btn-item').addEventListener('click', () => {
