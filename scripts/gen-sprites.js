@@ -1034,6 +1034,25 @@ const buildProgenitorEmber = () => buildRobedBossTemplate({
   'w': [130, 55, 15, 255], 'o': [255, 170, 30, 255],
 });
 
+// ---------- The Feral Pastures (secret zone) ----------
+const buildWoollyGrazer = () => buildQuadrupedTemplate({
+  'b': [230, 225, 210, 255], 'd': [180, 172, 155, 255], 'e': [20, 20, 25, 255],
+});
+const buildStrayRam = () => buildQuadrupedTemplate({
+  'b': [200, 190, 175, 255], 'd': [150, 138, 118, 255], 'e': [40, 30, 20, 255],
+});
+const buildTheShepherd = () => buildRobedBossTemplate({
+  'k': [210, 195, 165, 255], 'e': [80, 200, 90, 255], 'j': [90, 75, 55, 255],
+  'r': [95, 75, 50, 255], 'r2': [140, 115, 80, 255], 'd': [50, 38, 24, 255],
+  'w': [110, 90, 65, 255], 'o': [90, 200, 90, 255],
+});
+
+// ---------- The hired Mercenary ----------
+const buildMercenary = () => buildBipedTemplate({
+  'k': [110, 115, 125, 255], 'd': [60, 64, 72, 255], 'v': [70, 60, 45, 255],
+  'r': [150, 30, 30, 255], 'w': [140, 110, 60, 255], 'o': [40, 30, 15, 255],
+});
+
 // ---------- Inventory icons — small item art for the Armory/Enchant/
 // Inventory grids. Same "one shared template, recolor per tier" approach
 // as the monster/boss templates above.
@@ -1156,6 +1175,19 @@ function buildRingIcon({ main, trim, dark }) {
   return rasterize(g, { m: main, t: trim, d: dark }, 6);
 }
 
+// 14x14 round berry/trinket shape, one per Held Item — unlike Charms/
+// Amulets/Rings these aren't a tiered ramp (each is its own distinct,
+// hand-picked item), so every one gets its own palette instead of reusing
+// GEAR_TIER_PALETTE by index.
+function buildHeldItemIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 4, 3, 6, 8, 'm');
+  fillRect(g, 3, 5, 8, 4, 'm');
+  fillRect(g, 5, 2, 4, 2, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
 // One shared 10-tier color ramp (rusty -> iron -> steel -> mithril -> flame
 // -> frost -> thunder -> void -> dragon -> celestial) reused across helms,
 // gloves, and boots so a tier reads the same regardless of slot.
@@ -1273,6 +1305,14 @@ const sprites = {
   'cinderfiend.png': buildCinderfiend,
   'progenitorember.png': buildProgenitorEmber,
 
+  // ---------- The Feral Pastures (secret zone) ----------
+  'woollygrazer.png': buildWoollyGrazer,
+  'strayram.png': buildStrayRam,
+  'theshepherd.png': buildTheShepherd,
+
+  // ---------- The hired Mercenary ----------
+  'mercenary.png': buildMercenary,
+
   'wpn-rustySword.png': buildRustySwordIcon,
   'wpn-ironSword.png': buildIronSwordIcon,
   'wpn-steelBlade.png': buildSteelBladeIcon,
@@ -1305,6 +1345,16 @@ sprites['amu-none.png'] = () => buildAmuletIcon({ main: hex('#5a5a5a'), trim: he
 AMULET_KEYS.forEach((key, i) => { sprites[`amu-${key}.png`] = () => buildAmuletIcon(tierColors(i)); });
 sprites['rng-none.png'] = () => buildRingIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });
 RING_KEYS.forEach((key, i) => { sprites[`rng-${key}.png`] = () => buildRingIcon(tierColors(i)); });
+
+const HELD_ITEM_PALETTES = {
+  luckyEgg: { main: hex('#f4e04d'), trim: hex('#d4a840'), dark: hex('#a07820') },
+  powerBand: { main: hex('#c94040'), trim: hex('#8a2020'), dark: hex('#5a1010') },
+  focusSash: { main: hex('#ff8a3a'), trim: hex('#c94020'), dark: hex('#8a2010') },
+  leftovers: { main: hex('#7ad46a'), trim: hex('#4a9c3a'), dark: hex('#2a6a1e') },
+  goldenBell: { main: hex('#fff8e0'), trim: hex('#d4a840'), dark: hex('#b08a30') },
+  quickClaw: { main: hex('#a8e8f8'), trim: hex('#4fa8c9'), dark: hex('#2a5a6a') },
+};
+Object.entries(HELD_ITEM_PALETTES).forEach(([key, palette]) => { sprites[`hld-${key}.png`] = () => buildHeldItemIcon(palette); });
 
 for (const [filename, build] of Object.entries(sprites)) {
   const png = build();

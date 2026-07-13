@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent } from './state.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier } from './data.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, heldItemHpRegenPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -81,7 +81,13 @@ function pushLog(battle, msg) {
 // Boots give a chance to dodge an attack entirely, gloves give a chance for
 // the player's own hits to crit for double damage — rolled fresh each time.
 // A Swift/Berserker companion ability adds straight onto these same rolls.
-function rollDodge(player) {
+// A Swift companion's Rally (see petActiveSkill) can also guarantee the
+// very next dodge outright, consuming battle.guaranteedDodge once used.
+function rollDodge(player, battle) {
+  if (battle && battle.guaranteedDodge) {
+    battle.guaranteedDodge = false;
+    return true;
+  }
   return Math.random() * 100 < dodgeChance(player) + companionAbilityBonus(player, 'swift');
 }
 function rollCrit(player) {
@@ -106,12 +112,19 @@ function applyZoneHazard(battle, state) {
 
 function enemyStrikes(battle, state) {
   const player = state.player;
-  if (rollDodge(player)) {
+  if (rollDodge(player, battle)) {
     pushLog(battle, `You dodge ${battle.enemy.name}'s attack!`);
   } else {
     let dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
-    const guardian = companionAbilityBonus(player, 'guardian');
-    if (guardian > 0) dmg = Math.max(1, Math.round(dmg * (1 - guardian / 100)));
+    // A Guardian companion ability, a hired Mercenary's own armor, and a
+    // Guardian companion's Rally-granted one-time shield all stack, capped
+    // well short of making a hit do nothing.
+    let reduction = companionAbilityBonus(player, 'guardian') + mercDamageReduction(player);
+    if (battle.shieldActive) {
+      reduction += 50;
+      battle.shieldActive = false;
+    }
+    if (reduction > 0) dmg = Math.max(1, Math.round(dmg * (1 - Math.min(90, reduction) / 100)));
     player.hp = Math.max(0, player.hp - dmg);
     pushLog(battle, `${battle.enemy.name} hits you for ${dmg}.`);
     const reflect = reflectPercent(player);
@@ -149,7 +162,7 @@ function petAttacks(battle, state) {
   const petKey = player.activePetKey;
   const pet = ALL_PET_DEFS[petKey];
   if (!pet) return;
-  const power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player)) / 100);
+  const power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player) + gearPetPowerBonus(player) + heldItemPetPowerBonus(player, petKey)) / 100);
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${petDisplayName(player, petKey)} attacks ${battle.enemy.name} for ${dmg}!`);
@@ -162,6 +175,20 @@ function petAttacks(battle, state) {
     }
   }
   battle.petEnergy = Math.min(PET_ENERGY_MAX, (battle.petEnergy || 0) + PET_ENERGY_PER_HIT);
+}
+
+// The hired Mercenary (see MERCENARIES in data.js) auto-attacks every round
+// exactly like a pet does, stacking with whichever companion is also
+// active — no XP/leveling of its own, just its hire tier plus whatever
+// small Weapon it's carrying.
+function mercAttacks(battle, state) {
+  const player = state.player;
+  if (player.mercTier < 0) return;
+  const merc = MERCENARIES[player.mercTier];
+  const weapon = MERC_WEAPONS[player.mercWeaponKey] || MERC_WEAPONS.none;
+  const dmg = Math.max(1, Math.round(effectiveAtk(player) * merc.power) + weapon.atkBonus);
+  battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
+  pushLog(battle, `${merc.name} strikes ${battle.enemy.name} for ${dmg}!`);
 }
 
 // The Amulet slowly tops the player's MP back up each round — rolled once
@@ -177,13 +204,31 @@ function applyMpRegen(battle, state) {
   }
 }
 
+// A Leftovers-holding companion tops the player's HP back up each round,
+// same cadence/shape as the Amulet's MP regen above.
+function applyHeldItemRegen(battle, state) {
+  const player = state.player;
+  const regen = heldItemHpRegenPercent(player);
+  if (regen <= 0 || player.hp >= player.maxHp) return;
+  const healed = Math.min(player.maxHp - player.hp, Math.max(1, Math.round(player.maxHp * regen / 100)));
+  if (healed > 0) {
+    player.hp += healed;
+    pushLog(battle, `Your companion's held item restores ${healed} HP.`);
+  }
+}
+
 // Shared tail end of a round once the pet's own contribution (if any) is
 // settled — used both after a normal petAttacks and after the Companion
 // Skill burst, which replaces petAttacks for that round instead of adding
-// to it.
+// to it. The Mercenary always attacks here regardless of which path led in,
+// since its own turn isn't affected by whichever choice you made for your
+// companion.
 function finishRound(battle, state) {
   if (checkEnemyDefeated(battle)) return;
+  mercAttacks(battle, state);
+  if (checkEnemyDefeated(battle)) return;
   applyMpRegen(battle, state);
+  applyHeldItemRegen(battle, state);
   enemyStrikes(battle, state);
 }
 
@@ -197,7 +242,10 @@ function afterPlayerAction(battle, state) {
 // ENERGY_PER_HIT/PET_SKILL_MULTIPLIER in data.js) — a genuine alternative to
 // Attack/Skill for that round rather than a bonus on top: it replaces the
 // pet's normal small auto-hit with one much bigger one, so choosing it means
-// forgoing your own action that round.
+// forgoing your own action that round. Each companion ability also flavors
+// the Rally with its own extra effect (gated the same way the passive
+// itself is — level 10+, via companionAbilityBonus) instead of it reading
+// identically for every pet.
 export function petActiveSkill(battle, state) {
   if (battle.over) return;
   const player = state.player;
@@ -205,18 +253,34 @@ export function petActiveSkill(battle, state) {
   const pet = ALL_PET_DEFS[petKey];
   if (!pet || (battle.petEnergy || 0) < PET_ENERGY_MAX) return;
   battle.petEnergy = 0;
-  const power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player)) / 100) * PET_SKILL_MULTIPLIER;
+  let power = petEffectivePower(player, petKey) * (1 + (charmPowerBonus(player) + petPowerSetBonus(player) + gearPetPowerBonus(player) + heldItemPetPowerBonus(player, petKey)) / 100) * PET_SKILL_MULTIPLIER;
+  if (companionAbilityBonus(player, 'berserker') > 0) power *= 1.5;
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power));
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${petDisplayName(player, petKey)} unleashes a Rally on ${battle.enemy.name} for ${dmg}!`);
+
   const vampiric = companionAbilityBonus(player, 'vampiric');
   if (vampiric > 0 && player.hp < player.maxHp) {
-    const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * vampiric / 100));
+    const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * (vampiric * 2) / 100));
     if (healed > 0) {
       player.hp += healed;
       pushLog(battle, `${pet.name}'s bite heals you for ${healed}!`);
     }
   }
+  if (companionAbilityBonus(player, 'guardian') > 0) {
+    battle.shieldActive = true;
+    pushLog(battle, `${pet.name} braces to shield your next hit!`);
+  }
+  if (companionAbilityBonus(player, 'swift') > 0) {
+    battle.guaranteedDodge = true;
+    pushLog(battle, `${pet.name}'s speed guarantees your next dodge!`);
+  }
+  if (companionAbilityBonus(player, 'blessed') > 0 && battle.enemy.hp <= 0) {
+    const bonus = 30;
+    player.gold += bonus;
+    pushLog(battle, `${pet.name}'s luck finds an extra ${bonus}G!`);
+  }
+
   finishRound(battle, state);
 }
 
@@ -243,10 +307,19 @@ export function playerSkill(battle, state, skillKey) {
   player.mp -= cost;
   const power = skill.power * (1 + skillPowerBonus(player) / 100);
   let dmg = Math.max(2, Math.round(effectiveAtk(player) * power) - battle.enemy.def);
+  // Elemental effectiveness (see ELEMENT_ADVANTAGE in data.js) — resolved
+  // against whichever zone the player is physically standing in when the
+  // Skill is cast, not a per-enemy field, so Arena/Boss Rush/Rival fights
+  // (fought from Town, which carries no element) stay neutral rather than
+  // needing every reskinned/scaled enemy def to carry its own element too.
+  const defendElement = (MAPS[state.mapId] && MAPS[state.mapId].element) || null;
+  const elementMult = elementMultiplier(skill.element, defendElement);
+  dmg = Math.max(2, Math.round(dmg * elementMult));
   const crit = rollCrit(player);
   if (crit) dmg *= 2;
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `${crit ? 'Critical hit! ' : ''}${skill.name} hits ${battle.enemy.name} for ${dmg}!`);
+  const effectivenessTag = elementMult > 1 ? ' Super effective!' : elementMult < 1 ? ' Not very effective...' : '';
+  pushLog(battle, `${crit ? 'Critical hit! ' : ''}${skill.name} hits ${battle.enemy.name} for ${dmg}!${effectivenessTag}`);
   afterPlayerAction(battle, state);
 }
 
@@ -410,8 +483,25 @@ function rollGear(state, depth) {
     }
   }
   if (!key) return null;
-  player.unidentifiedItems.push({ slot, key });
-  return { type: 'gear', slot, key };
+  // A chest-found piece has a chance to come with a bonus Affix (see
+  // AFFIXES in data.js) stuck to that slot+key permanently, revealed
+  // alongside the piece itself once Deckard Cain identifies it.
+  const affixKey = Math.random() < AFFIX_CHANCE ? AFFIX_ORDER[Math.floor(Math.random() * AFFIX_ORDER.length)] : null;
+  player.unidentifiedItems.push({ slot, key, affixKey });
+  return { type: 'gear', slot, key, affixKey };
+}
+
+// Gems are stackable (tracked in player.inventory just like potions/orbs)
+// rather than owned-or-not — deeper zones skew toward bigger sizes instead
+// of anchoring to a specific tier index the way gear/trinkets do.
+function rollGem(state, depth) {
+  const player = state.player;
+  const sizeRoll = Math.random() + depth * 0.02;
+  const size = sizeRoll < 0.6 ? 'Small' : sizeRoll < 0.9 ? 'Medium' : 'Large';
+  const gemType = GEM_TYPE_KEYS[Math.floor(Math.random() * GEM_TYPE_KEYS.length)];
+  const key = `${gemType}${size}`;
+  player.inventory[key] = (player.inventory[key] || 0) + 1;
+  return { type: 'gem', key };
 }
 
 // Companion Charms are chest-only — no Buy flow at the Tamer at all — so
@@ -465,11 +555,11 @@ export function rollChest(state, guaranteed = false) {
   const depth = (MAPS[state.mapId] && MAPS[state.mapId].depth) || 0;
   const roll = Math.random();
 
-  if (roll < 0.20) {
+  if (roll < 0.16) {
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.38) {
+  if (roll < 0.32) {
     // Deeper zones have a rising chance of the Greater tier instead of the
     // basic potion/ether — same "deeper = better loot" pattern as gold/gear.
     const greaterChance = Math.min(0.5, depth * 0.04);
@@ -483,27 +573,37 @@ export function rollChest(state, guaranteed = false) {
     return { type: 'item', itemKey };
   }
 
-  if (roll < 0.56) {
+  if (roll < 0.48) {
     const gear = rollGear(state, depth);
     if (gear) return gear;
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.68) {
+  if (roll < 0.58) {
     const charm = rollCharm(state, depth);
     if (charm) return charm;
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.76) {
+  if (roll < 0.65) {
     const key = rollTrinket(state, depth, AMULET_ORDER, 'ownedAmulets');
     if (key) return { type: 'amulet', key };
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 
-  if (roll < 0.84) {
+  if (roll < 0.72) {
     const key = rollTrinket(state, depth, RING_ORDER, 'ownedRings');
     if (key) return { type: 'ring', key };
+    return { type: 'gold', amount: goldDrop(state, depth) };
+  }
+
+  if (roll < 0.82) {
+    return rollGem(state, depth);
+  }
+
+  if (roll < 0.90) {
+    const key = rollTrinket(state, depth, HELD_ITEM_ORDER, 'ownedHeldItems');
+    if (key) return { type: 'helditem', key };
     return { type: 'gold', amount: goldDrop(state, depth) };
   }
 

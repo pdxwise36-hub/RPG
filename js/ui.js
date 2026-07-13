@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -107,6 +107,7 @@ function handleMove(dir) {
     autosave();
     el('btn-town-ngplus').classList.toggle('hidden', !state.player.achievements.trueEnding);
     el('btn-town-abyss').classList.toggle('hidden', !state.player.achievements.trueEnding);
+    el('btn-town-feral').classList.toggle('hidden', !state.flags.secretZoneUnlocked);
     showModal('modal-town');
     return;
   }
@@ -221,6 +222,14 @@ function renderBattle() {
   } else {
     petEl.classList.add('hidden');
     energyTrack.classList.add('hidden');
+  }
+
+  const mercEl = el('merc-sprite');
+  if (p.mercTier >= 0) {
+    mercEl.style.backgroundImage = `url('${MERC_SPRITE}')`;
+    mercEl.classList.remove('hidden');
+  } else {
+    mercEl.classList.add('hidden');
   }
 
   const menuMain = el('battle-menu-main');
@@ -441,15 +450,21 @@ function renderItemMenu() {
 }
 
 // ---------- Skill submenu (battle) ----------
+// Only the three elements that actually form the effectiveness triangle
+// (see ELEMENT_ADVANTAGE in data.js) get a visible tag — 'physical'/'void'
+// never trigger a bonus or penalty, so labeling them would just be noise.
+const ELEMENT_LABELS = { fire: 'Fire', ice: 'Ice', nature: 'Nature' };
+
 function renderSkillMenu() {
   const p = state.player;
   const menu = el('battle-menu-skills');
   menu.innerHTML = '';
   SKILL_ORDER.filter((key) => p.knownSkills.includes(key)).forEach((key) => {
     const skill = SKILLS[key];
+    const elementTag = ELEMENT_LABELS[skill.element] ? ` [${ELEMENT_LABELS[skill.element]}]` : '';
     const btn = document.createElement('button');
     btn.className = 'btn btn-battle';
-    btn.textContent = `${skill.name} (${skill.mpCost} MP)`;
+    btn.textContent = `${skill.name} (${skill.mpCost} MP)${elementTag}`;
     btn.disabled = p.mp < skill.mpCost;
     btn.addEventListener('click', () => {
       playerSkill(battle, state, key);
@@ -508,13 +523,19 @@ function renderChest(chest) {
   } else if (chest.type === 'item') {
     desc = `You found a ${ITEMS[chest.itemKey].name}!`;
   } else if (chest.type === 'gear') {
-    desc = `You found an Unidentified ${GEAR_SLOTS[chest.slot].label}! Bring it to Deckard Cain in Town to find out what it is.`;
+    desc = chest.affixKey
+      ? `You found an Unidentified ${GEAR_SLOTS[chest.slot].label} that feels unusually powerful! Bring it to Deckard Cain in Town to find out what it is.`
+      : `You found an Unidentified ${GEAR_SLOTS[chest.slot].label}! Bring it to Deckard Cain in Town to find out what it is.`;
   } else if (chest.type === 'charm') {
     desc = `You found a ${CHARMS[chest.key].name}! Equip it on your active companion from the Pet Tamer.`;
   } else if (chest.type === 'amulet') {
     desc = `You found an ${AMULETS[chest.key].name}! Equip it from your Inventory.`;
   } else if (chest.type === 'ring') {
     desc = `You found a ${RINGS[chest.key].name}! Equip it from your Inventory.`;
+  } else if (chest.type === 'gem') {
+    desc = `You found a ${GEMS[chest.key].name}! Socket it into a gear piece with an open socket from the Armory.`;
+  } else if (chest.type === 'helditem') {
+    desc = `You found a ${HELD_ITEMS[chest.key].name}! Give it to a companion from the Pet Tamer.`;
   } else {
     desc = `You found a Scroll of ${SKILLS[chest.skillKey].name} and learned it!`;
   }
@@ -685,9 +706,13 @@ function renderStatus() {
   const body = el('status-body');
 
   const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
-  const activePetPower = p.activePetKey ? petEffectivePower(p, p.activePetKey) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p)) / 100) : 0;
+  const activePetPower = p.activePetKey ? petEffectivePower(p, p.activePetKey) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p) + gearPetPowerBonus(p) + heldItemPetPowerBonus(p, p.activePetKey)) / 100) : 0;
   const petDamageRow = p.activePetKey ? `
     <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * activePetPower))} per hit (+${Math.round(activePetPower * 100)}% ATK)</span></div>
+  ` : '';
+  const heldItemKey = p.activePetKey && p.heldItems[p.activePetKey];
+  const heldItemRow = heldItemKey ? `
+    <div class="status-row"><span>Held Item</span><span>${HELD_ITEMS[heldItemKey].name}</span></div>
   ` : '';
   // Fusion can grant a companion more than one ability, so this lists all
   // of them (its own plus anything fused in) rather than just the one.
@@ -719,8 +744,10 @@ function renderStatus() {
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${petDisplayName(p, p.activePetKey)} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
     ${petDamageRow}
     ${petAbilityRow}
+    ${heldItemRow}
     ${petBar}
     <div class="status-row"><span>Companion Charm</span><span>${CHARMS[p.charmKey].name}${charmPowerBonus(p) > 0 ? ` (+${charmPowerBonus(p)}% pet damage)` : ''}</span></div>
+    <div class="status-row"><span>Mercenary</span><span>${p.mercTier >= 0 ? `${MERCENARIES[p.mercTier].name} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)` : 'None hired'}</span></div>
     <div class="status-row"><span>Monsters Caught</span><span>${p.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
   `;
 
@@ -1085,6 +1112,77 @@ function renderArmory() {
       cfg.order.filter((key) => p[cfg.ownedField].includes(key)).forEach((key) => list.appendChild(buildEnchantRow(cfg.registry[key], slot)));
     });
   }
+
+  renderGemSockets(list);
+}
+
+// Only the top three tiers of any slot come with a socket (see socketCount
+// in data.js) — this lists every OWNED piece with one, whether or not it's
+// currently equipped, since the socket belongs to that slot+key (same
+// "sticks to the key" model as Affixes), not the live equip state.
+function renderGemSockets(list) {
+  const p = state.player;
+  const socketable = [];
+  Object.entries(GEAR_SLOTS).forEach(([slot, cfg]) => {
+    cfg.order.forEach((key) => {
+      if (socketCount(slot, key) > 0 && p[cfg.ownedField].includes(key)) socketable.push({ slot, key, item: cfg.registry[key] });
+    });
+  });
+  if (socketable.length === 0) return;
+  list.appendChild(sectionHeading('Gem Sockets'));
+  socketable.forEach(({ slot, key, item }) => list.appendChild(buildGemSocketRow(slot, key, item)));
+}
+
+function buildGemSocketRow(slot, key, item) {
+  const p = state.player;
+  const gemKey = p.socketedGems[slot] && p.socketedGems[slot][key];
+  const gem = gemKey && GEMS[gemKey];
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">${gem ? `Socketed: ${gem.name} (${SET_STAT_LABELS[gem.statKey](gem.value)})` : 'Empty socket'}</span>
+    </div>
+  `;
+  if (gem) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    btn.textContent = 'Remove';
+    btn.addEventListener('click', () => {
+      p.socketedGems[slot][key] = null;
+      p.inventory[gemKey] = (p.inventory[gemKey] || 0) + 1;
+      autosave();
+      renderArmory();
+    });
+    row.appendChild(btn);
+  } else {
+    const ownedGemKeys = GEM_ORDER.filter((k) => (p.inventory[k] || 0) > 0);
+    if (ownedGemKeys.length === 0) {
+      const note = document.createElement('span');
+      note.className = 'achievement-status';
+      note.textContent = 'No Gems';
+      row.appendChild(note);
+    } else {
+      const wrap = document.createElement('div');
+      wrap.className = 'inventory-tile-ring-btns';
+      ownedGemKeys.forEach((gk) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-small';
+        btn.textContent = `${GEMS[gk].name} (${p.inventory[gk]})`;
+        btn.addEventListener('click', () => {
+          p.socketedGems[slot][key] = gk;
+          p.inventory[gk] -= 1;
+          autosave();
+          renderArmory();
+        });
+        wrap.appendChild(btn);
+      });
+      row.appendChild(wrap);
+    }
+  }
+  return row;
 }
 
 // Human-readable labels for every field ENCHANT_STATS might touch — mirrors
@@ -1152,11 +1250,14 @@ function buildArmoryRow(item, slot) {
   row.className = 'shop-item';
   const priceLabel = item.price > 0 ? `${item.price}G` : 'Free';
   const set = setForPiece(item.key);
+  const affixKey = p.gearAffixes[slot] && p.gearAffixes[slot][item.key];
+  const affix = affixKey && AFFIXES[affixKey];
+  const sockets = socketCount(slot, item.key);
   row.innerHTML = `
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${item.name}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
-      <span class="shop-item-desc">${gearStatLabel(slot, item)} — ${owned ? 'Owned' : priceLabel}</span>
+      <span class="shop-item-name">${item.name}${affix ? ` ${affix.name}` : ''}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
+      <span class="shop-item-desc">${gearStatLabel(slot, item)}${affix ? `, ${SET_STAT_LABELS[affix.statKey](affix.value)}` : ''}${sockets > 0 ? ` — ${sockets} Socket` : ''} — ${owned ? 'Owned' : priceLabel}</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -1189,46 +1290,114 @@ function buildArmoryRow(item, slot) {
 
 // ---------- Deckard Cain (item identification) ----------
 // Gear chests drop unidentified — this is where you learn (and finally own)
-// what you actually found, for a flat fee per item.
+// what you actually found, for a flat fee per item, including any Affix it
+// came with. Also home to two special interactions unrelated to
+// identification: combining 3 of a kind Gem into the next size up, and the
+// secret Feral Pastures unlock.
 function renderCain() {
   const p = state.player;
   el('cain-gold').textContent = p.gold;
   const list = el('cain-list');
   list.innerHTML = '';
+
   if (p.unidentifiedItems.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'modal-sub';
     empty.textContent = 'Nothing to identify right now — go find some chests.';
     list.appendChild(empty);
-    return;
-  }
-  p.unidentifiedItems.forEach((unident, idx) => {
-    const row = document.createElement('div');
-    row.className = 'shop-item';
-    const cfg = GEAR_SLOTS[unident.slot];
-    row.innerHTML = `
-      <div class="shop-item-info">
-        <span class="shop-item-name">Unidentified ${cfg.label}</span>
-        <span class="shop-item-desc">${IDENTIFY_COST}G to identify</span>
-      </div>
-    `;
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-small';
-    btn.textContent = 'Identify';
-    btn.disabled = p.gold < IDENTIFY_COST;
-    btn.addEventListener('click', () => {
-      if (p.gold < IDENTIFY_COST) return;
-      p.gold -= IDENTIFY_COST;
-      p.unidentifiedItems.splice(idx, 1);
-      const gear = cfg.registry[unident.key];
-      p[cfg.ownedField].push(unident.key);
-      autosave();
-      showToast(`It's a ${gear.name}!`, 2600);
-      renderCain();
+  } else {
+    p.unidentifiedItems.forEach((unident, idx) => {
+      const row = document.createElement('div');
+      row.className = 'shop-item';
+      const cfg = GEAR_SLOTS[unident.slot];
+      row.innerHTML = `
+        <div class="shop-item-info">
+          <span class="shop-item-name">Unidentified ${cfg.label}${unident.affixKey ? ' (feels powerful)' : ''}</span>
+          <span class="shop-item-desc">${IDENTIFY_COST}G to identify</span>
+        </div>
+      `;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-small';
+      btn.textContent = 'Identify';
+      btn.disabled = p.gold < IDENTIFY_COST;
+      btn.addEventListener('click', () => {
+        if (p.gold < IDENTIFY_COST) return;
+        p.gold -= IDENTIFY_COST;
+        p.unidentifiedItems.splice(idx, 1);
+        const gear = cfg.registry[unident.key];
+        p[cfg.ownedField].push(unident.key);
+        let revealName = gear.name;
+        if (unident.affixKey) {
+          p.gearAffixes[unident.slot][unident.key] = unident.affixKey;
+          revealName += ` ${AFFIXES[unident.affixKey].name}`;
+        }
+        autosave();
+        showToast(`It's a ${revealName}!`, 2600);
+        renderCain();
+      });
+      row.appendChild(btn);
+      list.appendChild(row);
     });
-    row.appendChild(btn);
-    list.appendChild(row);
-  });
+  }
+
+  // Combine Gems — 3 of the same type+size becomes 1 of the next size up
+  // (Large has nowhere further to go), a Horadric-Cube-style sink for
+  // duplicate gems instead of them just piling up unused.
+  const combinable = GEM_ORDER.filter((key) => GEM_UPGRADE[key] && (p.inventory[key] || 0) >= GEM_COMBINE_COUNT);
+  if (combinable.length > 0) {
+    list.appendChild(sectionHeading('Combine Gems'));
+    combinable.forEach((key) => {
+      const gem = GEMS[key];
+      const nextKey = GEM_UPGRADE[key];
+      const row = document.createElement('div');
+      row.className = 'shop-item';
+      row.innerHTML = `
+        <div class="shop-item-info">
+          <span class="shop-item-name">${GEM_COMBINE_COUNT}x ${gem.name}</span>
+          <span class="shop-item-desc">Combine into 1 ${GEMS[nextKey].name} — Have ${p.inventory[key]}</span>
+        </div>
+      `;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-small';
+      btn.textContent = 'Combine';
+      btn.addEventListener('click', () => {
+        p.inventory[key] -= GEM_COMBINE_COUNT;
+        p.inventory[nextKey] = (p.inventory[nextKey] || 0) + 1;
+        autosave();
+        renderCain();
+      });
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+
+  // The Feral Pastures — a true secret zone, unlocked (not consumed) by
+  // simply owning the Celestial tier of Charm/Amulet/Ring all at once.
+  if (!state.flags.secretZoneUnlocked) {
+    const hasAll = p.ownedCharms.includes('celestialCharm') && p.ownedAmulets.includes('celestialAmulet') && p.ownedRings.includes('celestialRing');
+    if (hasAll) {
+      list.appendChild(sectionHeading('???'));
+      const row = document.createElement('div');
+      row.className = 'shop-item';
+      row.innerHTML = `
+        <div class="shop-item-info">
+          <span class="shop-item-name">Something stirs...</span>
+          <span class="shop-item-desc">Three Celestial relics, all in your hands at once. Cain's eyes widen.</span>
+        </div>
+      `;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-small';
+      btn.textContent = 'Investigate';
+      btn.addEventListener('click', () => {
+        state.flags.secretZoneUnlocked = true;
+        autosave();
+        showToast('A hidden path has opened in Town...', 3000);
+        renderCain();
+      });
+      row.appendChild(btn);
+      list.appendChild(row);
+    }
+  }
 }
 
 // ---------- Arena ----------
@@ -1443,6 +1612,136 @@ function renderTamer() {
   // whatever you've already picked up (the free "No Charm" is always owned).
   list.appendChild(sectionHeading('Companion Charm'));
   CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => list.appendChild(buildCharmRow(CHARMS[key], renderTamer)));
+
+  // Held Items (chest-only) stick to one SPECIFIC companion permanently,
+  // unlike a Charm which boosts whichever pet is currently active.
+  if (p.ownedHeldItems.length > 0) {
+    list.appendChild(sectionHeading('Held Items'));
+    HELD_ITEM_ORDER.filter((key) => p.ownedHeldItems.includes(key)).forEach((key) => list.appendChild(buildHeldItemRow(key)));
+  }
+
+  renderMercenaryCamp(list);
+}
+
+// A held item can only be held by one companion at a time — "Give to
+// Active" reassigns it to whichever pet you currently have out, clearing
+// whoever held it before.
+function buildHeldItemRow(itemKey) {
+  const p = state.player;
+  const item = HELD_ITEMS[itemKey];
+  const holderKey = Object.entries(p.heldItems).find(([, held]) => held === itemKey)?.[0];
+  const holderName = holderKey ? petDisplayName(p, holderKey) : null;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-desc">${item.desc}${holderName ? ` — Held by ${holderName}` : ' — Unassigned'}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (!p.activePetKey) {
+    btn.textContent = 'No Active Pet';
+    btn.disabled = true;
+  } else if (holderKey === p.activePetKey) {
+    btn.textContent = 'Held';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Give to Active';
+    btn.addEventListener('click', () => {
+      if (holderKey) delete p.heldItems[holderKey];
+      p.heldItems[p.activePetKey] = itemKey;
+      autosave();
+      renderTamer();
+    });
+  }
+  row.appendChild(btn);
+  return row;
+}
+
+// ---------- Mercenary Camp ----------
+// A single hireable ally distinct from the Pet roster — no XP/leveling of
+// its own, just an upgrade path (hire Rookie, later pay the difference up
+// through Champion) plus its own small Weapon/Armor loadout.
+function renderMercenaryCamp(list) {
+  const p = state.player;
+  list.appendChild(sectionHeading('Mercenary Camp'));
+
+  const merc = p.mercTier >= 0 ? MERCENARIES[p.mercTier] : null;
+  const next = MERCENARIES[p.mercTier + 1];
+  const hireRow = document.createElement('div');
+  hireRow.className = 'shop-item';
+  hireRow.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${merc ? merc.name : 'No Mercenary'}</span>
+      <span class="shop-item-desc">${merc ? `+${Math.round(merc.power * 100)}% ATK per turn` : 'Hire one to fight alongside your companion'}</span>
+    </div>
+  `;
+  const hireBtn = document.createElement('button');
+  hireBtn.className = 'btn btn-small';
+  if (!next) {
+    hireBtn.textContent = 'Max Tier';
+    hireBtn.disabled = true;
+  } else {
+    hireBtn.textContent = `${merc ? 'Upgrade' : 'Hire'} (${next.price}G)`;
+    hireBtn.disabled = p.gold < next.price;
+    hireBtn.addEventListener('click', () => {
+      if (p.gold < next.price) return;
+      p.gold -= next.price;
+      p.mercTier += 1;
+      autosave();
+      renderTamer();
+    });
+  }
+  hireRow.appendChild(hireBtn);
+  list.appendChild(hireRow);
+
+  if (p.mercTier < 0) return;
+  MERC_WEAPON_ORDER.filter((key) => key !== 'none').forEach((key) => list.appendChild(buildMercGearRow(MERC_WEAPONS[key], 'Weapon', p.ownedMercWeapons, 'ownedMercWeapons', 'mercWeaponKey')));
+  MERC_ARMOR_ORDER.filter((key) => key !== 'none').forEach((key) => list.appendChild(buildMercGearRow(MERC_ARMORS[key], 'Armor', p.ownedMercArmors, 'ownedMercArmors', 'mercArmorKey')));
+}
+
+function buildMercGearRow(item, label, ownedList, ownedField, equipField) {
+  const p = state.player;
+  const owned = ownedList.includes(item.key);
+  const isEquipped = p[equipField] === item.key;
+  const stat = item.atkBonus !== undefined ? `+${item.atkBonus} ATK` : `+${item.defBonus} DEF (damage reduction)`;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${item.name} <span class="bestiary-caught">(Mercenary ${label})</span></span>
+      <span class="shop-item-desc">${stat} — ${owned ? 'Owned' : `${item.price}G`}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isEquipped) {
+    btn.textContent = 'Equipped';
+    btn.disabled = true;
+  } else if (owned) {
+    btn.textContent = 'Equip';
+    btn.addEventListener('click', () => {
+      p[equipField] = item.key;
+      autosave();
+      renderTamer();
+    });
+  } else {
+    btn.textContent = 'Buy';
+    btn.disabled = p.gold < item.price;
+    btn.addEventListener('click', () => {
+      if (p.gold < item.price) return;
+      p.gold -= item.price;
+      p[ownedField].push(item.key);
+      p[equipField] = item.key;
+      autosave();
+      renderTamer();
+    });
+  }
+  row.appendChild(btn);
+  return row;
 }
 
 // Any owned companion (bought or caught) — Select/Active only, no buy flow.
@@ -1622,11 +1921,12 @@ function buildSkillTreeRow(skillKey, vendorKey, goldElId, listElId) {
   else if (!levelMet) statusText = `Requires Lv. ${info.levelReq}`;
   else statusText = `${skill.price}G`;
 
+  const elementTag = ELEMENT_LABELS[skill.element] ? ` [${ELEMENT_LABELS[skill.element]}]` : '';
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
     <div class="shop-item-info">
-      <span class="shop-item-name">${skill.name}</span>
+      <span class="shop-item-name">${skill.name}${elementTag}</span>
       <span class="shop-item-desc">${skill.mpCost} MP, power ${skill.power}x — ${statusText}</span>
     </div>
   `;
@@ -1767,6 +2067,10 @@ function wireEvents() {
   el('btn-town-abyss').addEventListener('click', () => {
     hideModal('modal-town');
     travelToLevel('abyssaldepths');
+  });
+  el('btn-town-feral').addEventListener('click', () => {
+    hideModal('modal-town');
+    travelToLevel('feralpastures');
   });
   el('btn-town-leave').addEventListener('click', () => {
     hideModal('modal-town');

@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -181,37 +181,120 @@ function enchantStatBonus(player, slot, equippedKey, statKey) {
   return perLevel * enchantLevel(player, slot, equippedKey);
 }
 
+// The Affix bonus (see AFFIXES in data.js) for one specific stat, stuck to
+// whichever piece is CURRENTLY EQUIPPED in `slot` — an affix belongs to a
+// slot+key, not a live roll, so this is just an equipped-key lookup.
+function affixStatBonus(player, slot, statKey) {
+  const key = player[GEAR_SLOTS[slot].equipField];
+  const affixKey = player.gearAffixes && player.gearAffixes[slot] && player.gearAffixes[slot][key];
+  const affix = affixKey && AFFIXES[affixKey];
+  return affix && affix.statKey === statKey ? affix.value : 0;
+}
+
+// Same shape as affixStatBonus but for a socketed Gem (see GEMS/socketCount
+// in data.js).
+function gemStatBonus(player, slot, statKey) {
+  const key = player[GEAR_SLOTS[slot].equipField];
+  const gemKey = player.socketedGems && player.socketedGems[slot] && player.socketedGems[slot][key];
+  const gem = gemKey && GEMS[gemKey];
+  return gem && gem.statKey === statKey ? gem.value : 0;
+}
+
+// A Gem's type (Ruby=atk, Sapphire=def, ...) is independent of which of the
+// five slots it happens to be socketed into, so unlike Enchant (always the
+// slot's own native stat) this sums affix+gem contributions to `statKey`
+// across ALL five slots — a Ruby socketed into your Boots still boosts ATK.
+function gearBonusAcrossSlots(player, statKey) {
+  return Object.keys(GEAR_SLOTS).reduce((sum, slot) => sum + affixStatBonus(player, slot, statKey) + gemStatBonus(player, slot, statKey), 0);
+}
+
 export function effectiveAtk(player) {
   const weapon = WEAPONS[player.weaponKey] || WEAPONS.rustySword;
-  return player.baseAtk + weapon.atkBonus + enchantStatBonus(player, 'weapon', player.weaponKey, 'atkBonus') + setBonusValue(player, 'atk');
+  return player.baseAtk + weapon.atkBonus + enchantStatBonus(player, 'weapon', player.weaponKey, 'atkBonus') + setBonusValue(player, 'atk') + gearBonusAcrossSlots(player, 'atk');
 }
 
 export function effectiveDef(player) {
   const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
-  return player.baseDef + armor.defBonus + enchantStatBonus(player, 'armor', player.armorKey, 'defBonus') + setBonusValue(player, 'def');
+  return player.baseDef + armor.defBonus + enchantStatBonus(player, 'armor', player.armorKey, 'defBonus') + setBonusValue(player, 'def') + gearBonusAcrossSlots(player, 'def');
+}
+
+// Held Items (see HELD_ITEMS in data.js) stick to one specific companion
+// permanently — this reads whichever item (if any) `petKey` holds, 0 if it
+// doesn't touch `statKey`.
+export function heldItemBonus(player, petKey, statKey) {
+  const itemKey = player.heldItems && player.heldItems[petKey];
+  const item = itemKey && HELD_ITEMS[itemKey];
+  return item && item.statKey === statKey ? item.value : 0;
+}
+
+// Convenience for the player-facing stat accessors below: the held-item
+// bonus for whichever companion is CURRENTLY active, 0 if none — Held
+// Items only apply "while this companion is active," same condition as a
+// Companion Charm.
+function activeHeldItemBonus(player, statKey) {
+  return player.activePetKey ? heldItemBonus(player, player.activePetKey, statKey) : 0;
 }
 
 // Helmets, Gloves, and Boots each carry their own unique mechanic instead of
 // flat ATK/DEF — these read the equipped piece the same way effectiveAtk/Def
-// read the weapon/armor, each also picking up its own slot's Enchant bonus.
+// read the weapon/armor, each also picking up its own slot's Enchant bonus,
+// any Affix/Gem bonus to that same stat regardless of which slot it's on,
+// and (where it makes sense) the active companion's Held Item.
 export function mpCostReduction(player) {
-  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction + enchantStatBonus(player, 'helmet', player.helmKey, 'mpCostReduction') + setBonusValue(player, 'mpCostReduction');
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).mpCostReduction + enchantStatBonus(player, 'helmet', player.helmKey, 'mpCostReduction') + setBonusValue(player, 'mpCostReduction') + gearBonusAcrossSlots(player, 'mpCostReduction');
 }
 
 export function xpBonusPercent(player) {
-  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent + enchantStatBonus(player, 'helmet', player.helmKey, 'xpBonusPercent') + setBonusValue(player, 'xpBonusPercent');
+  return (HELMETS[player.helmKey] || HELMETS.clothCap).xpBonusPercent + enchantStatBonus(player, 'helmet', player.helmKey, 'xpBonusPercent') + setBonusValue(player, 'xpBonusPercent') + gearBonusAcrossSlots(player, 'xpBonusPercent') + activeHeldItemBonus(player, 'xpBonusPercent');
 }
 
 export function critChance(player) {
-  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance + enchantStatBonus(player, 'gloves', player.glovesKey, 'critChance') + setBonusValue(player, 'critChance');
+  return (GLOVES[player.glovesKey] || GLOVES.clothWraps).critChance + enchantStatBonus(player, 'gloves', player.glovesKey, 'critChance') + setBonusValue(player, 'critChance') + gearBonusAcrossSlots(player, 'critChance') + activeHeldItemBonus(player, 'critChance');
 }
 
 export function dodgeChance(player) {
-  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance + enchantStatBonus(player, 'boots', player.bootsKey, 'dodgeChance') + setBonusValue(player, 'dodgeChance');
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).dodgeChance + enchantStatBonus(player, 'boots', player.bootsKey, 'dodgeChance') + setBonusValue(player, 'dodgeChance') + gearBonusAcrossSlots(player, 'dodgeChance') + activeHeldItemBonus(player, 'dodgeChance');
 }
 
 export function goldBonusPercent(player) {
-  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent + enchantStatBonus(player, 'boots', player.bootsKey, 'goldBonusPercent') + setBonusValue(player, 'goldBonusPercent');
+  return (BOOTS[player.bootsKey] || BOOTS.wornSandals).goldBonusPercent + enchantStatBonus(player, 'boots', player.bootsKey, 'goldBonusPercent') + setBonusValue(player, 'goldBonusPercent') + gearBonusAcrossSlots(player, 'goldBonusPercent') + activeHeldItemBonus(player, 'goldBonusPercent');
+}
+
+// petPowerBonus isn't tied to any one slot's own mechanic (unlike the
+// above), so this is the Affix/Gem equivalent of petPowerSetBonus below —
+// summed across all five slots the same way gearBonusAcrossSlots works.
+export function gearPetPowerBonus(player) {
+  return gearBonusAcrossSlots(player, 'petPowerBonus');
+}
+
+// The Held Item multiplier on one specific companion's OWN power (distinct
+// from petPowerSetBonus/charmPowerBonus/gearPetPowerBonus, which all boost
+// "whichever companion is active" instead) — applied in battle.js's
+// petAttacks alongside those.
+export function heldItemPetPowerBonus(player, petKey) {
+  return heldItemBonus(player, petKey, 'petPower');
+}
+
+// Leftovers-style per-turn healing (see applyHeldItemRegen in battle.js).
+export function heldItemHpRegenPercent(player) {
+  return activeHeldItemBonus(player, 'hpRegenPercent');
+}
+
+// The hireable Mercenary's own contribution — no XP/leveling, just its tier
+// (see MERCENARIES) plus whatever small Weapon/Armor it's wearing. Armor's
+// defBonus converts into a modest, capped damage-reduction on incoming
+// hits (stacking with a Guardian companion's own %) instead of doing
+// nothing, so buying Mercenary Armor is a real choice, not just flavor.
+export function mercEffectivePower(player) {
+  return player.mercTier >= 0 ? MERCENARIES[player.mercTier].power : 0;
+}
+export function mercWeaponAtkBonus(player) {
+  return (MERC_WEAPONS[player.mercWeaponKey] || MERC_WEAPONS.none).atkBonus;
+}
+export function mercDamageReduction(player) {
+  if (player.mercTier < 0) return 0;
+  const armor = MERC_ARMORS[player.mercArmorKey] || MERC_ARMORS.none;
+  return Math.min(25, Math.round(armor.defBonus * 0.6));
 }
 
 // The Amulet slowly restores MP each of your turns (see applyMpRegen in

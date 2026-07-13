@@ -133,6 +133,64 @@ export const GEAR_SLOTS = {
   boots: { registry: BOOTS, order: BOOTS_ORDER, ownedField: 'ownedBoots', equipField: 'bootsKey', label: 'Boots' },
 };
 
+// Diablo-style magic affixes: chest-found gear (never Armory-bought pieces)
+// has a chance to come with one extra bonus stuck to that slot+key forever,
+// stored in player.gearAffixes rather than as a separate item — this game's
+// gear isn't instanced (owning a key just means "you have one"), so an
+// affix is a permanent upgrade to that key's identity rather than a
+// property of one specific physical copy, and a later plain (non-affixed)
+// find of the same key never strips an affix you already uncovered.
+export const AFFIXES = {
+  ofPower: { key: 'ofPower', name: 'of Power', statKey: 'atk', value: 4 },
+  ofWarding: { key: 'ofWarding', name: 'of Warding', statKey: 'def', value: 4 },
+  ofTheBear: { key: 'ofTheBear', name: 'of the Bear', statKey: 'petPowerBonus', value: 6 },
+  ofFortune: { key: 'ofFortune', name: 'of Fortune', statKey: 'goldBonusPercent', value: 6 },
+  ofTheFox: { key: 'ofTheFox', name: 'of the Fox', statKey: 'dodgeChance', value: 4 },
+  ofTheViper: { key: 'ofTheViper', name: 'of the Viper', statKey: 'critChance', value: 4 },
+  ofWisdom: { key: 'ofWisdom', name: 'of Wisdom', statKey: 'xpBonusPercent', value: 5 },
+  ofTheMagus: { key: 'ofTheMagus', name: 'of the Magus', statKey: 'mpCostReduction', value: 4 },
+};
+export const AFFIX_ORDER = Object.keys(AFFIXES);
+export const AFFIX_CHANCE = 0.3;
+
+// Gem sockets: only the top three tiers of any slot (indices 7-9 of that
+// slot's own 10-tier order) come with a single socket — a Gem dropped from
+// a chest can be slotted into whichever piece is CURRENTLY EQUIPPED in that
+// slot for a flat bonus, tracked the same "per slot+key, not per copy" way
+// as Affixes above.
+export function socketCount(slot, key) {
+  const order = GEAR_SLOTS[slot].order;
+  const idx = order.indexOf(key);
+  return idx >= 7 ? 1 : 0;
+}
+
+const GEM_TYPES = {
+  ruby: { statKey: 'atk', label: 'Ruby' },
+  sapphire: { statKey: 'def', label: 'Sapphire' },
+  topaz: { statKey: 'goldBonusPercent', label: 'Topaz' },
+  emerald: { statKey: 'critChance', label: 'Emerald' },
+  diamond: { statKey: 'xpBonusPercent', label: 'Diamond' },
+};
+const GEM_SIZES = [{ key: 'Small', mult: 1 }, { key: 'Medium', mult: 2.5 }, { key: 'Large', mult: 5 }];
+const GEM_BASE_VALUE = { atk: 3, def: 3, goldBonusPercent: 4, critChance: 3, xpBonusPercent: 4 };
+export const GEMS = {};
+Object.entries(GEM_TYPES).forEach(([typeKey, type]) => {
+  GEM_SIZES.forEach((size) => {
+    const key = `${typeKey}${size.key}`;
+    GEMS[key] = { key, name: `${size.key} ${type.label}`, type: typeKey, size: size.key, statKey: type.statKey, value: Math.round(GEM_BASE_VALUE[type.statKey] * size.mult) };
+  });
+});
+export const GEM_ORDER = Object.keys(GEMS);
+export const GEM_TYPE_KEYS = Object.keys(GEM_TYPES);
+// The next size up for each gem, keyed by its own key — drives the "combine
+// 3 of a kind" recipe at Deckard Cain. Large gems have no next size.
+export const GEM_UPGRADE = {};
+Object.keys(GEM_TYPES).forEach((typeKey) => {
+  GEM_UPGRADE[`${typeKey}Small`] = `${typeKey}Medium`;
+  GEM_UPGRADE[`${typeKey}Medium`] = `${typeKey}Large`;
+});
+export const GEM_COMBINE_COUNT = 3;
+
 // Six 5-piece sets (one item per equipment slot), each with a single clear
 // purpose rather than one do-everything set — every set has value from the
 // moment you have 2 pieces on, not just at a full 5/5, via `thresholds`:
@@ -215,36 +273,40 @@ export function setForPiece(key) {
 // Both the Knight and the Master Mage teach permanent skills for gold — they
 // share one mechanic (spend MP, hit for atk*power - def) so "physical skill"
 // vs "spell" is flavor only, not a separate stat.
+// `element` (see ELEMENT_ADVANTAGE above) tags every spell with one of the
+// triangle's three real elements or the neutral 'physical'/'void' — Knight
+// skills are all physical (a sword doesn't care about zone matchups), Mage
+// spells split across fire/ice/void by their own flavor.
 export const SKILLS = {
-  fireball: { key: 'fireball', name: 'Fireball', mpCost: 5, power: 1.8, price: 0, vendor: null },
+  fireball: { key: 'fireball', name: 'Fireball', mpCost: 5, power: 1.8, price: 0, vendor: null, element: 'fire' },
 
   // Knight-taught physical skills, cheap/weak to expensive/strong.
-  shieldBash: { key: 'shieldBash', name: 'Shield Bash', mpCost: 3, power: 1.8, price: 30, vendor: 'knight' },
-  powerStrike: { key: 'powerStrike', name: 'Power Strike', mpCost: 4, power: 2.2, price: 50, vendor: 'knight' },
-  piercingThrust: { key: 'piercingThrust', name: 'Piercing Thrust', mpCost: 5, power: 2.4, price: 70, vendor: 'knight' },
-  cleave: { key: 'cleave', name: 'Cleave', mpCost: 6, power: 2.6, price: 90, vendor: 'knight' },
-  counterStrike: { key: 'counterStrike', name: 'Counter Strike', mpCost: 6, power: 2.5, price: 100, vendor: 'knight' },
-  berserkerRage: { key: 'berserkerRage', name: "Berserker's Rage", mpCost: 7, power: 2.8, price: 110, vendor: 'knight' },
-  whirlwind: { key: 'whirlwind', name: 'Whirlwind', mpCost: 8, power: 3.0, price: 150, vendor: 'knight' },
-  rendingSlash: { key: 'rendingSlash', name: 'Rending Slash', mpCost: 9, power: 3.2, price: 170, vendor: 'knight' },
-  earthbreaker: { key: 'earthbreaker', name: 'Earthbreaker', mpCost: 10, power: 3.4, price: 200, vendor: 'knight' },
-  bladeStorm: { key: 'bladeStorm', name: 'Blade Storm', mpCost: 12, power: 3.6, price: 240, vendor: 'knight' },
-  executionersEdge: { key: 'executionersEdge', name: "Executioner's Edge", mpCost: 14, power: 4.0, price: 300, vendor: 'knight' },
-  titansFury: { key: 'titansFury', name: "Titan's Fury", mpCost: 16, power: 4.4, price: 380, vendor: 'knight' },
+  shieldBash: { key: 'shieldBash', name: 'Shield Bash', mpCost: 3, power: 1.8, price: 30, vendor: 'knight', element: 'physical' },
+  powerStrike: { key: 'powerStrike', name: 'Power Strike', mpCost: 4, power: 2.2, price: 50, vendor: 'knight', element: 'physical' },
+  piercingThrust: { key: 'piercingThrust', name: 'Piercing Thrust', mpCost: 5, power: 2.4, price: 70, vendor: 'knight', element: 'physical' },
+  cleave: { key: 'cleave', name: 'Cleave', mpCost: 6, power: 2.6, price: 90, vendor: 'knight', element: 'physical' },
+  counterStrike: { key: 'counterStrike', name: 'Counter Strike', mpCost: 6, power: 2.5, price: 100, vendor: 'knight', element: 'physical' },
+  berserkerRage: { key: 'berserkerRage', name: "Berserker's Rage", mpCost: 7, power: 2.8, price: 110, vendor: 'knight', element: 'physical' },
+  whirlwind: { key: 'whirlwind', name: 'Whirlwind', mpCost: 8, power: 3.0, price: 150, vendor: 'knight', element: 'physical' },
+  rendingSlash: { key: 'rendingSlash', name: 'Rending Slash', mpCost: 9, power: 3.2, price: 170, vendor: 'knight', element: 'physical' },
+  earthbreaker: { key: 'earthbreaker', name: 'Earthbreaker', mpCost: 10, power: 3.4, price: 200, vendor: 'knight', element: 'physical' },
+  bladeStorm: { key: 'bladeStorm', name: 'Blade Storm', mpCost: 12, power: 3.6, price: 240, vendor: 'knight', element: 'physical' },
+  executionersEdge: { key: 'executionersEdge', name: "Executioner's Edge", mpCost: 14, power: 4.0, price: 300, vendor: 'knight', element: 'physical' },
+  titansFury: { key: 'titansFury', name: "Titan's Fury", mpCost: 16, power: 4.4, price: 380, vendor: 'knight', element: 'physical' },
 
   // Mage-taught spells, same cheap-to-strong spread.
-  spark: { key: 'spark', name: 'Spark', mpCost: 3, power: 1.7, price: 25, vendor: 'mage' },
-  iceShard: { key: 'iceShard', name: 'Ice Shard', mpCost: 6, power: 2.0, price: 60, vendor: 'mage' },
-  frostBolt: { key: 'frostBolt', name: 'Frost Bolt', mpCost: 5, power: 2.2, price: 65, vendor: 'mage' },
-  arcaneMissile: { key: 'arcaneMissile', name: 'Arcane Missile', mpCost: 6, power: 2.5, price: 85, vendor: 'mage' },
-  flameWave: { key: 'flameWave', name: 'Flame Wave', mpCost: 7, power: 2.7, price: 105, vendor: 'mage' },
-  lightningChain: { key: 'lightningChain', name: 'Lightning Chain', mpCost: 8, power: 2.9, price: 130, vendor: 'mage' },
-  thunderbolt: { key: 'thunderbolt', name: 'Thunderbolt', mpCost: 10, power: 2.6, price: 140, vendor: 'mage' },
-  voidRay: { key: 'voidRay', name: 'Void Ray', mpCost: 9, power: 3.1, price: 160, vendor: 'mage' },
-  meteor: { key: 'meteor', name: 'Meteor', mpCost: 11, power: 3.5, price: 210, vendor: 'mage' },
-  blizzard: { key: 'blizzard', name: 'Blizzard', mpCost: 12, power: 3.7, price: 250, vendor: 'mage' },
-  hellfire: { key: 'hellfire', name: 'Hellfire', mpCost: 14, power: 4.1, price: 310, vendor: 'mage' },
-  starfall: { key: 'starfall', name: 'Starfall', mpCost: 16, power: 4.5, price: 390, vendor: 'mage' },
+  spark: { key: 'spark', name: 'Spark', mpCost: 3, power: 1.7, price: 25, vendor: 'mage', element: 'void' },
+  iceShard: { key: 'iceShard', name: 'Ice Shard', mpCost: 6, power: 2.0, price: 60, vendor: 'mage', element: 'ice' },
+  frostBolt: { key: 'frostBolt', name: 'Frost Bolt', mpCost: 5, power: 2.2, price: 65, vendor: 'mage', element: 'ice' },
+  arcaneMissile: { key: 'arcaneMissile', name: 'Arcane Missile', mpCost: 6, power: 2.5, price: 85, vendor: 'mage', element: 'void' },
+  flameWave: { key: 'flameWave', name: 'Flame Wave', mpCost: 7, power: 2.7, price: 105, vendor: 'mage', element: 'fire' },
+  lightningChain: { key: 'lightningChain', name: 'Lightning Chain', mpCost: 8, power: 2.9, price: 130, vendor: 'mage', element: 'void' },
+  thunderbolt: { key: 'thunderbolt', name: 'Thunderbolt', mpCost: 10, power: 2.6, price: 140, vendor: 'mage', element: 'void' },
+  voidRay: { key: 'voidRay', name: 'Void Ray', mpCost: 9, power: 3.1, price: 160, vendor: 'mage', element: 'void' },
+  meteor: { key: 'meteor', name: 'Meteor', mpCost: 11, power: 3.5, price: 210, vendor: 'mage', element: 'fire' },
+  blizzard: { key: 'blizzard', name: 'Blizzard', mpCost: 12, power: 3.7, price: 250, vendor: 'mage', element: 'ice' },
+  hellfire: { key: 'hellfire', name: 'Hellfire', mpCost: 14, power: 4.1, price: 310, vendor: 'mage', element: 'fire' },
+  starfall: { key: 'starfall', name: 'Starfall', mpCost: 16, power: 4.5, price: 390, vendor: 'mage', element: 'void' },
 };
 
 // Canonical price/tier order — p.ownedWeapons/ownedArmors/knownSkills grow
@@ -410,6 +472,25 @@ export const RINGS = {
 Object.values(RINGS).forEach((r) => { r.sprite = `icons/sprites/rng-${r.key}.png`; });
 export const RING_ORDER = Object.keys(RINGS);
 
+// A Held Item sticks to one SPECIFIC companion permanently (unlike a
+// Companion Charm, which boosts whichever pet is currently active) — chest-
+// only, and an item can only be held by one companion at a time, so
+// assigning it to a new one clears the old holder (see giveHeldItem in
+// ui.js). `statKey` reuses an existing stat name except 'petPower' (a
+// multiplier on that one companion's own damage, distinct from the
+// Beastmaster set/Charm's "whichever is active" version) and
+// 'hpRegenPercent' (a new one, see applyHeldItemRegen in battle.js).
+export const HELD_ITEMS = {
+  luckyEgg: { key: 'luckyEgg', name: 'Lucky Egg', desc: '+15% XP earned while this companion is active.', statKey: 'xpBonusPercent', value: 15 },
+  powerBand: { key: 'powerBand', name: 'Power Band', desc: "+10% to this companion's own power.", statKey: 'petPower', value: 10 },
+  focusSash: { key: 'focusSash', name: 'Focus Sash', desc: '+8% your own crit chance while this companion is active.', statKey: 'critChance', value: 8 },
+  leftovers: { key: 'leftovers', name: 'Leftovers', desc: 'Heals you 3% of max HP each of your turns while this companion is active.', statKey: 'hpRegenPercent', value: 3 },
+  goldenBell: { key: 'goldenBell', name: 'Golden Bell', desc: '+12% gold found while this companion is active.', statKey: 'goldBonusPercent', value: 12 },
+  quickClaw: { key: 'quickClaw', name: 'Quick Claw', desc: '+8% your own dodge chance while this companion is active.', statKey: 'dodgeChance', value: 8 },
+};
+Object.values(HELD_ITEMS).forEach((h) => { h.sprite = `icons/sprites/hld-${h.key}.png`; });
+export const HELD_ITEM_ORDER = Object.keys(HELD_ITEMS);
+
 // Fusion permanently sacrifices one owned companion into another: the
 // target keeps its own sprite/name (prefixed "Fused" — see
 // petDisplayName in state.js) and gains a flat power bump plus, if the
@@ -438,6 +519,52 @@ export function scaleRivalOpponent(base, playerLevel) {
     maxHp: Math.round(base.baseHp * mult), atk: Math.round(base.baseAtk * mult), def: Math.round(base.baseDef * mult),
     xp: Math.round(30 * mult), goldMin: Math.round(40 * mult), goldMax: Math.round(60 * mult),
   };
+}
+
+// A single hireable Mercenary (distinct from the Pet roster) — no XP/
+// leveling of its own, just an upgrade path you pay to advance through
+// (hire Rookie, later pay the difference up to Champion) plus a small
+// Weapon/Armor loadout bought at the same Mercenary Camp section of the
+// Pet Tamer screen. Auto-attacks every round exactly like a pet does,
+// stacking with whichever companion is also active.
+export const MERCENARIES = [
+  { key: 'rookie', name: 'Rookie Mercenary', power: 0.4, price: 150 },
+  { key: 'veteran', name: 'Veteran Mercenary', power: 0.7, price: 400 },
+  { key: 'elite', name: 'Elite Mercenary', power: 1.0, price: 800 },
+  { key: 'champion', name: 'Champion Mercenary', power: 1.4, price: 1500 },
+];
+export const MERC_WEAPONS = {
+  none: { key: 'none', name: 'Bare Fists', atkBonus: 0, price: 0 },
+  ironBlade: { key: 'ironBlade', name: 'Iron Blade', atkBonus: 8, price: 100 },
+  steelBlade: { key: 'steelBlade', name: 'Steel Blade', atkBonus: 16, price: 300 },
+  runicBlade: { key: 'runicBlade', name: 'Runic Blade', atkBonus: 28, price: 700 },
+};
+export const MERC_ARMORS = {
+  none: { key: 'none', name: 'Traveler’s Garb', defBonus: 0, price: 0 },
+  leather: { key: 'leather', name: 'Leather Harness', defBonus: 5, price: 100 },
+  chain: { key: 'chain', name: 'Chainmail', defBonus: 11, price: 300 },
+  plate: { key: 'plate', name: 'Plate Harness', defBonus: 19, price: 700 },
+};
+export const MERC_WEAPON_ORDER = Object.keys(MERC_WEAPONS);
+export const MERC_ARMOR_ORDER = Object.keys(MERC_ARMORS);
+export const MERC_SPRITE = 'icons/sprites/mercenary.png';
+
+// A small elemental effectiveness triangle (fire beats nature, nature beats
+// ice, ice beats fire) — 'physical' and 'void' never trigger a bonus or
+// penalty either way, which keeps the base Attack action (always physical)
+// and half the skill roster simple while still giving Skill choice a real
+// zone-matchup incentive. Resolved against whichever zone the player is
+// physically standing in (see MAPS[id].element) at the moment a Skill is
+// cast — Arena/Boss Rush/Rival fights are fought from Town, which carries
+// no element, so those stay neutral rather than needing every reskinned/
+// scaled enemy def to carry its own element field too.
+export const ELEMENT_ADVANTAGE = { fire: 'nature', nature: 'ice', ice: 'fire' };
+export function elementMultiplier(attackElement, defendElement) {
+  if (!attackElement || !defendElement) return 1;
+  if (attackElement === 'physical' || attackElement === 'void') return 1;
+  if (ELEMENT_ADVANTAGE[attackElement] === defendElement) return 1.5;
+  if (ELEMENT_ADVANTAGE[defendElement] === attackElement) return 0.67;
+  return 1;
 }
 
 export const PLAYER_BASE = {
@@ -510,6 +637,24 @@ export const PLAYER_BASE = {
   // stats, bought repeatedly at the Armory regardless of which piece is
   // equipped.
   enchantLevels: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
+  // Per-slot+key magic affixes and socketed gems (see AFFIXES/GEMS above) —
+  // both permanent upgrades to that key's identity, same shape as
+  // enchantLevels, revealed/applied at identification time by Deckard Cain.
+  gearAffixes: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
+  socketedGems: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
+  // Held Items (see HELD_ITEMS above) stick to one specific companion
+  // permanently: { [petKey]: heldItemKey }. ownedHeldItems is the pool of
+  // chest-found items not currently (or not yet) assigned to anyone.
+  heldItems: {},
+  ownedHeldItems: [],
+  // The hireable Mercenary (distinct from the Pet roster) — -1 means not
+  // hired yet; 0-3 indexes MERCENARIES. No XP/leveling, just its own small
+  // Weapon/Armor loadout bought at the Pet Tamer's Mercenary Camp section.
+  mercTier: -1,
+  mercWeaponKey: 'none',
+  mercArmorKey: 'none',
+  ownedMercWeapons: ['none'],
+  ownedMercArmors: ['none'],
   // Today's 3 Bounty Board objectives and progress toward them; regenerated
   // whenever the real-world date changes. bountyDate is a toDateString().
   bountyDate: null,
@@ -518,9 +663,10 @@ export const PLAYER_BASE = {
   // How many times New Game+ has been started — each cycle scales enemy
   // stats and rewards up further.
   ngPlusLevel: 0,
-  // Gear chest drops land here as { slot, key } instead of going straight
-  // into ownedWeapons/ownedArmors — Deckard Cain in Town identifies them
-  // (for a fee) before you learn what they are and can equip them.
+  // Gear chest drops land here as { slot, key, affixKey? } instead of going
+  // straight into ownedWeapons/ownedArmors — Deckard Cain in Town identifies
+  // them (for a fee) before you learn what they are (and any affix they
+  // came with) and can equip them.
   unidentifiedItems: [],
 };
 
@@ -728,6 +874,22 @@ export const PROGENITOR_EMBER = {
   key: 'progenitorember', name: 'The Progenitor Ember', maxHp: 1340, atk: 80, def: 51, xp: 4050, goldMin: 4050, goldMax: 4050, sprite: 'icons/sprites/progenitorember.png',
 };
 
+// A true secret zone in the "Cow Level" tradition — not linked in via
+// nextMap at all (not even by hand, unlike the Abyssal Depths originally
+// was), so it never shows up in LEVEL_CHAIN, the World Map, the Bestiary,
+// or any "every boss/monster" achievement. Unlocked purely by OWNING the
+// Celestial tier of Charm/Amulet/Ring simultaneously (checked, never
+// consumed — see the Deckard Cain interaction in ui.js), scaled to roughly
+// late-game power since only a player who's already found three of the
+// rarest chest drops in the game could realistically reach it.
+export const FERAL_PASTURES_ENEMIES = {
+  woollyGrazer: { key: 'woollyGrazer', name: 'Woolly Grazer', maxHp: 195, atk: 52, def: 28, xp: 160, goldMin: 145, goldMax: 155, weight: 4, sprite: 'icons/sprites/woollygrazer.png' },
+  strayRam: { key: 'strayRam', name: 'Stray Ram', maxHp: 205, atk: 54, def: 29, xp: 167, goldMin: 150, goldMax: 160, weight: 3, sprite: 'icons/sprites/strayram.png' },
+};
+export const THE_SHEPHERD = {
+  key: 'theshepherd', name: 'The Shepherd', maxHp: 1050, atk: 63, def: 40, xp: 3150, goldMin: 3150, goldMax: 3150, sprite: 'icons/sprites/theshepherd.png',
+};
+
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,
 // ui.js all key off state.mapId instead of hardcoding a single map). Layouts
 // are no longer stored here — mapgen.js procedurally builds a fresh grid for
@@ -743,118 +905,118 @@ export const MAPS = {
     id: 'town', name: 'Emberfall', theme: 'town',
   },
   overworld: {
-    id: 'overworld', name: 'The Emberfall Outskirts', theme: 'overworld', depth: 0,
+    id: 'overworld', name: 'The Emberfall Outskirts', theme: 'overworld', depth: 0, element: 'physical',
     bossEnemy: BOSS, bossFlag: 'bossDefeated', enemyPool: ENEMIES,
     nextMap: { mapId: 'depths' },
     lore: "Where Emberfall's story begins — quiet fields turned dangerous once the Dark Knight made them his.",
   },
   depths: {
-    id: 'depths', name: 'The Ember Depths', theme: 'depths', depth: 1,
+    id: 'depths', name: 'The Ember Depths', theme: 'depths', depth: 1, element: 'void',
     bossEnemy: LICH, bossFlag: 'lichDefeated', enemyPool: DEPTHS_ENEMIES,
     nextMap: { mapId: 'frostreach' },
     lore: 'A collapsed mine turned crypt, where the Lich hoards centuries of stolen light.',
   },
   frostreach: {
-    id: 'frostreach', name: 'The Frostreach', theme: 'frostreach', depth: 2,
+    id: 'frostreach', name: 'The Frostreach', theme: 'frostreach', depth: 2, element: 'ice',
     bossEnemy: GLACIAL_TITAN, bossFlag: 'titanDefeated', enemyPool: FROSTREACH_ENEMIES,
     nextMap: { mapId: 'spire' },
     hazard: { type: 'Frostbite', chance: 0.15, damagePercent: 0.04 },
     lore: 'An endless glacier where the Glacial Titan sleeps beneath the ice, and rarely wakes gently.',
   },
   spire: {
-    id: 'spire', name: "The Dragon's Spire", theme: 'spire', depth: 3,
+    id: 'spire', name: "The Dragon's Spire", theme: 'spire', depth: 3, element: 'fire',
     bossEnemy: ANCIENT_DRAGON, bossFlag: 'dragonDefeated', enemyPool: SPIRE_ENEMIES,
     nextMap: { mapId: 'sunkenruins' },
     lore: 'A volcanic tower home to the Ancient Dragon, coiled atop a hoard older than the town itself.',
   },
   sunkenruins: {
-    id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins', depth: 4,
+    id: 'sunkenruins', name: 'The Sunken Ruins', theme: 'sunkenruins', depth: 4, element: 'nature',
     bossEnemy: DROWNED_QUEEN, bossFlag: 'drownedQueenDefeated', enemyPool: SUNKENRUINS_ENEMIES,
     nextMap: { mapId: 'whisperingwoods' },
     lore: "A drowned city whose Drowned Queen still holds court over halls no one else can breathe in.",
   },
   whisperingwoods: {
-    id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods', depth: 5,
+    id: 'whisperingwoods', name: 'The Whispering Woods', theme: 'whisperingwoods', depth: 5, element: 'nature',
     bossEnemy: ELDER_ENT, bossFlag: 'elderEntDefeated', enemyPool: WHISPERINGWOODS_ENEMIES,
     nextMap: { mapId: 'sandscar' },
     lore: "A forest that listens back — the Elder Ent has stood watch here since before Emberfall had a name.",
   },
   sandscar: {
-    id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar', depth: 6,
+    id: 'sandscar', name: 'The Sandscar Wastes', theme: 'sandscar', depth: 6, element: 'fire',
     bossEnemy: SAND_REAVER, bossFlag: 'sandReaverDefeated', enemyPool: SANDSCAR_ENEMIES,
     nextMap: { mapId: 'volcanic' },
     lore: 'A cracked, sun-blasted waste where the Sand Reaver drags the unwary under the dunes.',
   },
   volcanic: {
-    id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic', depth: 7,
+    id: 'volcanic', name: 'The Volcanic Depths', theme: 'volcanic', depth: 7, element: 'fire',
     bossEnemy: MOLTEN_WYRM, bossFlag: 'moltenWyrmDefeated', enemyPool: VOLCANIC_ENEMIES,
     nextMap: { mapId: 'shatteredpeaks' },
     hazard: { type: 'Scorching heat', chance: 0.15, damagePercent: 0.04 },
     lore: 'Rivers of magma cut through blackened stone, and the Molten Wyrm calls every one of them home.',
   },
   shatteredpeaks: {
-    id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks', depth: 8,
+    id: 'shatteredpeaks', name: 'The Shattered Peaks', theme: 'shatteredpeaks', depth: 8, element: 'ice',
     bossEnemy: STORMGUARD_TITAN, bossFlag: 'stormguardTitanDefeated', enemyPool: SHATTEREDPEAKS_ENEMIES,
     nextMap: { mapId: 'blightmarsh' },
     lore: 'Wind-torn cliffs where the Stormguard Titan commands lightning like a weapon.',
   },
   blightmarsh: {
-    id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh', depth: 9,
+    id: 'blightmarsh', name: 'The Blightmarsh', theme: 'blightmarsh', depth: 9, element: 'nature',
     bossEnemy: ROTLORD, bossFlag: 'rotlordDefeated', enemyPool: BLIGHTMARSH_ENEMIES,
     nextMap: { mapId: 'crystalcaverns' },
     hazard: { type: 'Toxic fumes', chance: 0.15, damagePercent: 0.04 },
     lore: "A poisoned swamp the Rotlord has been quietly spreading for longer than anyone's noticed.",
   },
   crystalcaverns: {
-    id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns', depth: 10,
+    id: 'crystalcaverns', name: 'The Crystal Caverns', theme: 'crystalcaverns', depth: 10, element: 'ice',
     bossEnemy: PRISM_COLOSSUS, bossFlag: 'prismColossusDefeated', enemyPool: CRYSTALCAVERNS_ENEMIES,
     nextMap: { mapId: 'shadowfen' },
     lore: "Light refracts endlessly through these tunnels, and so does the Prism Colossus's patience.",
   },
   shadowfen: {
-    id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen', depth: 11,
+    id: 'shadowfen', name: 'The Shadowfen', theme: 'shadowfen', depth: 11, element: 'void',
     bossEnemy: NIGHTMARE_DRAKE, bossFlag: 'nightmareDrakeDefeated', enemyPool: SHADOWFEN_ENEMIES,
     nextMap: { mapId: 'celestial' },
     lore: 'A fog-choked bog where the Nightmare Drake feeds on whatever dreams wander too close.',
   },
   celestial: {
-    id: 'celestial', name: 'The Celestial Spire', theme: 'celestial', depth: 12,
+    id: 'celestial', name: 'The Celestial Spire', theme: 'celestial', depth: 12, element: 'void',
     bossEnemy: ASTRAL_GUARDIAN, bossFlag: 'astralGuardianDefeated', enemyPool: CELESTIAL_ENEMIES,
     nextMap: { mapId: 'voidrift' },
     lore: "A spire that seems to touch the sky itself, guarded by the Astral Guardian's unblinking watch.",
   },
   voidrift: {
-    id: 'voidrift', name: 'The Void Rift', theme: 'voidrift', depth: 13,
+    id: 'voidrift', name: 'The Void Rift', theme: 'voidrift', depth: 13, element: 'void',
     bossEnemy: WORLD_SERPENT, bossFlag: 'worldSerpentDefeated', enemyPool: VOIDRIFT_ENEMIES,
     nextMap: { mapId: 'ashenwastes' },
     lore: "A tear in the world's fabric, where the World Serpent coils through what shouldn't exist.",
   },
   ashenwastes: {
-    id: 'ashenwastes', name: 'The Ashen Wastes', theme: 'ashenwastes', depth: 14,
+    id: 'ashenwastes', name: 'The Ashen Wastes', theme: 'ashenwastes', depth: 14, element: 'fire',
     bossEnemy: ASHLORD, bossFlag: 'ashlordDefeated', enemyPool: ASHENWASTES_ENEMIES,
     nextMap: { mapId: 'stormcitadel' },
     lore: 'A land burned to cinders long ago — the Ashlord remembers exactly who lit the fire.',
   },
   stormcitadel: {
-    id: 'stormcitadel', name: 'The Storm Citadel', theme: 'stormcitadel', depth: 15,
+    id: 'stormcitadel', name: 'The Storm Citadel', theme: 'stormcitadel', depth: 15, element: 'ice',
     bossEnemy: TEMPEST_KING, bossFlag: 'tempestKingDefeated', enemyPool: STORMCITADEL_ENEMIES,
     nextMap: { mapId: 'bonewastes' },
     lore: 'A fortress built into the eye of a permanent storm, ruled by the Tempest King.',
   },
   bonewastes: {
-    id: 'bonewastes', name: 'The Bone Wastes', theme: 'bonewastes', depth: 16,
+    id: 'bonewastes', name: 'The Bone Wastes', theme: 'bonewastes', depth: 16, element: 'void',
     bossEnemy: BONE_EMPEROR, bossFlag: 'boneEmperorDefeated', enemyPool: BONEWASTES_ENEMIES,
     nextMap: { mapId: 'chaosrift' },
     lore: "A graveyard the size of a kingdom, watched over by the Bone Emperor's silent legions.",
   },
   chaosrift: {
-    id: 'chaosrift', name: 'The Chaos Rift', theme: 'chaosrift', depth: 17,
+    id: 'chaosrift', name: 'The Chaos Rift', theme: 'chaosrift', depth: 17, element: 'void',
     bossEnemy: CHAOS_HARBINGER, bossFlag: 'chaosHarbingerDefeated', enemyPool: CHAOSRIFT_ENEMIES,
     nextMap: { mapId: 'throneofeternity' },
     lore: 'Reality frays at the edges here, and the Chaos Harbinger is only too happy to unravel it further.',
   },
   throneofeternity: {
-    id: 'throneofeternity', name: 'The Throne of Eternity', theme: 'throneofeternity', depth: 18,
+    id: 'throneofeternity', name: 'The Throne of Eternity', theme: 'throneofeternity', depth: 18, element: 'void',
     bossEnemy: ETERNAL_SOVEREIGN, bossFlag: 'eternalSovereignDefeated', enemyPool: THRONEOFETERNITY_ENEMIES,
     // No nextMap — defeating the Eternal Sovereign is the true ending.
     lore: 'The final seat of power — the Eternal Sovereign has held this throne since before memory.',
@@ -866,25 +1028,33 @@ export const MAPS = {
   // the post-game chain (sunlessexpanse, firstflame) opens up exactly like
   // any other level's boss fight would.
   abyssaldepths: {
-    id: 'abyssaldepths', name: 'The Abyssal Depths', theme: 'abyssaldepths', depth: 19,
+    id: 'abyssaldepths', name: 'The Abyssal Depths', theme: 'abyssaldepths', depth: 19, element: 'void',
     bossEnemy: FORMLESS_KING, bossFlag: 'formlessKingDefeated', enemyPool: ABYSSAL_ENEMIES,
     nextMap: { mapId: 'sunlessexpanse' },
     hazard: { type: 'The Abyss itself', chance: 0.15, damagePercent: 0.05 },
     lore: 'A trench beneath everything else, opened only after the Sovereign falls — the Formless King was waiting.',
   },
   sunlessexpanse: {
-    id: 'sunlessexpanse', name: 'The Sunless Expanse', theme: 'sunlessexpanse', depth: 20,
+    id: 'sunlessexpanse', name: 'The Sunless Expanse', theme: 'sunlessexpanse', depth: 20, element: 'void',
     bossEnemy: DUSKBOUND_TYRANT, bossFlag: 'duskboundTyrantDefeated', enemyPool: SUNLESS_ENEMIES,
     nextMap: { mapId: 'firstflame' },
     hazard: { type: 'Crushing darkness', chance: 0.15, damagePercent: 0.05 },
     lore: 'A lightless plain past even the Abyss, where the Duskbound Tyrant rules an audience of none.',
   },
   firstflame: {
-    id: 'firstflame', name: 'The First Flame', theme: 'firstflame', depth: 21,
+    id: 'firstflame', name: 'The First Flame', theme: 'firstflame', depth: 21, element: 'fire',
     bossEnemy: PROGENITOR_EMBER, bossFlag: 'progenitorEmberDefeated', enemyPool: FIRSTFLAME_ENEMIES,
     // No nextMap — the chain's true end, for now.
     hazard: { type: 'Searing embers', chance: 0.15, damagePercent: 0.05 },
     lore: 'The very ember Emberfall is named for, still burning — the Progenitor Ember guards what started it all.',
+  },
+  // Not part of the normal chain at all -- no nextMap points here, and it
+  // has none of its own, so LEVEL_CHAIN's walk never reaches it. Reached
+  // only via the Town button unlocked at Deckard Cain (see ui.js).
+  feralpastures: {
+    id: 'feralpastures', name: 'The Feral Pastures', theme: 'feralpastures', depth: 18, element: 'nature',
+    bossEnemy: THE_SHEPHERD, bossFlag: 'shepherdDefeated', enemyPool: FERAL_PASTURES_ENEMIES,
+    lore: 'A hidden pasture that shouldn’t exist — the flock looks harmless right up until it isn’t.',
   },
 };
 

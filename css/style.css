@@ -241,6 +241,12 @@ html, body {
   background-color: transparent;
   margin-top: 0;
 }
+.merc-sprite {
+  width: 48px;
+  height: 48px;
+  background-color: transparent;
+  margin-top: 0;
+}
 .chest-card { align-items: center; text-align: center; }
 .chest-sprite {
   width: 96px;
@@ -404,7 +410,7 @@ html, body {
 .inventory-tile-name { font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.15; }
 .inventory-tile-stat { font-size: 0.68rem; color: var(--text-dim); }
 .inventory-tile-badge { font-size: 0.65rem; color: var(--gold-bright); font-weight: 700; }
-.inventory-tile-ring-btns { display: flex; gap: 4px; width: 100%; }
+.inventory-tile-ring-btns { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
 .inventory-tile-ring-btns .btn { flex: 1; font-size: 0.65rem; padding: 4px 2px; min-height: 26px; }
 
 /* ---------- Inventory paper doll (Diablo-style equipment layout) ---------- */

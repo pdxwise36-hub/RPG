@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v41';
+const CACHE_NAME = 'emberfall-v42';
 const ASSETS = [
   './',
   './index.html',
@@ -93,6 +93,10 @@ const ASSETS = [
   './icons/sprites/emberwraith.png',
   './icons/sprites/cinderfiend.png',
   './icons/sprites/progenitorember.png',
+  './icons/sprites/woollygrazer.png',
+  './icons/sprites/strayram.png',
+  './icons/sprites/theshepherd.png',
+  './icons/sprites/mercenary.png',
   './icons/sprites/wpn-rustySword.png',
   './icons/sprites/wpn-ironSword.png',
   './icons/sprites/wpn-steelBlade.png',
@@ -176,6 +180,12 @@ const ASSETS = [
   './icons/sprites/rng-stormRing.png',
   './icons/sprites/rng-voidRing.png',
   './icons/sprites/rng-celestialRing.png',
+  './icons/sprites/hld-luckyEgg.png',
+  './icons/sprites/hld-powerBand.png',
+  './icons/sprites/hld-focusSash.png',
+  './icons/sprites/hld-leftovers.png',
+  './icons/sprites/hld-goldenBell.png',
+  './icons/sprites/hld-quickClaw.png',
 ];
 
 self.addEventListener('install', (event) => {
