@@ -1977,6 +1977,24 @@ function buildInstanceRow(instance, opts = {}) {
       });
       row.appendChild(addBtn);
     }
+
+    // A direct shortcut into Fusion for whichever companion you're already
+    // looking at — this instance becomes the Base (the one that keeps
+    // fighting), and the next screen picks a different owned companion
+    // (same species duplicates and Tamer-bought pets both count) to
+    // sacrifice as Material. The separate top-level "Fuse Companions" entry
+    // still exists for starting from scratch instead.
+    if (p.pets.length >= 2) {
+      const fuseBtn = document.createElement('button');
+      fuseBtn.className = 'btn btn-small';
+      fuseBtn.textContent = 'Fuse';
+      fuseBtn.addEventListener('click', () => {
+        fusionBaseId = instance.id;
+        tamerView = 'fusionMaterial';
+        renderTamer();
+      });
+      row.appendChild(fuseBtn);
+    }
   }
   return row;
 }
