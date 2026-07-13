@@ -648,6 +648,15 @@ export const PLAYER_BASE = {
   ownedRings: [],
   knownSkills: ['fireball'],
   ownedPets: [],
+  // The active companion party, in slot order — index 0 is the "leader"
+  // (the one Rally/Fusion/the battle-screen main portrait use), up to
+  // PARTY_SIZE total. activePetKey always mirrors partyKeys[0] (or null if
+  // the party is empty) so every existing single-pet call site (Rally,
+  // Fusion, the main battle sprite, the Status screen's headline Pet row)
+  // keeps working unchanged — the rest of the party (partyKeys[1+]) each
+  // land their own auto-hit alongside the leader instead of just one pet
+  // fighting at a time.
+  partyKeys: [],
   activePetKey: null,
   petProgress: {},
   charmKey: 'none',
@@ -1347,6 +1356,11 @@ export function makeElite(enemyDef) {
 export const PET_ENERGY_MAX = 100;
 export const PET_ENERGY_PER_HIT = 25;
 export const PET_SKILL_MULTIPLIER = 2.5;
+
+// Up to this many companions can be in the active party at once (see
+// player.partyKeys) — every member lands its own auto-hit each round, not
+// just the party leader (partyKeys[0]).
+export const PARTY_SIZE = 5;
 
 // Bounty Board objective templates — 3 are rolled fresh each real-world day.
 // `progressKey` names which counter in player.bountyProgress to read.

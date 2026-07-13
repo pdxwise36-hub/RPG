@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, PARTY_SIZE, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -232,6 +232,23 @@ function renderBattle() {
     energyTrack.classList.add('hidden');
   }
 
+  // Support party members (partyKeys[1+]) each get a small icon of their
+  // own alongside the leader's main pet-sprite — every one of them lands
+  // its own hit each round (see petAttacks in battle.js), not just the
+  // leader.
+  const partyEl = el('party-sprites');
+  partyEl.innerHTML = '';
+  p.partyKeys.slice(1).forEach((petKey) => {
+    const pet = ALL_PET_DEFS[petKey];
+    if (!pet) return;
+    const icon = document.createElement('div');
+    icon.className = 'sprite party-pet-sprite';
+    icon.style.backgroundImage = `url('${pet.sprite}')`;
+    icon.classList.toggle('pet-evolved', petIsEvolved(p, petKey));
+    icon.classList.toggle('pet-shiny', petIsShiny(p, petKey));
+    partyEl.appendChild(icon);
+  });
+
   const mercEl = el('merc-sprite');
   if (p.mercTier >= 0) {
     mercEl.style.backgroundImage = `url('${MERC_SPRITE}')`;
@@ -294,14 +311,15 @@ function resolveBattleEnd() {
     const rewards = grantRewards(state, battle.enemy);
     let msg = `Won ${rewards.goldWon}G and ${rewards.xpWon} XP.`;
     if (rewards.leveledUp) msg += ` Level up! Now Lv. ${p.level}.`;
-    if (rewards.petLeveledUp) {
-      const pet = ALL_PET_DEFS[p.activePetKey];
-      const newLevel = petLevel(p, p.activePetKey);
+    // Every party member levels from the same kill (see grantRewards), so
+    // this announces each one that leveled up, not just the leader.
+    rewards.petLevelUps.forEach(({ petKey, levels, newLevel }) => {
+      const pet = ALL_PET_DEFS[petKey];
       msg += ` ${pet.name} is now Lv. ${newLevel}!`;
-      if (newLevel >= PET_EVOLVE_LEVEL && newLevel - rewards.petLevels < PET_EVOLVE_LEVEL) {
-        msg += ` ${pet.name} evolved into ${petDisplayName(p, p.activePetKey)}!`;
+      if (newLevel >= PET_EVOLVE_LEVEL && newLevel - levels < PET_EVOLVE_LEVEL) {
+        msg += ` ${pet.name} evolved into ${petDisplayName(p, petKey)}!`;
       }
-    }
+    });
     if (battle.isBossRush) {
       // Boss Rush reuses boss defs but skips per-level unlock/victory logic
       // entirely — it's a separate challenge mode, not real progression.
@@ -747,6 +765,12 @@ function renderStatus() {
       <span class="bar-text">${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP</span>
     </div>
   ` : '';
+  // Every support member (partyKeys beyond the leader) fights alongside the
+  // leader each round — see petAttacks in battle.js.
+  const supportNames = p.partyKeys.slice(1).map((k) => `${petDisplayName(p, k)} (Lv. ${petLevel(p, k)})`);
+  const partyRow = supportNames.length > 0 ? `
+    <div class="status-row"><span>Party (${p.partyKeys.length}/${PARTY_SIZE})</span><span>${supportNames.join(', ')}</span></div>
+  ` : '';
   body.innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
@@ -762,7 +786,8 @@ function renderStatus() {
     <div class="status-row"><span>Difficulty</span><span>${difficultyByKey(p.difficulty).name}${p.ngPlusLevel > 0 ? ` (NG+${p.ngPlusLevel})` : ''}</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
-    <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${petDisplayName(p, p.activePetKey)} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
+    <div class="status-row"><span>Party Leader</span><span>${p.activePetKey ? `${petDisplayName(p, p.activePetKey)} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
+    ${partyRow}
     ${petDamageRow}
     ${petAbilityRow}
     ${heldItemRow}
@@ -841,9 +866,10 @@ function buildInventoryTile(gear, slot) {
   const cfg = GEAR_SLOTS[slot];
   const tile = document.createElement('button');
   tile.className = 'inventory-tile';
+  const qualityClass = itemQualityClass(slot, gear.key, p);
   tile.innerHTML = `
     <div class="inventory-tile-icon" style="background-image:url('${gear.sprite}')"></div>
-    <span class="inventory-tile-name">${gear.name}</span>
+    <span class="inventory-tile-name ${qualityClass}">${gear.name}</span>
     <span class="inventory-tile-stat">${gearStatLabel(slot, gear)}</span>
   `;
   tile.addEventListener('click', () => {
@@ -1222,6 +1248,22 @@ const ENCHANT_STAT_LABELS = {
 // A stat bonus (see ENCHANT_STATS) per owned gear key, stacked regardless of
 // which piece is currently equipped — a gold sink and a reason to keep
 // favorite gear instead of only ever buying the next tier.
+// A quick color-coded way to tell a piece's quality at a glance, classic
+// ARPG-style, without having to read its full description every time —
+// derived entirely from existing signals (no new data needed): Legendary
+// (its LEGENDARIES slot+key, once earned) beats Set (belongs to a
+// SET_BONUSES piece list) beats Magic (has a rolled Affix) beats Normal
+// (none of the above). A piece can genuinely be more than one at once (e.g.
+// a Legendary weapon that's also a Set piece) — Legendary is called out as
+// the rarest, matching how buildArmoryRow already prioritizes its name.
+function itemQualityClass(slot, key, player) {
+  const isLegendary = LEGENDARIES[slot] && LEGENDARIES[slot].key === key && player.ownedLegendaries.includes(slot);
+  if (isLegendary) return 'item-quality-legendary';
+  if (setForPiece(key)) return 'item-quality-set';
+  if (player.gearAffixes[slot] && player.gearAffixes[slot][key]) return 'item-quality-magic';
+  return 'item-quality-normal';
+}
+
 function buildEnchantRow(item, slot) {
   const p = state.player;
   const level = enchantLevel(p, slot, item.key);
@@ -1229,13 +1271,14 @@ function buildEnchantRow(item, slot) {
   const statLine = Object.entries(ENCHANT_STATS[slot])
     .map(([statKey, perLevel]) => ENCHANT_STAT_LABELS[statKey](level * perLevel))
     .join(', ');
+  const qualityClass = itemQualityClass(slot, item.key, p);
 
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${item.name}</span>
+      <span class="shop-item-name ${qualityClass}">${item.name}</span>
       <span class="shop-item-desc">${statLine} (${level}/${ENCHANT_MAX_LEVEL})</span>
     </div>
   `;
@@ -1275,10 +1318,11 @@ function buildArmoryRow(item, slot) {
   const affix = affixKey && AFFIXES[affixKey];
   const sockets = socketCount(slot, item.key);
   const legendary = LEGENDARIES[slot] && LEGENDARIES[slot].key === item.key && p.ownedLegendaries.includes(slot) ? LEGENDARIES[slot] : null;
+  const qualityClass = itemQualityClass(slot, item.key, p);
   row.innerHTML = `
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
-      <span class="shop-item-name">${legendary ? legendary.name : item.name}${affix ? ` ${affix.name}` : ''}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
+      <span class="shop-item-name ${qualityClass}">${legendary ? legendary.name : item.name}${affix ? ` ${affix.name}` : ''}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
       <span class="shop-item-desc">${gearStatLabel(slot, item)}${affix ? `, ${SET_STAT_LABELS[affix.statKey](affix.value)}` : ''}${legendary ? `, ${SET_STAT_LABELS[legendary.statKey](legendary.value)}` : ''}${sockets > 0 ? ` — ${sockets} Socket` : ''} — ${owned ? 'Owned' : priceLabel}</span>
     </div>
   `;
@@ -1635,18 +1679,19 @@ function renderTamer() {
   noneRow.className = 'shop-item';
   noneRow.innerHTML = `
     <div class="shop-item-info">
-      <span class="shop-item-name">No Pet</span>
-      <span class="shop-item-desc">Fight alone</span>
+      <span class="shop-item-name">No Party</span>
+      <span class="shop-item-desc">Fight alone — up to ${PARTY_SIZE} companions can fight together (${p.partyKeys.length}/${PARTY_SIZE} in your party)</span>
     </div>
   `;
   const noneBtn = document.createElement('button');
   noneBtn.className = 'btn btn-small';
-  if (!p.activePetKey) {
+  if (p.partyKeys.length === 0) {
     noneBtn.textContent = 'Active';
     noneBtn.disabled = true;
   } else {
-    noneBtn.textContent = 'Select';
+    noneBtn.textContent = 'Clear Party';
     noneBtn.addEventListener('click', () => {
+      p.partyKeys = [];
       p.activePetKey = null;
       autosave();
       renderTamer();
@@ -1807,10 +1852,15 @@ function buildMercGearRow(item, label, ownedList, ownedField, equipField) {
   return row;
 }
 
-// Any owned companion (bought or caught) — Select/Active only, no buy flow.
+// Any owned companion (bought or caught) — party management (Leader/In
+// Party/Add to Party/Remove/Make Leader) plus Fuse, no buy flow. Up to
+// PARTY_SIZE companions can be in the party at once, all fighting together;
+// slot 0 (the "Leader") is the one Rally/Fusion/the main battle sprite use.
 function buildCompanionRow(pet) {
   const p = state.player;
-  const isActive = p.activePetKey === pet.key;
+  const isLeader = p.activePetKey === pet.key;
+  const inParty = p.partyKeys.includes(pet.key);
+  const partyFull = p.partyKeys.length >= PARTY_SIZE;
   const level = petLevel(p, pet.key);
   const evolved = petIsEvolved(p, pet.key);
   const shiny = petIsShiny(p, pet.key);
@@ -1821,6 +1871,7 @@ function buildCompanionRow(pet) {
     : null;
   const fusion = p.fusionBonus && p.fusionBonus[pet.key];
   const fusionLabel = fusion && fusion.power ? ` — +${fusion.power}% from Fusion` : '';
+  const partyLabel = isLeader ? ' — Leader' : inParty ? ' — In Party' : '';
 
   const row = document.createElement('div');
   row.className = 'shop-item';
@@ -1829,25 +1880,50 @@ function buildCompanionRow(pet) {
     <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${petDisplayName(p, pet.key)}</span>
-      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}${fusionLabel}</span>
+      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${pet.zoneName ? ` (caught in ${pet.zoneName})` : ''}${abilityLabel ? ` — ${abilityLabel}` : ''}${fusionLabel}${partyLabel}</span>
     </div>
   `;
-  if (isActive) {
+  if (isLeader) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-small';
-    btn.textContent = 'Active';
+    btn.textContent = 'Leader';
     btn.disabled = true;
     row.appendChild(btn);
-  } else {
-    const selectBtn = document.createElement('button');
-    selectBtn.className = 'btn btn-small';
-    selectBtn.textContent = 'Select';
-    selectBtn.addEventListener('click', () => {
+  } else if (inParty) {
+    const leaderBtn = document.createElement('button');
+    leaderBtn.className = 'btn btn-small';
+    leaderBtn.textContent = 'Make Leader';
+    leaderBtn.addEventListener('click', () => {
+      p.partyKeys = [pet.key, ...p.partyKeys.filter((k) => k !== pet.key)];
       p.activePetKey = pet.key;
       autosave();
       renderTamer();
     });
-    row.appendChild(selectBtn);
+    row.appendChild(leaderBtn);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-small';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      p.partyKeys = p.partyKeys.filter((k) => k !== pet.key);
+      p.activePetKey = p.partyKeys[0] || null;
+      autosave();
+      renderTamer();
+    });
+    row.appendChild(removeBtn);
+  } else {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-small';
+    addBtn.textContent = partyFull ? 'Party Full' : 'Add to Party';
+    addBtn.disabled = partyFull;
+    addBtn.addEventListener('click', () => {
+      if (p.partyKeys.length >= PARTY_SIZE) return;
+      p.partyKeys.push(pet.key);
+      if (!p.activePetKey) p.activePetKey = p.partyKeys[0];
+      autosave();
+      renderTamer();
+    });
+    row.appendChild(addBtn);
 
     if (p.activePetKey) {
       const fuseBtn = document.createElement('button');
@@ -1886,6 +1962,11 @@ function fuseCompanions(p, sacrificeKey, targetKey) {
   }
   p.ownedPets = p.ownedPets.filter((k) => k !== sacrificeKey);
   delete p.petProgress[sacrificeKey];
+  // The sacrifice can no longer be in the party once it's gone — drop it
+  // from partyKeys too, promoting targetKey to Leader if it was the leader
+  // being fused away (shouldn't normally happen since Fuse only appears on
+  // non-leader rows, but kept correct either way).
+  p.partyKeys = (p.partyKeys || []).filter((k) => k !== sacrificeKey);
   if (p.activePetKey === sacrificeKey) p.activePetKey = targetKey;
   p.fusionCount = (p.fusionCount || 0) + 1;
 }
@@ -1944,7 +2025,10 @@ function buildTamerRow(pet) {
     p.ownedPets.push(pet.key);
     const shiny = Math.random() < SHINY_CHANCE;
     if (shiny) p.shinyPets.push(pet.key);
-    p.activePetKey = pet.key;
+    if (p.partyKeys.length < PARTY_SIZE) {
+      p.partyKeys.push(pet.key);
+      if (!p.activePetKey) p.activePetKey = p.partyKeys[0];
+    }
     autosave();
     if (shiny) showToast(`It's Shiny! ${petDisplayName(p, pet.key)} joined your team!`, 2800);
     renderTamer();

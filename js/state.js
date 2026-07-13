@@ -88,6 +88,16 @@ export function fromSaveObject(saved) {
     // replace enchantLevels and drop the newer slots' empty defaults.
     enchantLevels: { ...PLAYER_BASE.enchantLevels, ...saved.player.enchantLevels },
   };
+  // Migrate pre-Party saves: old shape only ever had a single activePetKey,
+  // no partyKeys array at all — carry that one companion over as a 1-member
+  // party rather than losing it. Newer saves already have their own
+  // partyKeys, which the spread above preserved.
+  if ((!player.partyKeys || player.partyKeys.length === 0) && saved.player.activePetKey) {
+    player.partyKeys = [saved.player.activePetKey];
+  }
+  // activePetKey is always partyKeys[0] (or null) — reassert this on load in
+  // case a save was hand-edited or predates the invariant.
+  player.activePetKey = player.partyKeys.length > 0 ? player.partyKeys[0] : null;
   // Migrate pre-equipment saves: old shape had flat atk/def instead of
   // baseAtk/baseDef, and no weapon/armor keys. Carry the old totals over as
   // the new base stats so returning players don't get quietly nerfed.
@@ -433,19 +443,31 @@ export function skillPowerBonus(player) {
   return setBonusValue(player, 'skillPowerBonus');
 }
 
-// Returns the % value of `abilityKey` if the currently active companion has
-// learned it (i.e. it's their assigned ability and they've reached
-// COMPANION_ABILITY_LEVEL) — 0 otherwise, so every call site can just add
-// this straight onto the matching player stat.
-export function companionAbilityBonus(player, abilityKey) {
-  const key = player.activePetKey;
-  const pet = key && ALL_PET_DEFS[key];
+// The % value of `abilityKey` for one SPECIFIC companion (own ability, or
+// gained through fusion) if it's reached COMPANION_ABILITY_LEVEL — 0
+// otherwise. Used for on-hit effects that belong to whichever single
+// companion actually landed the hit (Vampiric's heal, Blessed's Rally gold
+// bonus) rather than the whole party's combined total.
+export function petOwnAbilityBonus(player, petKey, abilityKey) {
+  const pet = petKey && ALL_PET_DEFS[petKey];
   if (!pet) return 0;
-  const fusion = player.fusionBonus && player.fusionBonus[key];
+  const fusion = player.fusionBonus && player.fusionBonus[petKey];
   const hasAbility = pet.ability === abilityKey || (fusion && fusion.extraAbilities && fusion.extraAbilities.includes(abilityKey));
   if (!hasAbility) return 0;
-  if (petLevel(player, key) < COMPANION_ABILITY_LEVEL) return 0;
+  if (petLevel(player, petKey) < COMPANION_ABILITY_LEVEL) return 0;
   return COMPANION_ABILITIES[abilityKey].value;
+}
+
+// Sums `abilityKey`'s value across every companion CURRENTLY in the party
+// (not just the leader) who's learned it — a full team of Guardians/Swifts/
+// Berserkers/Blessed genuinely adds up, since these all feed player-facing
+// rolls (dodge, crit, damage reduction, gold/XP find) rather than being tied
+// to one specific hit. On-hit effects (Vampiric heal, Blessed's Rally
+// bonus) intentionally use petOwnAbilityBonus above instead, so a hit from
+// one companion doesn't double-count another's.
+export function companionAbilityBonus(player, abilityKey) {
+  const keys = (player.partyKeys && player.partyKeys.length > 0) ? player.partyKeys : (player.activePetKey ? [player.activePetKey] : []);
+  return keys.reduce((sum, key) => sum + petOwnAbilityBonus(player, key, abilityKey), 0);
 }
 
 // Every distinct ability a companion currently has — its own assigned one

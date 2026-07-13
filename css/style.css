@@ -247,6 +247,25 @@ html, body {
   background-color: transparent;
   margin-top: 0;
 }
+.party-sprites {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  min-height: 0;
+}
+.party-pet-sprite {
+  width: 28px;
+  height: 28px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 76%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  margin-top: 0;
+}
 .chest-card { align-items: center; text-align: center; }
 .chest-sprite {
   width: 96px;
@@ -382,6 +401,14 @@ html, body {
   filter: saturate(1.5) brightness(1.2);
 }
 .achievement-status { font-size: 0.8rem; color: var(--text-dim); white-space: nowrap; }
+
+/* Item quality — a quick color-coded read on a piece at a glance, classic
+   ARPG convention: Normal (plain) -> Magic (has a rolled Affix) -> Set
+   (belongs to a gear Set) -> Legendary (a fixed boss-drop), rarest last. */
+.item-quality-normal { color: var(--text); }
+.item-quality-magic { color: #5b9dff; }
+.item-quality-set { color: #3ecf6e; }
+.item-quality-legendary { color: #ff9d3d; font-weight: 700; }
 
 .inventory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
 .inventory-tile {
