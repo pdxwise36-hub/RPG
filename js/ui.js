@@ -1857,6 +1857,24 @@ function buildSpeciesRow(pet) {
     renderTamer();
   });
   row.appendChild(btn);
+
+  // A direct Fuse shortcut right on the species summary row — so it's
+  // visible at a glance instead of only appearing after tapping Manage.
+  // Defaults to this species' own best (highest-level) copy as the Base,
+  // protecting it automatically; picking a specific other instance to keep
+  // instead is still possible via Manage.
+  if (p.pets.length >= 2) {
+    const fuseBtn = document.createElement('button');
+    fuseBtn.className = 'btn btn-small';
+    fuseBtn.textContent = 'Fuse';
+    fuseBtn.addEventListener('click', () => {
+      const best = instances.slice().sort((a, b) => b.level - a.level)[0];
+      fusionBaseId = best.id;
+      tamerView = 'fusionMaterial';
+      renderTamer();
+    });
+    row.appendChild(fuseBtn);
+  }
   return row;
 }
 
