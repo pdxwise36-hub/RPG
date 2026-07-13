@@ -585,12 +585,13 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body', abilities: 'abilities-body', codex: 'codex-body' };
+const STATUS_TABS = { status: 'status-body', party: 'party-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body', abilities: 'abilities-body', codex: 'codex-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
     el(bodyId).classList.toggle('hidden', key !== tab);
   });
+  if (tab === 'party') renderParty();
   if (tab === 'bestiary') renderBestiary();
   if (tab === 'achievements') renderAchievements();
   if (tab === 'legacy') renderLegacy();
@@ -743,34 +744,9 @@ function renderStatus() {
   el('status-name').textContent = `${playerDisplayName(p)} — Lv. ${p.level}`;
   const body = el('status-body');
 
-  const petProgress = p.activePetKey ? petXpProgress(p, p.activePetKey) : null;
-  const activePetPower = p.activePetKey ? petEffectivePower(p, p.activePetKey) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p) + gearPetPowerBonus(p) + heldItemPetPowerBonus(p, p.activePetKey)) / 100) : 0;
-  const petDamageRow = p.activePetKey ? `
-    <div class="status-row"><span>Pet Damage</span><span>${Math.max(1, Math.round(effectiveAtk(p) * activePetPower))} per hit (+${Math.round(activePetPower * 100)}% ATK)</span></div>
-  ` : '';
-  const heldItemKey = p.activePetKey && p.heldItems[p.activePetKey];
-  const heldItemRow = heldItemKey ? `
-    <div class="status-row"><span>Held Item</span><span>${HELD_ITEMS[heldItemKey].name}</span></div>
-  ` : '';
-  // Fusion can grant a companion more than one ability, so this lists all
-  // of them (its own plus anything fused in) rather than just the one.
-  const activeAbilities = p.activePetKey ? petAbilities(p, p.activePetKey).map((k) => COMPANION_ABILITIES[k]) : [];
-  const abilityUnlocked = p.activePetKey && petLevel(p, p.activePetKey) >= COMPANION_ABILITY_LEVEL;
-  const petAbilityRow = activeAbilities.length > 0 ? `
-    <div class="status-row"><span>Pet Abilit${activeAbilities.length > 1 ? 'ies' : 'y'}</span><span>${abilityUnlocked ? activeAbilities.map((a) => a.name).join(', ') : `${activeAbilities.map((a) => a.name).join(', ')} (unlocks at Lv. ${COMPANION_ABILITY_LEVEL})`}</span></div>
-  ` : '';
-  const petBar = petProgress ? `
-    <div class="bar-track pet-xp">
-      <div class="bar-fill" style="width:${Math.round((petProgress.xpIntoLevel / petProgress.xpNeeded) * 100)}%"></div>
-      <span class="bar-text">${petProgress.xpIntoLevel}/${petProgress.xpNeeded} XP</span>
-    </div>
-  ` : '';
-  // Every support member (partyKeys beyond the leader) fights alongside the
-  // leader each round — see petAttacks in battle.js.
-  const supportNames = p.partyKeys.slice(1).map((k) => `${petDisplayName(p, k)} (Lv. ${petLevel(p, k)})`);
-  const partyRow = supportNames.length > 0 ? `
-    <div class="status-row"><span>Party (${p.partyKeys.length}/${PARTY_SIZE})</span><span>${supportNames.join(', ')}</span></div>
-  ` : '';
+  // Everything companion-specific (party roster, per-pet damage/ability/XP,
+  // Companion Charm, Mercenary) now lives in its own Party tab instead of
+  // crowding this one — see renderParty below.
   body.innerHTML = `
     <div class="status-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
     <div class="status-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
@@ -786,14 +762,6 @@ function renderStatus() {
     <div class="status-row"><span>Difficulty</span><span>${difficultyByKey(p.difficulty).name}${p.ngPlusLevel > 0 ? ` (NG+${p.ngPlusLevel})` : ''}</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
-    <div class="status-row"><span>Party Leader</span><span>${p.activePetKey ? `${petDisplayName(p, p.activePetKey)} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
-    ${partyRow}
-    ${petDamageRow}
-    ${petAbilityRow}
-    ${heldItemRow}
-    ${petBar}
-    <div class="status-row"><span>Companion Charm</span><span>${CHARMS[p.charmKey].name}${charmPowerBonus(p) > 0 ? ` (+${charmPowerBonus(p)}% pet damage)` : ''}</span></div>
-    <div class="status-row"><span>Mercenary</span><span>${p.mercTier >= 0 ? `${MERCENARIES[p.mercTier].name} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)` : 'None hired'}</span></div>
     <div class="status-row"><span>Monsters Caught</span><span>${p.ownedPets.filter((k) => CAPTURABLE_KEYS.has(k)).length}/${CAPTURABLE_MONSTERS.length}</span></div>
   `;
 
@@ -812,10 +780,77 @@ function renderStatus() {
   CONSUMABLE_ITEMS.forEach((item) => body.appendChild(buildStatusItemRow(item.key)));
   body.appendChild(buildTownScrollRow());
   CAPTURE_ITEMS.forEach((item) => body.appendChild(buildStatusCaptureRow(item.key)));
+}
 
-  // Charms can be swapped right here — no trip to the Pet Tamer needed.
+// ---------- Party tab ----------
+// One card per party member (Leader first, then Support), each showing its
+// own level/XP/damage/ability/held item — pulled out of the main Status tab
+// so that one isn't crowded with per-pet detail, especially now that up to
+// PARTY_SIZE companions can be active at once instead of just one.
+function renderParty() {
+  const p = state.player;
+  const body = el('party-body');
+  body.innerHTML = '';
+
+  body.appendChild(sectionHeading(`Party (${p.partyKeys.length}/${PARTY_SIZE})`));
+  if (p.partyKeys.length === 0) {
+    const row = document.createElement('div');
+    row.className = 'status-row';
+    row.innerHTML = '<span>No companions in your party.</span><span>See the Pet Tamer in Town.</span>';
+    body.appendChild(row);
+  } else {
+    p.partyKeys.forEach((petKey, i) => body.appendChild(buildPartyMemberCard(petKey, i === 0)));
+  }
+
   body.appendChild(sectionHeading('Companion Charm'));
-  CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => body.appendChild(buildCharmRow(CHARMS[key], renderStatus)));
+  const charmSummary = document.createElement('div');
+  charmSummary.className = 'status-row';
+  charmSummary.innerHTML = `<span>Equipped</span><span>${CHARMS[p.charmKey].name}${charmPowerBonus(p) > 0 ? ` (+${charmPowerBonus(p)}% pet damage, whole party)` : ''}</span>`;
+  body.appendChild(charmSummary);
+  CHARM_ORDER.filter((key) => p.ownedCharms.includes(key)).forEach((key) => body.appendChild(buildCharmRow(CHARMS[key], renderParty)));
+
+  body.appendChild(sectionHeading('Mercenary'));
+  const mercRow = document.createElement('div');
+  mercRow.className = 'status-row';
+  mercRow.innerHTML = `<span>Hired</span><span>${p.mercTier >= 0 ? `${MERCENARIES[p.mercTier].name} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)` : 'None'}</span>`;
+  body.appendChild(mercRow);
+}
+
+// One party member's full card: sprite, name (with Leader tag/Shiny/Evolved
+// styling), level, per-hit damage, ability (locked or unlocked), any Held
+// Item, any Fusion bonus, and its own XP bar.
+function buildPartyMemberCard(petKey, isLeader) {
+  const p = state.player;
+  const pet = ALL_PET_DEFS[petKey];
+  const level = petLevel(p, petKey);
+  const evolved = petIsEvolved(p, petKey);
+  const shiny = petIsShiny(p, petKey);
+  const power = petEffectivePower(p, petKey) * (1 + (charmPowerBonus(p) + petPowerSetBonus(p) + gearPetPowerBonus(p) + heldItemPetPowerBonus(p, petKey)) / 100);
+  const dmg = Math.max(1, Math.round(effectiveAtk(p) * power));
+  const abilities = petAbilities(p, petKey).map((k) => COMPANION_ABILITIES[k]);
+  const abilityUnlocked = level >= COMPANION_ABILITY_LEVEL;
+  const abilityLabel = abilities.length > 0
+    ? (abilityUnlocked ? abilities.map((a) => a.name).join(', ') : `${abilities.map((a) => a.name).join(', ')} (unlocks at Lv. ${COMPANION_ABILITY_LEVEL})`)
+    : null;
+  const heldItemKey = p.heldItems[petKey];
+  const fusion = p.fusionBonus && p.fusionBonus[petKey];
+  const progress = petXpProgress(p, petKey);
+
+  const card = document.createElement('div');
+  card.className = 'shop-item';
+  const iconClass = `${evolved ? ' pet-evolved' : ''}${shiny ? ' pet-shiny' : ''}`;
+  card.innerHTML = `
+    <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
+    <div class="shop-item-info">
+      <span class="shop-item-name">${petDisplayName(p, petKey)}${isLeader ? ' <span class="bestiary-caught">(Leader)</span>' : ''}</span>
+      <span class="shop-item-desc">Lv. ${level} — ${dmg} dmg/hit (+${Math.round(power * 100)}% ATK)${abilityLabel ? ` — ${abilityLabel}` : ''}${heldItemKey ? ` — Holding ${HELD_ITEMS[heldItemKey].name}` : ''}${fusion && fusion.power ? ` — +${fusion.power}% from Fusion` : ''}</span>
+      <div class="bar-track pet-xp">
+        <div class="bar-fill" style="width:${Math.round((progress.xpIntoLevel / progress.xpNeeded) * 100)}%"></div>
+        <span class="bar-text">${progress.xpIntoLevel}/${progress.xpNeeded} XP</span>
+      </div>
+    </div>
+  `;
+  return card;
 }
 
 // Diablo-style paper doll: every functional slot always shows what's
@@ -2139,6 +2174,7 @@ function wireEvents() {
   });
   el('btn-status-close').addEventListener('click', () => hideModal('modal-status'));
   el('tab-status').addEventListener('click', () => showStatusTab('status'));
+  el('tab-party').addEventListener('click', () => showStatusTab('party'));
   el('tab-bestiary').addEventListener('click', () => showStatusTab('bestiary'));
   el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
   el('tab-legacy').addEventListener('click', () => showStatusTab('legacy'));
