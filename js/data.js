@@ -442,6 +442,10 @@ export const PLAYER_BASE = {
   lifetimeGoldEarned: 0,
   arenaBestWave: 0,
   inventory: { potion: 3, ether: 0, captureOrb: 1 },
+  // Which Capture Orb type the battle screen's dedicated Capture button
+  // uses — chosen from the Status screen's Items section, so there's no
+  // need to dig through the Item submenu mid-battle.
+  selectedCaptureOrb: 'captureOrb',
   // Marks an enemy key true the first time it's ever been defeated, so the
   // Bestiary can show which monsters in each level you've already killed.
   bestiary: {},

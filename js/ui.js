@@ -1,5 +1,5 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SHINY_CHANCE, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, SHINY_CHANCE, SET_BONUSES, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, ENCHANT_BONUS_PER_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
@@ -219,6 +219,18 @@ function renderBattle() {
   const menuSkills = el('battle-menu-skills');
   const continueBtn = el('btn-battle-continue');
 
+  // The selected Capture Orb gets its own battle button (see the Status
+  // screen's Items section for picking which one) instead of living in the
+  // Item submenu — one tap instead of Item -> scroll -> tap.
+  const captureBtn = el('btn-capture');
+  const captureItem = ITEMS[p.selectedCaptureOrb];
+  const captureCount = captureItem ? (p.inventory[captureItem.key] || 0) : 0;
+  const alreadyOwned = captureItem && p.ownedPets.includes(battle.enemy.key);
+  if (battle.isBoss) captureBtn.textContent = "Can't Capture";
+  else if (alreadyOwned) captureBtn.textContent = 'Already Caught';
+  else captureBtn.textContent = captureItem ? `Capture (${captureCount})` : 'Capture (none selected)';
+  captureBtn.disabled = !captureItem || battle.isBoss || alreadyOwned || captureCount <= 0;
+
   if (battle.over) {
     menuMain.classList.add('hidden');
     menuItems.classList.add('hidden');
@@ -399,22 +411,6 @@ function renderItemMenu() {
     });
     menu.appendChild(btn);
   });
-  CAPTURE_ITEMS.forEach((item) => {
-    const alreadyOwned = p.ownedPets.includes(battle.enemy.key);
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-battle';
-    if (battle.isBoss) btn.textContent = `${item.name} (can't catch a boss)`;
-    else if (alreadyOwned) btn.textContent = `${item.name} (already have it)`;
-    else btn.textContent = `${item.name} (${p.inventory[item.key] || 0})`;
-    btn.disabled = battle.isBoss || alreadyOwned || !(p.inventory[item.key] > 0);
-    btn.addEventListener('click', () => {
-      playerCapture(battle, state, item.key);
-      menu.classList.add('hidden');
-      el('battle-menu-main').classList.remove('hidden');
-      renderBattle();
-    });
-    menu.appendChild(btn);
-  });
   const backBtn = document.createElement('button');
   backBtn.className = 'btn btn-battle';
   backBtn.textContent = 'Back';
@@ -510,7 +506,7 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body' };
+const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
@@ -519,6 +515,7 @@ function showStatusTab(tab) {
   if (tab === 'bestiary') renderBestiary();
   if (tab === 'achievements') renderAchievements();
   if (tab === 'legacy') renderLegacy();
+  if (tab === 'sets') renderSets();
 }
 
 // Weapon/Armor add flat ATK/DEF; Helmet/Gloves/Boots each carry their own
@@ -622,11 +619,14 @@ function buildTownScrollRow() {
 
 
 // Capture Orbs need a live enemy to target, so unlike potions/ethers there's
-// no "Use" button here — just a read-only count, same info-row shape.
+// no "Use" button here — instead, pick which one the battle screen's
+// dedicated Capture button should use, so there's no Item-submenu digging
+// mid-fight.
 function buildStatusCaptureRow(itemKey) {
   const p = state.player;
   const item = ITEMS[itemKey];
   const count = p.inventory[itemKey] || 0;
+  const isSelected = p.selectedCaptureOrb === itemKey;
   const row = document.createElement('div');
   row.className = 'shop-item';
   row.innerHTML = `
@@ -635,6 +635,20 @@ function buildStatusCaptureRow(itemKey) {
       <span class="shop-item-desc">${item.desc} — Have ${count}</span>
     </div>
   `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isSelected) {
+    btn.textContent = 'Selected';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Select';
+    btn.addEventListener('click', () => {
+      p.selectedCaptureOrb = itemKey;
+      autosave();
+      renderStatus();
+    });
+  }
+  row.appendChild(btn);
   return row;
 }
 
@@ -784,6 +798,49 @@ function renderAchievements() {
         <span class="shop-item-desc">${ach.desc}${ach.rewardGold > 0 ? ` — Reward: ${ach.rewardGold}G` : ''}</span>
       </div>
       <span class="achievement-status">${unlocked ? 'Unlocked' : 'Locked'}</span>
+    `;
+    body.appendChild(row);
+  });
+}
+
+// ---------- Sets catalog ----------
+// Unlike the main Status tab's "Set Bonuses" section (which only shows
+// sets you're already at 2+ pieces on), this lists all six sets always —
+// what each one does, which 5 pieces it needs (with a checkmark on any
+// you're currently wearing), and both the current and next-tier bonus —
+// the "how do I even find out about these" answer.
+function renderSets() {
+  const p = state.player;
+  const body = el('sets-body');
+  body.innerHTML = '';
+  SET_BONUSES.forEach((set) => {
+    const wornCount = setWornCount(p, set);
+    const pieceList = Object.entries(set.pieces).map(([slot, key]) => {
+      const name = GEAR_SLOTS[slot].registry[key].name;
+      const equipped = p[GEAR_SLOTS[slot].equipField] === key;
+      return `${equipped ? '✓ ' : ''}${name}`;
+    }).join(', ');
+    const tierKeys = Object.keys(set.thresholds).map(Number).sort((a, b) => a - b);
+    const nextTier = tierKeys.find((t) => t > wornCount);
+    const currentTier = [...tierKeys].reverse().find((t) => t <= wornCount);
+
+    let bonusLine;
+    if (currentTier) {
+      bonusLine = `Active: ${describeSetBonus(set.thresholds[currentTier])}`;
+      if (nextTier) bonusLine += ` — Next at ${nextTier}/5: ${describeSetBonus(set.thresholds[nextTier])}`;
+    } else {
+      bonusLine = `Wear ${tierKeys[0]}+ pieces for: ${describeSetBonus(set.thresholds[tierKeys[0]])}`;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">${set.name} (${wornCount}/5)</span>
+        <span class="shop-item-desc">${set.desc}</span>
+        <span class="shop-item-desc">${pieceList}</span>
+        <span class="shop-item-desc">${bonusLine}</span>
+      </div>
     `;
     body.appendChild(row);
   });
@@ -1431,6 +1488,7 @@ function wireEvents() {
   el('tab-bestiary').addEventListener('click', () => showStatusTab('bestiary'));
   el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
   el('tab-legacy').addEventListener('click', () => showStatusTab('legacy'));
+  el('tab-sets').addEventListener('click', () => showStatusTab('sets'));
 
   el('btn-character').addEventListener('click', () => {
     renderInventoryModal();
@@ -1567,6 +1625,10 @@ function wireEvents() {
     el('battle-menu-skills').classList.remove('hidden');
   });
   el('btn-run').addEventListener('click', () => { playerRun(battle, state); renderBattle(); });
+  el('btn-capture').addEventListener('click', () => {
+    if (state.player.selectedCaptureOrb) playerCapture(battle, state, state.player.selectedCaptureOrb);
+    renderBattle();
+  });
   el('btn-item').addEventListener('click', () => {
     renderItemMenu();
     el('battle-menu-main').classList.add('hidden');

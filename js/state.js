@@ -133,8 +133,10 @@ function reachedLevelsUpTo(mapId) {
 
 // How many pieces of `set` are currently equipped (not just owned) — used
 // both to find the applicable cumulative threshold and to show progress in
-// the UI even when a set isn't fully worn yet.
-function wornPieceCount(player, set) {
+// the UI even when a set isn't fully worn yet. Exported so the Status
+// screen's full Sets catalog can show worn-count for every set, not just
+// ones already past the 2-piece minimum (see activeSetProgress below).
+export function setWornCount(player, set) {
   return Object.entries(set.pieces).filter(([slot, key]) => player[GEAR_SLOTS[slot].equipField] === key).length;
 }
 
@@ -151,7 +153,7 @@ function activeThreshold(set, wornCount) {
 // the Status screen ("which sets am I benefiting from right now").
 export function activeSetProgress(player) {
   return SET_BONUSES.map((set) => {
-    const wornCount = wornPieceCount(player, set);
+    const wornCount = setWornCount(player, set);
     return { set, wornCount, bonus: activeThreshold(set, wornCount) };
   }).filter((entry) => entry.bonus);
 }
