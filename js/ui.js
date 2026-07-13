@@ -506,7 +506,7 @@ function sectionHeading(text) {
   return h;
 }
 
-const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body' };
+const STATUS_TABS = { status: 'status-body', bestiary: 'bestiary-body', achievements: 'achievements-body', legacy: 'legacy-body', sets: 'sets-body', abilities: 'abilities-body' };
 function showStatusTab(tab) {
   Object.entries(STATUS_TABS).forEach(([key, bodyId]) => {
     el(`tab-${key}`).classList.toggle('tab-active', key === tab);
@@ -516,6 +516,7 @@ function showStatusTab(tab) {
   if (tab === 'achievements') renderAchievements();
   if (tab === 'legacy') renderLegacy();
   if (tab === 'sets') renderSets();
+  if (tab === 'abilities') renderAbilities();
 }
 
 // Weapon/Armor add flat ATK/DEF; Helmet/Gloves/Boots each carry their own
@@ -840,6 +841,37 @@ function renderSets() {
         <span class="shop-item-desc">${set.desc}</span>
         <span class="shop-item-desc">${pieceList}</span>
         <span class="shop-item-desc">${bonusLine}</span>
+      </div>
+    `;
+    body.appendChild(row);
+  });
+}
+
+// ---------- Beast Abilities catalog ----------
+// The five passive abilities pulled from COMPANION_ABILITIES's shared pool
+// (see data.js) are named in a lot of places -- the active pet's Status
+// row, the Tamer's roster, fusion confirms -- but never explained. This
+// tab spells out what each one actually does, at its real numeric value.
+const ABILITY_DETAIL = {
+  vampiric: (v) => `Heals you for ${v}% of your pet's hit damage as HP, every time it lands a hit.`,
+  guardian: (v) => `Reduces all incoming damage to you by ${v}%.`,
+  berserker: (v) => `Adds ${v}% to your own crit chance.`,
+  swift: (v) => `Adds ${v}% to your own dodge chance.`,
+  blessed: (v) => `Boosts gold and XP found by ${v}%.`,
+};
+function renderAbilities() {
+  const body = el('abilities-body');
+  body.innerHTML = '';
+  Object.values(COMPANION_ABILITIES).forEach((ability) => {
+    const tamerPets = Object.values(PETS).filter((pet) => pet.ability === ability.key).map((pet) => pet.name);
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">${ability.name}</span>
+        <span class="shop-item-desc">${ABILITY_DETAIL[ability.key](ability.value)}</span>
+        <span class="shop-item-desc">Unlocks at Lv. ${COMPANION_ABILITY_LEVEL}, and only while that companion is active.</span>
+        <span class="shop-item-desc">Tamer pets with it: ${tamerPets.join(', ')}</span>
       </div>
     `;
     body.appendChild(row);
@@ -1489,6 +1521,7 @@ function wireEvents() {
   el('tab-achievements').addEventListener('click', () => showStatusTab('achievements'));
   el('tab-legacy').addEventListener('click', () => showStatusTab('legacy'));
   el('tab-sets').addEventListener('click', () => showStatusTab('sets'));
+  el('tab-abilities').addEventListener('click', () => showStatusTab('abilities'));
 
   el('btn-character').addEventListener('click', () => {
     renderInventoryModal();
