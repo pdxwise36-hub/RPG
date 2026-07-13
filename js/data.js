@@ -663,6 +663,9 @@ export const PLAYER_BASE = {
   // How many times New Game+ has been started — each cycle scales enemy
   // stats and rewards up further.
   ngPlusLevel: 0,
+  // Which DIFFICULTIES tier is currently active — independent of ngPlusLevel
+  // (see DIFFICULTIES in data.js).
+  difficulty: 'normal',
   // Gear chest drops land here as { slot, key, affixKey? } instead of going
   // straight into ownedWeapons/ownedArmors — Deckard Cain in Town identifies
   // them (for a fee) before you learn what they are (and any affix they
@@ -1196,6 +1199,10 @@ export const ACHIEVEMENTS = [
     key: 'eliteHunter', name: 'Elite Hunter', desc: 'Defeat 15 Elite monsters.', rewardGold: 250,
     check: (state) => (state.player.lifetimeElites || 0) >= 15,
   },
+  {
+    key: 'hellConqueror', name: 'Hell Conqueror', desc: 'Defeat the Eternal Sovereign on Hell difficulty.', rewardGold: 1000, title: 'the Hellwalker',
+    check: (state) => !!state.flags.hellCleared,
+  },
 ];
 
 // Enchanting adds a flat stat bonus per gear key, bought repeatedly at the
@@ -1269,6 +1276,26 @@ export const BOUNTY_TEMPLATES = [
 export const NG_PLUS_SCALING_PER_LEVEL = 0.5;
 export function ngPlusMultiplier(ngPlusLevel) {
   return 1 + (ngPlusLevel || 0) * NG_PLUS_SCALING_PER_LEVEL;
+}
+
+// Diablo-style difficulty tiers — a separate, independently-selectable axis
+// from New Game+ (you could run Hell on a level-1 NG+0 character, or stack
+// both together) rather than another auto-incrementing cycle. Each tier
+// scales monster stats and their gold/XP payout by DIFFERENT amounts
+// (unlike NG+'s single combined multiplier), so a harder tier is
+// deliberately more rewarding too, not just more punishing. Nightmare
+// unlocks the moment you've beaten the true final boss once (on any
+// difficulty); Hell unlocks only once you've beaten that same boss again
+// while playing on Nightmare — mirroring "clear it on this tier to unlock
+// the next" rather than a flat achievement gate.
+export const DIFFICULTIES = [
+  { key: 'normal', name: 'Normal', desc: 'The default challenge.', enemyMultiplier: 1, rewardMultiplier: 1 },
+  { key: 'nightmare', name: 'Nightmare', desc: 'Enemies hit noticeably harder — and pay out more for it.', enemyMultiplier: 1.75, rewardMultiplier: 1.3, unlockFlag: 'eternalSovereignDefeated' },
+  { key: 'hell', name: 'Hell', desc: 'Everything is significantly harder. Everything pays significantly more.', enemyMultiplier: 3, rewardMultiplier: 1.75, unlockFlag: 'nightmareCleared' },
+];
+export const DIFFICULTY_ORDER = DIFFICULTIES.map((d) => d.key);
+export function difficultyByKey(key) {
+  return DIFFICULTIES.find((d) => d.key === key) || DIFFICULTIES[0];
 }
 
 export const ITEMS = {

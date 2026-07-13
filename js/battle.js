@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier } from './data.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
 import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, heldItemHpRegenPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, applyLevelUps, ensurePetProgress, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
 
 function rand(min, max) {
@@ -42,20 +42,36 @@ export function pickArenaEnemy(wave) {
   };
 }
 
+// Shared by both scaling axes below — enemyMult raises maxHp/atk/def,
+// rewardMult raises xp/gold. New Game+ uses the same value for both; a
+// Difficulty tier deliberately uses two different ones (harder AND more
+// rewarding by different amounts), which is why this takes them separately
+// instead of a single combined multiplier.
+function scaleEnemyStats(enemyDef, enemyMult, rewardMult) {
+  if (enemyMult === 1 && rewardMult === 1) return enemyDef;
+  return {
+    ...enemyDef,
+    maxHp: Math.round(enemyDef.maxHp * enemyMult),
+    atk: Math.round(enemyDef.atk * enemyMult),
+    def: Math.round(enemyDef.def * enemyMult),
+    xp: Math.round(enemyDef.xp * rewardMult),
+    goldMin: Math.round(enemyDef.goldMin * rewardMult),
+    goldMax: Math.round(enemyDef.goldMax * rewardMult),
+  };
+}
+
 // Scales an enemy/boss def up for New Game+ — every cycle raises stats and
 // payout together so pushing through the chain again stays worthwhile.
 export function scaleForNGPlus(enemyDef, ngPlusLevel) {
   const mult = ngPlusMultiplier(ngPlusLevel);
-  if (mult === 1) return enemyDef;
-  return {
-    ...enemyDef,
-    maxHp: Math.round(enemyDef.maxHp * mult),
-    atk: Math.round(enemyDef.atk * mult),
-    def: Math.round(enemyDef.def * mult),
-    xp: Math.round(enemyDef.xp * mult),
-    goldMin: Math.round(enemyDef.goldMin * mult),
-    goldMax: Math.round(enemyDef.goldMax * mult),
-  };
+  return scaleEnemyStats(enemyDef, mult, mult);
+}
+
+// Scales an enemy/boss def for the player's current Difficulty tier (see
+// DIFFICULTIES in data.js) — independent of, and stacks with, NG+.
+export function scaleForDifficulty(enemyDef, difficultyKey) {
+  const d = difficultyByKey(difficultyKey);
+  return scaleEnemyStats(enemyDef, d.enemyMultiplier, d.rewardMultiplier);
 }
 
 export function createBattle(enemyDef, isBoss = false) {
@@ -449,9 +465,11 @@ const CHEST_CHANCE = 0.25;
 
 // Chest gold scales with how deep the current zone is in the chain (0 =
 // overworld, 13 = the Void Rift) — the same "found 15-40 gold" roll is worth
-// noticeably more once you're deep in.
+// noticeably more once you're deep in, and further scaled by the current
+// Difficulty tier's reward multiplier.
 function goldDrop(state, depth) {
-  const amount = Math.round(rand(15, 40) * (1 + depth * 0.2));
+  const rewardMult = difficultyByKey(state.player.difficulty).rewardMultiplier;
+  const amount = Math.round(rand(15, 40) * (1 + depth * 0.2) * rewardMult);
   state.player.gold += amount;
   return amount;
 }

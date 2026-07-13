@@ -1,8 +1,8 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petDisplayName, petAbilities, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty } from './battle.js';
 
 let state = null;
 let battle = null;
@@ -39,6 +39,13 @@ function showToast(msg, ms = 1600) {
 
 function pct(cur, max) {
   return Math.max(0, Math.min(100, Math.round((cur / max) * 100)));
+}
+
+// Every enemy/boss def a battle can start with passes through both scaling
+// axes — New Game+ and the current Difficulty tier — in one place instead
+// of each battle-trigger site chaining the two calls by hand.
+function scaleEnemy(enemyDef) {
+  return scaleForDifficulty(scaleForNGPlus(enemyDef, state.player.ngPlusLevel), state.player.difficulty);
 }
 
 // ---------- Map screen ----------
@@ -108,6 +115,7 @@ function handleMove(dir) {
     el('btn-town-ngplus').classList.toggle('hidden', !state.player.achievements.trueEnding);
     el('btn-town-abyss').classList.toggle('hidden', !state.player.achievements.trueEnding);
     el('btn-town-feral').classList.toggle('hidden', !state.flags.secretZoneUnlocked);
+    el('btn-town-difficulty').textContent = `Difficulty: ${difficultyByKey(state.player.difficulty).name}`;
     showModal('modal-town');
     return;
   }
@@ -186,7 +194,7 @@ function handleMove(dir) {
     return;
   }
   if (result.type === 'encounter') {
-    let enemy = scaleForNGPlus(pickRandomEnemy(MAPS[state.mapId].enemyPool), state.player.ngPlusLevel);
+    let enemy = scaleEnemy(pickRandomEnemy(MAPS[state.mapId].enemyPool));
     if (Math.random() < ELITE_CHANCE) enemy = makeElite(enemy);
     startBattle(enemy, false);
   }
@@ -300,7 +308,7 @@ function resolveBattleEnd() {
       p.bountyProgress.bossWins += 1;
       bossRush.index += 1;
       if (bossRush.index >= bossRush.order.length) {
-        const bonus = Math.round(bossRush.order.length * 250 * ngPlusMultiplier(p.ngPlusLevel));
+        const bonus = Math.round(bossRush.order.length * 250 * ngPlusMultiplier(p.ngPlusLevel) * difficultyByKey(p.difficulty).rewardMultiplier);
         p.gold += bonus;
         bossRush = null;
         autosave();
@@ -311,7 +319,7 @@ function resolveBattleEnd() {
         p.mp = p.maxMp;
         const nextMapId = bossRush.order[bossRush.index];
         showToast(`${msg} ${bossRush.index}/${bossRush.order.length} bosses down!`, 2600);
-        startBattle(scaleForNGPlus(MAPS[nextMapId].bossEnemy, p.ngPlusLevel), true, false, true);
+        startBattle(scaleEnemy(MAPS[nextMapId].bossEnemy), true, false, true);
       }
       return;
     }
@@ -322,7 +330,7 @@ function resolveBattleEnd() {
       // Boss Rush above.
       rivalBattle.index += 1;
       if (rivalBattle.index >= RIVAL_TEAM.length) {
-        const bonus = Math.round(RIVAL_TEAM.length * 150 * ngPlusMultiplier(p.ngPlusLevel));
+        const bonus = Math.round(RIVAL_TEAM.length * 150 * ngPlusMultiplier(p.ngPlusLevel) * difficultyByKey(p.difficulty).rewardMultiplier);
         p.gold += bonus;
         state.flags.rivalDefeated = true;
         rivalBattle = null;
@@ -334,7 +342,7 @@ function resolveBattleEnd() {
         p.mp = p.maxMp;
         const next = RIVAL_TEAM[rivalBattle.index];
         showToast(`${msg} ${rivalBattle.index}/${RIVAL_TEAM.length} rival companions down!`, 2600);
-        startBattle(scaleRivalOpponent(next, p.level), true, false, false, true);
+        startBattle(scaleForDifficulty(scaleRivalOpponent(next, p.level), p.difficulty), true, false, false, true);
       }
       return;
     }
@@ -345,6 +353,13 @@ function resolveBattleEnd() {
       // before setting it just below.
       const firstTime = !state.flags[map.bossFlag];
       state.flags[map.bossFlag] = true;
+      // The true final boss (no nextMap) clearing Nightmare/Hell unlocks
+      // the next Difficulty tier — checked on every win, not just the
+      // first, since a repeat clear still proves it.
+      if (!map.nextMap) {
+        if (p.difficulty === 'nightmare') state.flags.nightmareCleared = true;
+        if (p.difficulty === 'hell') state.flags.hellCleared = true;
+      }
       p.bountyProgress.bossWins += 1;
       autosave();
       if (firstTime) {
@@ -739,6 +754,7 @@ function renderStatus() {
     <div class="status-row"><span>XP</span><span>${p.xp}/${p.xpToNext}</span></div>
     <div class="status-row"><span>Gold</span><span>${p.gold}</span></div>
     <div class="status-row"><span>Unidentified Items</span><span>${p.unidentifiedItems.length} (see Deckard Cain)</span></div>
+    <div class="status-row"><span>Difficulty</span><span>${difficultyByKey(p.difficulty).name}${p.ngPlusLevel > 0 ? ` (NG+${p.ngPlusLevel})` : ''}</span></div>
     <div class="status-row"><span>Arena Best</span><span>Wave ${p.arenaBestWave}</span></div>
     <div class="status-row"><span>Skills</span><span>${SKILL_ORDER.filter((k) => p.knownSkills.includes(k)).map((k) => SKILLS[k].name).join(', ')}</span></div>
     <div class="status-row"><span>Pet</span><span>${p.activePetKey ? `${petDisplayName(p, p.activePetKey)} (Lv. ${petLevel(p, p.activePetKey)})` : 'None'}</span></div>
@@ -1430,7 +1446,7 @@ function startBossRush() {
   if (order.length === 0) return;
   bossRush = { order, index: 0 };
   hideModal('modal-bossrush');
-  startBattle(scaleForNGPlus(MAPS[order[0]].bossEnemy, state.player.ngPlusLevel), true, false, true);
+  startBattle(scaleEnemy(MAPS[order[0]].bossEnemy), true, false, true);
 }
 
 // ---------- Rival Duel ----------
@@ -1444,7 +1460,7 @@ function renderRival() {
 function startRivalBattle() {
   rivalBattle = { index: 0 };
   hideModal('modal-rival');
-  startBattle(scaleRivalOpponent(RIVAL_TEAM[0], state.player.level), true, false, false, true);
+  startBattle(scaleForDifficulty(scaleRivalOpponent(RIVAL_TEAM[0], state.player.level), state.player.difficulty), true, false, false, true);
 }
 
 // ---------- Bounty Board ----------
@@ -1503,6 +1519,47 @@ function renderBounty() {
     } else {
       btn.textContent = 'Claim';
       btn.disabled = true;
+    }
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+// ---------- Difficulty ----------
+// Diablo-style tiers, independent of New Game+ (see DIFFICULTIES in
+// data.js) — Nightmare unlocks once you've beaten the true final boss;
+// Hell unlocks once you've beaten it again specifically while on
+// Nightmare (state.flags.nightmareCleared, set in resolveBattleEnd).
+function renderDifficulty() {
+  const p = state.player;
+  const list = el('difficulty-list');
+  list.innerHTML = '';
+  DIFFICULTIES.forEach((d) => {
+    const unlocked = !d.unlockFlag || !!state.flags[d.unlockFlag];
+    const active = p.difficulty === d.key;
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">${d.name}</span>
+        <span class="shop-item-desc">${d.desc}${d.enemyMultiplier > 1 ? ` (${Math.round((d.enemyMultiplier - 1) * 100)}% tougher enemies, +${Math.round((d.rewardMultiplier - 1) * 100)}% gold/XP)` : ''}</span>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    if (!unlocked) {
+      btn.textContent = 'Locked';
+      btn.disabled = true;
+    } else if (active) {
+      btn.textContent = 'Active';
+      btn.disabled = true;
+    } else {
+      btn.textContent = 'Select';
+      btn.addEventListener('click', () => {
+        p.difficulty = d.key;
+        autosave();
+        renderDifficulty();
+      });
     }
     row.appendChild(btn);
     list.appendChild(row);
@@ -2060,6 +2117,15 @@ function wireEvents() {
     renderBounty();
     showModal('modal-bounty');
   });
+  el('btn-town-difficulty').addEventListener('click', () => {
+    hideModal('modal-town');
+    renderDifficulty();
+    showModal('modal-difficulty');
+  });
+  el('btn-difficulty-back').addEventListener('click', () => {
+    hideModal('modal-difficulty');
+    showModal('modal-town');
+  });
   el('btn-town-ngplus').addEventListener('click', () => {
     hideModal('modal-town');
     showModal('modal-ngplus-confirm');
@@ -2103,7 +2169,7 @@ function wireEvents() {
   // Arena
   el('btn-arena-fight').addEventListener('click', () => {
     hideModal('modal-arena');
-    startBattle(scaleForNGPlus(pickArenaEnemy(state.arenaWave), state.player.ngPlusLevel), false, true);
+    startBattle(scaleEnemy(pickArenaEnemy(state.arenaWave)), false, true);
   });
   el('btn-arena-leave').addEventListener('click', () => {
     // Banking out preserves progress — next visit still starts just past
@@ -2117,7 +2183,7 @@ function wireEvents() {
   // Boss modal
   el('btn-boss-fight').addEventListener('click', () => {
     hideModal('modal-boss');
-    startBattle(scaleForNGPlus(MAPS[state.mapId].bossEnemy, state.player.ngPlusLevel), true);
+    startBattle(scaleEnemy(MAPS[state.mapId].bossEnemy), true);
   });
   el('btn-boss-retreat').addEventListener('click', () => {
     hideModal('modal-boss');
