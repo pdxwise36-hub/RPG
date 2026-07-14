@@ -563,7 +563,9 @@ function renderShop() {
   el('shop-gold').textContent = state.player.gold;
   const list = el('shop-list');
   list.innerHTML = '';
-  Object.values(ITEMS).forEach((item) => {
+  // chestOnly items (e.g. the Master Capture Orb) are deliberately never
+  // sold — finding one is the whole point.
+  Object.values(ITEMS).filter((item) => !item.chestOnly).forEach((item) => {
     const row = document.createElement('div');
     row.className = 'shop-item';
     row.innerHTML = `

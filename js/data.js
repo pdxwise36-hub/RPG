@@ -1441,6 +1441,14 @@ export const ITEMS = {
     key: 'greaterCaptureOrb', name: 'Greater Capture Orb', desc: 'A much better chance to capture a wild monster', price: 55,
     capture: true, captureBase: 0.3, captureHpBonus: 0.65,
   },
+  // Never sold — chestOnly keeps it out of the General Store's listing so
+  // the only way to ever own one is finding it, making it worth getting
+  // excited about. Its much higher base chance (vs Greater) means it's
+  // strong even against a healthy target, not just a nearly-dead one.
+  masterCaptureOrb: {
+    key: 'masterCaptureOrb', name: 'Master Capture Orb', desc: "A master's chance to capture a wild monster — found only in chests",
+    capture: true, captureBase: 0.5, captureHpBonus: 0.6, chestOnly: true,
+  },
 };
 
 // Any item with a heal or mp field is a usable consumable — shown in the

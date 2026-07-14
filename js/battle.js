@@ -635,11 +635,15 @@ export function rollChest(state, guaranteed = false) {
     // Deeper zones have a rising chance of the Greater tier instead of the
     // basic potion/ether — same "deeper = better loot" pattern as gold/gear.
     const greaterChance = Math.min(0.5, depth * 0.04);
+    // The Master Capture Orb is never sold — a rare, deep-zone-only chest
+    // find, capped well below Greater's own odds so it stays a real find.
+    const masterChance = Math.min(0.2, depth * 0.012);
     const itemRoll = Math.random();
     let itemKey;
     if (itemRoll < 0.3) itemKey = Math.random() < greaterChance ? 'greaterPotion' : 'potion';
     else if (itemRoll < 0.55) itemKey = Math.random() < greaterChance ? 'greaterEther' : 'ether';
     else if (itemRoll < 0.75) itemKey = 'townScroll';
+    else if (Math.random() < masterChance) itemKey = 'masterCaptureOrb';
     else itemKey = Math.random() < greaterChance ? 'greaterCaptureOrb' : 'captureOrb';
     player.inventory[itemKey] = (player.inventory[itemKey] || 0) + 1;
     return { type: 'item', itemKey };
