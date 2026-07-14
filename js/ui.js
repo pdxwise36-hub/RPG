@@ -2129,6 +2129,31 @@ function renderTamerFusionMaterial() {
   const others = p.pets.filter((i) => i.id !== base.id).sort((a, b) => b.level - a.level);
   const lockedCount = others.filter((i) => i.locked).length;
   const candidates = others.filter((i) => !i.locked);
+
+  // TEMPORARY diagnostic button — investigating a report that some
+  // candidates silently don't appear here. Remove once resolved.
+  const debugRow = document.createElement('div');
+  debugRow.className = 'shop-item';
+  debugRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">Debug: dump computed Material candidates</span></div>';
+  const debugBtn = document.createElement('button');
+  debugBtn.className = 'btn btn-small';
+  debugBtn.textContent = 'Debug Info';
+  debugBtn.addEventListener('click', () => {
+    const summary = {
+      fusionBaseId,
+      base: { id: base.id, key: base.key, level: base.level },
+      totalPets: p.pets.length,
+      othersCount: others.length,
+      candidatesCount: candidates.length,
+      lockedCount,
+      allPets: p.pets.map((i) => ({ id: i.id, key: i.key, level: i.level, locked: !!i.locked })),
+      candidateList: candidates.map((i) => ({ id: i.id, key: i.key, level: i.level })),
+    };
+    alert(JSON.stringify(summary, null, 2));
+  });
+  debugRow.appendChild(debugBtn);
+  list.appendChild(debugRow);
+
   if (candidates.length === 0) {
     list.appendChild(sectionHeading('Choose Material to Sacrifice'));
     const emptyRow = document.createElement('div');
@@ -2171,11 +2196,23 @@ function renderTamerFusionMaterial() {
   const specialCandidates = candidates.filter((i) => i.shiny || i.elite);
   if (plainCandidates.length > 0) {
     list.appendChild(sectionHeading(`Choose Material to Sacrifice${lockedCount > 0 ? ` (${lockedCount} Locked companion${lockedCount > 1 ? 's' : ''} hidden)` : ''}`));
-    plainCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
+    plainCandidates.forEach((instance) => {
+      try {
+        list.appendChild(buildMaterialRow(instance));
+      } catch (err) {
+        alert(`Row failed for ${instance.key} (id=${instance.id}, lv=${instance.level}): ${err.message}`);
+      }
+    });
   }
   if (specialCandidates.length > 0) {
     list.appendChild(sectionHeading('⚠ Shiny/Elite — fusing these away is permanent'));
-    specialCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
+    specialCandidates.forEach((instance) => {
+      try {
+        list.appendChild(buildMaterialRow(instance));
+      } catch (err) {
+        alert(`Row failed for ${instance.key} (id=${instance.id}, lv=${instance.level}): ${err.message}`);
+      }
+    });
   }
 }
 
