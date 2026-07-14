@@ -1901,6 +1901,21 @@ function renderTamerSpecies() {
     renderTamer();
     return;
   }
+
+  // TEMPORARY diagnostic button — investigating a report that some same-
+  // species instances don't show up as Fusion Material. Remove once resolved.
+  const debugRow = document.createElement('div');
+  debugRow.className = 'shop-item';
+  debugRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">Debug: dump this species\' raw instance data</span></div>';
+  const debugBtn = document.createElement('button');
+  debugBtn.className = 'btn btn-small';
+  debugBtn.textContent = 'Debug Info';
+  debugBtn.addEventListener('click', () => {
+    alert(JSON.stringify(instances, null, 2));
+  });
+  debugRow.appendChild(debugBtn);
+  list.appendChild(debugRow);
+
   instances.forEach((instance) => list.appendChild(buildInstanceRow(instance, { showPartyControls: true })));
 }
 
