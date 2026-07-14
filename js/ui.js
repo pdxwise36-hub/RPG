@@ -1902,20 +1902,6 @@ function renderTamerSpecies() {
     return;
   }
 
-  // TEMPORARY diagnostic button — investigating a report that some same-
-  // species instances don't show up as Fusion Material. Remove once resolved.
-  const debugRow = document.createElement('div');
-  debugRow.className = 'shop-item';
-  debugRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">Debug: dump this species\' raw instance data</span></div>';
-  const debugBtn = document.createElement('button');
-  debugBtn.className = 'btn btn-small';
-  debugBtn.textContent = 'Debug Info';
-  debugBtn.addEventListener('click', () => {
-    alert(JSON.stringify(instances, null, 2));
-  });
-  debugRow.appendChild(debugBtn);
-  list.appendChild(debugRow);
-
   instances.forEach((instance) => list.appendChild(buildInstanceRow(instance, { showPartyControls: true })));
 }
 
@@ -2089,7 +2075,11 @@ function renderTamerFusionBase() {
   info.className = 'shop-item';
   info.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">Pick the companion that will keep fighting — it gains the Fusion bonus.</span></div>';
   list.appendChild(info);
-  p.pets.slice().sort((a, b) => b.level - a.level).forEach((instance) => {
+  // Skip any instance whose species definition no longer exists (a leftover
+  // from a species removed from the game in an old save) — buildInstanceRow
+  // can't display a name/sprite/power for one, and letting it crash mid-sort
+  // would silently cut off every companion listed after it.
+  p.pets.filter((i) => ALL_PET_DEFS[i.key]).sort((a, b) => b.level - a.level).forEach((instance) => {
     list.appendChild(buildInstanceRow(instance, {
       onSelect: (id) => {
         fusionBaseId = id;
@@ -2103,7 +2093,7 @@ function renderTamerFusionBase() {
 
 function renderTamerFusionMaterial() {
   const p = state.player;
-  const base = p.pets.find((i) => i.id === fusionBaseId);
+  const base = p.pets.find((i) => i.id === fusionBaseId && ALL_PET_DEFS[i.key]);
   if (!base) {
     tamerView = 'fusionBase';
     fusionBaseId = null;
@@ -2126,33 +2116,14 @@ function renderTamerFusionMaterial() {
   // Locked companions (see the Lock/Unlock button on each instance row)
   // never appear as Material candidates at all — a stronger safeguard than
   // the Shiny/Elite warnings below for a catch you never want at risk.
-  const others = p.pets.filter((i) => i.id !== base.id).sort((a, b) => b.level - a.level);
+  // Also skip any instance whose species definition no longer exists (a
+  // leftover from a species removed from the game in an old save) — one of
+  // these used to silently crash mid-render and cut off every companion
+  // sorted after it, which is exactly what made real duplicates of an owned
+  // species vanish from this list without any visible error.
+  const others = p.pets.filter((i) => i.id !== base.id && ALL_PET_DEFS[i.key]).sort((a, b) => b.level - a.level);
   const lockedCount = others.filter((i) => i.locked).length;
   const candidates = others.filter((i) => !i.locked);
-
-  // TEMPORARY diagnostic button — investigating a report that some
-  // candidates silently don't appear here. Remove once resolved.
-  const debugRow = document.createElement('div');
-  debugRow.className = 'shop-item';
-  debugRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">Debug: dump computed Material candidates</span></div>';
-  const debugBtn = document.createElement('button');
-  debugBtn.className = 'btn btn-small';
-  debugBtn.textContent = 'Debug Info';
-  debugBtn.addEventListener('click', () => {
-    const summary = {
-      fusionBaseId,
-      base: { id: base.id, key: base.key, level: base.level },
-      totalPets: p.pets.length,
-      othersCount: others.length,
-      candidatesCount: candidates.length,
-      lockedCount,
-      allPets: p.pets.map((i) => ({ id: i.id, key: i.key, level: i.level, locked: !!i.locked })),
-      candidateList: candidates.map((i) => ({ id: i.id, key: i.key, level: i.level })),
-    };
-    alert(JSON.stringify(summary, null, 2));
-  });
-  debugRow.appendChild(debugBtn);
-  list.appendChild(debugRow);
 
   if (candidates.length === 0) {
     list.appendChild(sectionHeading('Choose Material to Sacrifice'));
@@ -2196,23 +2167,11 @@ function renderTamerFusionMaterial() {
   const specialCandidates = candidates.filter((i) => i.shiny || i.elite);
   if (plainCandidates.length > 0) {
     list.appendChild(sectionHeading(`Choose Material to Sacrifice${lockedCount > 0 ? ` (${lockedCount} Locked companion${lockedCount > 1 ? 's' : ''} hidden)` : ''}`));
-    plainCandidates.forEach((instance) => {
-      try {
-        list.appendChild(buildMaterialRow(instance));
-      } catch (err) {
-        alert(`Row failed for ${instance.key} (id=${instance.id}, lv=${instance.level}): ${err.message}`);
-      }
-    });
+    plainCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
   }
   if (specialCandidates.length > 0) {
     list.appendChild(sectionHeading('⚠ Shiny/Elite — fusing these away is permanent'));
-    specialCandidates.forEach((instance) => {
-      try {
-        list.appendChild(buildMaterialRow(instance));
-      } catch (err) {
-        alert(`Row failed for ${instance.key} (id=${instance.id}, lv=${instance.level}): ${err.message}`);
-      }
-    });
+    specialCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
   }
 }
 
@@ -2517,6 +2476,10 @@ function wireEvents() {
     // Resuming reuses whatever layout was saved — only very old saves that
     // predate procedural generation would be missing one.
     ensureLayout(state, state.mapId, false);
+    // Persist immediately so migrations (like pruning a pet instance whose
+    // species no longer exists) are reflected on disk right away, not only
+    // after the next unrelated action happens to autosave.
+    autosave();
     goToMap();
   });
 

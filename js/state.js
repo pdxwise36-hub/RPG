@@ -132,6 +132,21 @@ export function fromSaveObject(saved) {
       ? saved.player.partyKeys
       : (saved.player.activePetKey ? [saved.player.activePetKey] : []);
   }
+  // Drop any instance whose species was removed from the game entirely
+  // (e.g. a zone's enemy pool changed and its old occupant's definition
+  // no longer exists) — these can never display a name/sprite/power, so
+  // they're permanently useless and, worse, used to silently crash the
+  // Fusion Base/Material pickers mid-render (breaking every entry sorted
+  // after them) since only the main companion list defended against this.
+  const orphanIds = new Set((player.pets || []).filter((i) => !ALL_PET_DEFS[i.key]).map((i) => i.id));
+  if (orphanIds.size > 0) {
+    player.pets = player.pets.filter((i) => !orphanIds.has(i.id));
+    player.partyIds = player.partyIds.filter((id) => !orphanIds.has(id));
+    orphanIds.forEach((id) => {
+      delete player.heldItems[id];
+      delete player.fusionBonus[id];
+    });
+  }
   // activePetId always mirrors partyIds[0] (or null) — reassert this on
   // load in case a save was hand-edited or predates the invariant.
   player.activePetId = player.partyIds.length > 0 ? player.partyIds[0] : null;
