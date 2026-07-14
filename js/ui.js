@@ -18,6 +18,9 @@ let rivalBattle = null;
 let tamerView = 'list';
 let tamerSpeciesKey = null;
 let fusionBaseId = null;
+// Which Material candidates are ticked for a batch fuse — cleared any time
+// fusionBaseId changes (a fresh Base means a fresh selection).
+let fusionMaterialIds = new Set();
 
 const el = (id) => document.getElementById(id);
 
@@ -158,6 +161,7 @@ function handleMove(dir) {
     tamerView = 'list';
     tamerSpeciesKey = null;
     fusionBaseId = null;
+    fusionMaterialIds = new Set();
     renderTamer();
     showModal('modal-tamer');
     return;
@@ -1870,6 +1874,7 @@ function buildSpeciesRow(pet) {
     fuseBtn.addEventListener('click', () => {
       const best = instances.slice().sort((a, b) => b.level - a.level)[0];
       fusionBaseId = best.id;
+      fusionMaterialIds = new Set();
       tamerView = 'fusionMaterial';
       renderTamer();
     });
@@ -1930,7 +1935,7 @@ function buildInstanceRow(instance, opts = {}) {
   const progress = petXpProgress(p, instance.id);
 
   const row = document.createElement('div');
-  row.className = 'shop-item';
+  row.className = `shop-item${opts.selected ? ' material-selected' : ''}`;
   const iconClass = `${evolved ? ' pet-evolved' : ''}${instance.shiny ? ' pet-shiny' : ''}${instance.elite ? ' pet-elite' : ''}`;
   row.innerHTML = `
     <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
@@ -2010,6 +2015,7 @@ function buildInstanceRow(instance, opts = {}) {
       fuseBtn.textContent = 'Fuse';
       fuseBtn.addEventListener('click', () => {
         fusionBaseId = instance.id;
+        fusionMaterialIds = new Set();
         tamerView = 'fusionMaterial';
         renderTamer();
       });
@@ -2054,6 +2060,7 @@ function buildFusionEntryRow() {
   btn.addEventListener('click', () => {
     tamerView = 'fusionBase';
     fusionBaseId = null;
+    fusionMaterialIds = new Set();
     renderTamer();
   });
   row.appendChild(btn);
@@ -2069,6 +2076,7 @@ function renderTamerFusionBase() {
   list.appendChild(buildTamerBackRow('← Cancel Fusion', () => {
     tamerView = 'list';
     fusionBaseId = null;
+    fusionMaterialIds = new Set();
     renderTamer();
   }));
   const info = document.createElement('div');
@@ -2083,6 +2091,7 @@ function renderTamerFusionBase() {
     list.appendChild(buildInstanceRow(instance, {
       onSelect: (id) => {
         fusionBaseId = id;
+        fusionMaterialIds = new Set();
         tamerView = 'fusionMaterial';
         renderTamer();
       },
@@ -2097,6 +2106,7 @@ function renderTamerFusionMaterial() {
   if (!base) {
     tamerView = 'fusionBase';
     fusionBaseId = null;
+    fusionMaterialIds = new Set();
     renderTamer();
     return;
   }
@@ -2107,6 +2117,7 @@ function renderTamerFusionMaterial() {
   list.appendChild(buildTamerBackRow('← Cancel Fusion', () => {
     tamerView = 'list';
     fusionBaseId = null;
+    fusionMaterialIds = new Set();
     renderTamer();
   }));
 
@@ -2134,29 +2145,71 @@ function renderTamerFusionMaterial() {
     return;
   }
 
+  // A candidate that got locked (or otherwise stopped being fusable) since
+  // it was ticked shouldn't linger in the selection.
+  const candidateIds = new Set(candidates.map((i) => i.id));
+  [...fusionMaterialIds].forEach((id) => { if (!candidateIds.has(id)) fusionMaterialIds.delete(id); });
+
+  // A running multi-select — tick as many Material candidates as you want
+  // (say, dumping a dozen low-level duplicates into your main one at once),
+  // then fuse them all in a single confirm instead of repeating the whole
+  // pick-confirm loop per copy.
+  const selectedCount = fusionMaterialIds.size;
+  const actionRow = document.createElement('div');
+  actionRow.className = 'shop-item';
+  actionRow.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">Fuse Selected</span>
+      <span class="shop-item-desc">${selectedCount > 0 ? `${selectedCount} companion${selectedCount > 1 ? 's' : ''} selected below` : 'Tap Select on any companion below, then fuse them all in at once.'}</span>
+    </div>
+  `;
+  const actionBtn = document.createElement('button');
+  actionBtn.className = 'btn btn-small';
+  actionBtn.textContent = `Fuse (${selectedCount})`;
+  actionBtn.disabled = selectedCount === 0;
+  actionBtn.addEventListener('click', () => {
+    const selected = candidates.filter((i) => fusionMaterialIds.has(i.id));
+    if (selected.length === 0) return;
+    const totalGain = selected.reduce((sum, i) => sum + fusionPowerGain(i.level), 0);
+    const baseAbility = ALL_PET_DEFS[base.key].ability;
+    const knownAbilities = new Set(petAbilities(p, base.id));
+    const newAbilities = new Set();
+    selected.forEach((i) => {
+      const ability = ALL_PET_DEFS[i.key].ability;
+      if (ability !== baseAbility && !knownAbilities.has(ability)) newAbilities.add(ability);
+    });
+    // Extra-loud warning when any material about to be permanently
+    // destroyed is Shiny or Elite, specifically so a Shiny/Elite catch is
+    // never lost to a misclick.
+    const specialCount = selected.filter((i) => i.shiny || i.elite).length;
+    const specialWarning = specialCount > 0
+      ? `⚠ ${specialCount} of these ${specialCount > 1 ? 'are' : 'is'} Shiny/Elite — this cannot be undone. `
+      : '';
+    const namesSummary = selected.length <= 4
+      ? selected.map((i) => petDisplayName(p, i.id)).join(', ')
+      : `${selected.length} companions`;
+    const abilityNames = [...newAbilities].map((k) => COMPANION_ABILITIES[k].name);
+    const confirmMsg = `${specialWarning}Fuse ${namesSummary} into ${petDisplayName(p, base.id)}? This permanently removes ${selected.length === 1 ? 'it' : 'them'} from your team and grants +${totalGain}% power total${abilityNames.length > 0 ? ` plus the ${abilityNames.join(', ')} ${abilityNames.length > 1 ? 'abilities' : 'ability'}` : ''}.`;
+    if (!window.confirm(confirmMsg)) return;
+    selected.forEach((i) => fuseCompanions(p, i.id, base.id));
+    autosave();
+    updateHud();
+    tamerView = 'list';
+    fusionBaseId = null;
+    fusionMaterialIds = new Set();
+    renderTamer();
+  });
+  actionRow.appendChild(actionBtn);
+  list.appendChild(actionRow);
+
   const buildMaterialRow = (instance) => buildInstanceRow(instance, {
+    selected: fusionMaterialIds.has(instance.id),
     onSelect: (materialId) => {
-      const material = p.pets.find((i) => i.id === materialId);
-      const gain = fusionPowerGain(material.level);
-      const baseAbility = ALL_PET_DEFS[base.key].ability;
-      const materialAbility = ALL_PET_DEFS[material.key].ability;
-      const gainsAbility = materialAbility !== baseAbility && !petAbilities(p, base.id).includes(materialAbility);
-      // Extra-loud warning when the material about to be permanently
-      // destroyed is Shiny or Elite, specifically so a Shiny/Elite catch is
-      // never lost to a misclick.
-      const specialWarning = (material.shiny || material.elite)
-        ? `⚠ ${petDisplayName(p, material.id)} is ${material.shiny && material.elite ? 'Shiny AND Elite' : material.shiny ? 'Shiny' : 'Elite'} — this cannot be undone. `
-        : '';
-      const confirmMsg = `${specialWarning}Fuse ${petDisplayName(p, material.id)} (Lv. ${material.level}) into ${petDisplayName(p, base.id)}? This permanently removes ${ALL_PET_DEFS[material.key].name} from your team and grants +${gain}% power${gainsAbility ? ` plus the ${COMPANION_ABILITIES[materialAbility].name} ability` : ''}.`;
-      if (!window.confirm(confirmMsg)) return;
-      fuseCompanions(p, materialId, base.id);
-      autosave();
-      updateHud();
-      tamerView = 'list';
-      fusionBaseId = null;
+      if (fusionMaterialIds.has(materialId)) fusionMaterialIds.delete(materialId);
+      else fusionMaterialIds.add(materialId);
       renderTamer();
     },
-    selectLabel: 'Fuse',
+    selectLabel: fusionMaterialIds.has(instance.id) ? '✓ Selected' : 'Select',
   });
 
   // Plain copies are listed first (safe to fuse without a second thought);

@@ -354,6 +354,7 @@ html, body {
   border-radius: 10px;
   padding: 10px 12px;
 }
+.shop-item.material-selected { border-color: var(--gold); background: rgba(212, 168, 64, 0.15); }
 .shop-item-icon {
   width: 32px;
   height: 32px;
