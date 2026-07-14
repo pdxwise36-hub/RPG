@@ -729,11 +729,21 @@ export const PLAYER_BASE = {
   mercArmorKey: 'none',
   ownedMercWeapons: ['none'],
   ownedMercArmors: ['none'],
+  // A single pick from COMPANION_ABILITIES, free to change any time once
+  // hired — unlike a pet, the Mercenary doesn't level into its ability, it
+  // just has one from day one (see mercAbilityBonus in state.js).
+  mercAbilityKey: null,
   // Today's 3 Bounty Board objectives and progress toward them; regenerated
   // whenever the real-world date changes. bountyDate is a toDateString().
   bountyDate: null,
   bounties: [],
   bountyProgress: { kills: 0, gold: 0, arenaWins: 0, bossWins: 0 },
+  // The Caravan's single rotating item — one { type, key, price } offer
+  // regenerated whenever the real-world date changes (same daily-reroll
+  // pattern as the Bounty Board above), and purchasable once per day.
+  caravanDate: null,
+  caravanStock: null,
+  caravanPurchased: false,
   // How many times New Game+ has been started — each cycle scales enemy
   // stats and rewards up further.
   ngPlusLevel: 0,

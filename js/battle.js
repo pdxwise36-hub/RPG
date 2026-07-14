@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, LEGENDARIES, LEGENDARY_DROP_CHANCE, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
-import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, hpRegenPercent, mercPowerSetBonus, elementalBonusPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, petOwnAbilityBonus, applyLevelUps, findPetInstance, makePetInstance, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
+import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, hpRegenPercent, mercPowerSetBonus, elementalBonusPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, petOwnAbilityBonus, mercAbilityBonus, applyLevelUps, findPetInstance, makePetInstance, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -104,10 +104,10 @@ function rollDodge(player, battle) {
     battle.guaranteedDodge = false;
     return true;
   }
-  return Math.random() * 100 < dodgeChance(player) + companionAbilityBonus(player, 'swift');
+  return Math.random() * 100 < dodgeChance(player) + companionAbilityBonus(player, 'swift') + mercAbilityBonus(player, 'swift');
 }
 function rollCrit(player) {
-  return Math.random() * 100 < critChance(player) + companionAbilityBonus(player, 'berserker');
+  return Math.random() * 100 < critChance(player) + companionAbilityBonus(player, 'berserker') + mercAbilityBonus(player, 'berserker');
 }
 
 // Some zones inflict environmental damage on top of the enemy's own attack
@@ -132,10 +132,11 @@ function enemyStrikes(battle, state) {
     pushLog(battle, `You dodge ${battle.enemy.name}'s attack!`);
   } else {
     let dmg = damageRoll(battle.enemy.atk, effectiveDef(player));
-    // A Guardian companion ability, a hired Mercenary's own armor, and a
-    // Guardian companion's Rally-granted one-time shield all stack, capped
-    // well short of making a hit do nothing.
-    let reduction = companionAbilityBonus(player, 'guardian') + mercDamageReduction(player);
+    // A Guardian companion ability, a Guardian-picked Mercenary ability, a
+    // hired Mercenary's own armor, and a Guardian companion's Rally-granted
+    // one-time shield all stack, capped well short of making a hit do
+    // nothing.
+    let reduction = companionAbilityBonus(player, 'guardian') + mercAbilityBonus(player, 'guardian') + mercDamageReduction(player);
     if (battle.shieldActive) {
       reduction += 50;
       battle.shieldActive = false;
@@ -214,7 +215,8 @@ function petAttacks(battle, state) {
 // The hired Mercenary (see MERCENARIES in data.js) auto-attacks every round
 // exactly like a pet does, stacking with whichever companion is also
 // active — no XP/leveling of its own, just its hire tier plus whatever
-// small Weapon it's carrying.
+// small Weapon it's carrying, plus (unlike a plain pet) its own single
+// ability pick — see mercAbilityKey/mercAbilityBonus in state.js.
 function mercAttacks(battle, state) {
   const player = state.player;
   if (player.mercTier < 0) return;
@@ -224,6 +226,14 @@ function mercAttacks(battle, state) {
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power) + weapon.atkBonus);
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
   pushLog(battle, `${merc.name} strikes ${battle.enemy.name} for ${dmg}!`);
+  const vampiric = mercAbilityBonus(player, 'vampiric');
+  if (vampiric > 0 && player.hp < player.maxHp) {
+    const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * vampiric / 100));
+    if (healed > 0) {
+      player.hp += healed;
+      pushLog(battle, `${merc.name}'s strike heals you for ${healed}!`);
+    }
+  }
 }
 
 // The Amulet slowly tops the player's MP back up each round — rolled once
@@ -465,7 +475,7 @@ export function playerRun(battle, state) {
 // through this one function.
 export function grantRewards(state, enemyDef) {
   const player = state.player;
-  const blessed = companionAbilityBonus(player, 'blessed');
+  const blessed = companionAbilityBonus(player, 'blessed') + mercAbilityBonus(player, 'blessed');
   const goldWon = Math.round(rand(enemyDef.goldMin, enemyDef.goldMax) * (1 + goldBonusPercent(player) / 100) * (1 + blessed / 100));
   const xpWon = Math.round(enemyDef.xp * (1 + xpBonusPercent(player) / 100) * (1 + blessed / 100));
   player.gold += goldWon;

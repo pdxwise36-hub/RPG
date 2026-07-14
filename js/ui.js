@@ -876,7 +876,8 @@ function renderParty() {
   body.appendChild(sectionHeading('Mercenary'));
   const mercRow = document.createElement('div');
   mercRow.className = 'status-row';
-  mercRow.innerHTML = `<span>Hired</span><span>${p.mercTier >= 0 ? `${MERCENARIES[p.mercTier].name} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)` : 'None'}</span>`;
+  const mercAbility = p.mercTier >= 0 && p.mercAbilityKey ? COMPANION_ABILITIES[p.mercAbilityKey] : null;
+  mercRow.innerHTML = `<span>Hired</span><span>${p.mercTier >= 0 ? `${MERCENARIES[p.mercTier].name} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)${mercAbility ? ` — ${mercAbility.name}` : ''}` : 'None'}</span>`;
   body.appendChild(mercRow);
 }
 
@@ -1682,6 +1683,117 @@ function renderBounty() {
   });
 }
 
+// ---------- The Caravan ----------
+// A single rotating offer, one real-world day at a time (same reroll timing
+// as the Bounty Board), drawn from things that are otherwise chest-only —
+// Charms, Held Items, Gems, and (rarely) the Master Capture Orb. Priced well
+// above what any of these are actually "worth" in expected chest-farming
+// gold, so hunting chests stays the smart way to get one; the Caravan is
+// just a guaranteed (if pricey) alternative for a specific day's find.
+function rollCaravanStock() {
+  const p = state.player;
+  const roll = Math.random();
+  if (roll < 0.1) {
+    return { type: 'item', key: 'masterCaptureOrb', price: 2000 };
+  }
+  if (roll < 0.4) {
+    // Nearest-unowned Charm tier, anchored to character level the same way
+    // rollCharm in battle.js anchors to zone depth.
+    const order = CHARM_ORDER.filter((k) => k !== 'none');
+    const owned = p.ownedCharms;
+    const anchor = Math.max(0, Math.min(order.length - 1, Math.floor(p.level / 6)));
+    let key = null;
+    for (let offset = 0; offset < order.length && !key; offset++) {
+      for (const candidate of [anchor + offset, anchor - offset]) {
+        if (candidate < 0 || candidate >= order.length) continue;
+        if (!owned.includes(order[candidate])) { key = order[candidate]; break; }
+      }
+    }
+    if (key) return { type: 'charm', key, price: 250 + CHARM_ORDER.indexOf(key) * 150 };
+  }
+  if (roll < 0.7) {
+    // Held Items have no tier order (six lateral alternatives) — any unowned one.
+    const unowned = HELD_ITEM_ORDER.filter((k) => !p.ownedHeldItems.includes(k));
+    if (unowned.length > 0) {
+      const key = unowned[Math.floor(Math.random() * unowned.length)];
+      return { type: 'helditem', key, price: 900 };
+    }
+  }
+  // Gems are stackable, not owned-or-not, so this fallback is always
+  // available even once every Charm/Held Item is already owned.
+  const gemKey = GEM_ORDER[Math.floor(Math.random() * GEM_ORDER.length)];
+  const gem = GEMS[gemKey];
+  const price = gem.size === 'Large' ? 1500 : gem.size === 'Medium' ? 750 : 300;
+  return { type: 'gem', key: gemKey, price };
+}
+
+function ensureCaravan() {
+  const p = state.player;
+  if (p.caravanDate === todayString() && p.caravanStock) return;
+  p.caravanDate = todayString();
+  p.caravanStock = rollCaravanStock();
+  p.caravanPurchased = false;
+  // Persist immediately — same reasoning as ensureBounties: a fresh roll
+  // generated this visit shouldn't silently re-roll if the app closes
+  // before anything else triggers an autosave.
+  autosave();
+}
+
+function renderCaravan() {
+  ensureCaravan();
+  const p = state.player;
+  el('caravan-gold').textContent = p.gold;
+  const list = el('caravan-list');
+  list.innerHTML = '';
+  const stock = p.caravanStock;
+  const def = stock.type === 'charm' ? CHARMS[stock.key]
+    : stock.type === 'helditem' ? HELD_ITEMS[stock.key]
+    : stock.type === 'gem' ? GEMS[stock.key]
+    : ITEMS[stock.key];
+  const descText = stock.type === 'charm' ? `+${def.petPowerBonus}% pet damage while equipped`
+    : stock.type === 'helditem' ? def.desc
+    : stock.type === 'gem' ? `Socket bonus: ${SET_STAT_LABELS[def.statKey](def.value)}`
+    : def.desc;
+  const alreadyOwned = (stock.type === 'charm' && p.ownedCharms.includes(stock.key))
+    || (stock.type === 'helditem' && p.ownedHeldItems.includes(stock.key));
+
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  const iconHtml = def.sprite ? `<div class="shop-item-icon" style="background-image:url('${def.sprite}')"></div>` : '';
+  row.innerHTML = `
+    ${iconHtml}
+    <div class="shop-item-info">
+      <span class="shop-item-name">${def.name}</span>
+      <span class="shop-item-desc">${descText} — ${stock.price}G</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (p.caravanPurchased) {
+    btn.textContent = 'Sold Out';
+    btn.disabled = true;
+  } else if (alreadyOwned) {
+    btn.textContent = 'Already Owned';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Buy';
+    btn.disabled = p.gold < stock.price;
+    btn.addEventListener('click', () => {
+      if (p.gold < stock.price || p.caravanPurchased) return;
+      p.gold -= stock.price;
+      if (stock.type === 'charm') p.ownedCharms.push(stock.key);
+      else if (stock.type === 'helditem') p.ownedHeldItems.push(stock.key);
+      else p.inventory[stock.key] = (p.inventory[stock.key] || 0) + 1;
+      p.caravanPurchased = true;
+      autosave();
+      updateHud();
+      renderCaravan();
+    });
+  }
+  row.appendChild(btn);
+  list.appendChild(row);
+}
+
 // ---------- Difficulty ----------
 // Diablo-style tiers, independent of New Game+ (see DIFFICULTIES in
 // data.js) — Nightmare unlocks once you've beaten the true final boss;
@@ -2410,6 +2522,41 @@ function renderMercenaryCamp(list) {
   if (p.mercTier < 0) return;
   MERC_WEAPON_ORDER.filter((key) => key !== 'none').forEach((key) => list.appendChild(buildMercGearRow(MERC_WEAPONS[key], 'Weapon', p.ownedMercWeapons, 'ownedMercWeapons', 'mercWeaponKey')));
   MERC_ARMOR_ORDER.filter((key) => key !== 'none').forEach((key) => list.appendChild(buildMercGearRow(MERC_ARMORS[key], 'Armor', p.ownedMercArmors, 'ownedMercArmors', 'mercArmorKey')));
+
+  // A hired Mercenary also picks a single ability from the exact same
+  // COMPANION_ABILITIES table a companion learns at level 10 — unlike a
+  // pet, it's not tied to leveling, and it's free to swap any time you
+  // change your mind (no gold cost, unlike gear/hire tiers above).
+  list.appendChild(sectionHeading('Mercenary Ability'));
+  Object.values(COMPANION_ABILITIES).forEach((ability) => list.appendChild(buildMercAbilityRow(ability)));
+}
+
+function buildMercAbilityRow(ability) {
+  const p = state.player;
+  const isPicked = p.mercAbilityKey === ability.key;
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = `
+    <div class="shop-item-info">
+      <span class="shop-item-name">${ability.name}</span>
+      <span class="shop-item-desc">${ability.desc}</span>
+    </div>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-small';
+  if (isPicked) {
+    btn.textContent = 'Picked';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Pick';
+    btn.addEventListener('click', () => {
+      p.mercAbilityKey = ability.key;
+      autosave();
+      renderTamer();
+    });
+  }
+  row.appendChild(btn);
+  return row;
 }
 
 function buildMercGearRow(item, label, ownedList, ownedField, equipField) {
@@ -2731,6 +2878,11 @@ function wireEvents() {
     renderBounty();
     showModal('modal-bounty');
   });
+  el('btn-town-caravan').addEventListener('click', () => {
+    hideModal('modal-town');
+    renderCaravan();
+    showModal('modal-caravan');
+  });
   el('btn-town-difficulty').addEventListener('click', () => {
     hideModal('modal-town');
     renderDifficulty();
@@ -2818,6 +2970,12 @@ function wireEvents() {
   // Bounty Board
   el('btn-bounty-back').addEventListener('click', () => {
     hideModal('modal-bounty');
+    showModal('modal-town');
+  });
+
+  // The Caravan
+  el('btn-caravan-back').addEventListener('click', () => {
+    hideModal('modal-caravan');
     showModal('modal-town');
   });
 

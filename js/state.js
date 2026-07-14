@@ -540,6 +540,16 @@ export function companionAbilityBonus(player, abilityKey) {
   return ids.reduce((sum, id) => sum + petOwnAbilityBonus(player, id, abilityKey), 0);
 }
 
+// The hired Mercenary's own single ability pick (see mercAbilityKey) — a
+// smaller-scale mirror of a Companion's own ability, from the exact same
+// COMPANION_ABILITIES table, applied at the same use sites in battle.js so
+// it stacks with a Companion that also has one (a Merc AND a pet both
+// picking Guardian reduces more damage than either alone).
+export function mercAbilityBonus(player, abilityKey) {
+  if (player.mercTier < 0 || player.mercAbilityKey !== abilityKey) return 0;
+  return COMPANION_ABILITIES[abilityKey].value;
+}
+
 // Every distinct ability a companion instance currently has — its own
 // assigned one plus anything gained through fusion — for display purposes.
 export function petAbilities(player, petId) {
