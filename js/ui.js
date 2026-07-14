@@ -22,6 +22,25 @@ let fusionBaseId = null;
 // fusionBaseId changes (a fresh Base means a fresh selection).
 let fusionMaterialIds = new Set();
 
+// How "Your Companions" is browsed — a standing preference (not reset when
+// the modal reopens, unlike the navigation state above) since picking a
+// sort/filter once and having it stick is what makes a large roster usable.
+const TAMER_SORT_MODES = [
+  { key: 'power', label: 'Species Power' },
+  { key: 'name', label: 'Name (A-Z)' },
+  { key: 'count', label: 'Most Owned' },
+  { key: 'level', label: 'Best Level' },
+];
+const TAMER_FILTER_MODES = [
+  { key: 'all', label: 'All' },
+  { key: 'shiny', label: 'Shiny Only' },
+  { key: 'elite', label: 'Elite Only' },
+  { key: 'locked', label: 'Locked Only' },
+  { key: 'party', label: 'In Party Only' },
+];
+let tamerSortMode = 'power';
+let tamerFilterMode = 'all';
+
 const el = (id) => document.getElementById(id);
 
 const screens = {
@@ -1786,11 +1805,38 @@ function renderTamerList() {
   const speciesKeys = [...new Set(p.pets.map((i) => i.key))];
   if (speciesKeys.length > 0) {
     list.appendChild(sectionHeading('Your Companions'));
-    speciesKeys
-      .map((key) => ALL_PET_DEFS[key])
-      .filter(Boolean)
-      .sort((a, b) => a.power - b.power)
-      .forEach((pet) => list.appendChild(buildSpeciesRow(pet)));
+    list.appendChild(buildTamerBrowseControls());
+
+    const bySpecies = (key) => p.pets.filter((i) => i.key === key);
+    let speciesDefs = speciesKeys.map((key) => ALL_PET_DEFS[key]).filter(Boolean);
+    if (tamerFilterMode !== 'all') {
+      speciesDefs = speciesDefs.filter((pet) => {
+        const instances = bySpecies(pet.key);
+        if (tamerFilterMode === 'shiny') return instances.some((i) => i.shiny);
+        if (tamerFilterMode === 'elite') return instances.some((i) => i.elite);
+        if (tamerFilterMode === 'locked') return instances.some((i) => i.locked);
+        if (tamerFilterMode === 'party') return instances.some((i) => p.partyIds.includes(i.id));
+        return true;
+      });
+    }
+    if (tamerSortMode === 'name') {
+      speciesDefs.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (tamerSortMode === 'count') {
+      speciesDefs.sort((a, b) => bySpecies(b.key).length - bySpecies(a.key).length);
+    } else if (tamerSortMode === 'level') {
+      speciesDefs.sort((a, b) => Math.max(...bySpecies(b.key).map((i) => i.level)) - Math.max(...bySpecies(a.key).map((i) => i.level)));
+    } else {
+      speciesDefs.sort((a, b) => a.power - b.power);
+    }
+
+    if (speciesDefs.length === 0) {
+      const emptyRow = document.createElement('div');
+      emptyRow.className = 'shop-item';
+      emptyRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">No companions match this filter.</span></div>';
+      list.appendChild(emptyRow);
+    } else {
+      speciesDefs.forEach((pet) => list.appendChild(buildSpeciesRow(pet)));
+    }
   }
 
   list.appendChild(sectionHeading('Fusion'));
@@ -1827,6 +1873,39 @@ function buildTamerBackRow(label, onClick) {
   btn.textContent = 'Back';
   btn.addEventListener('click', onClick);
   row.appendChild(btn);
+  return row;
+}
+
+// Two cycling buttons — tapping either steps to the next Sort/Filter mode
+// in TAMER_SORT_MODES/TAMER_FILTER_MODES and re-renders. A large roster of
+// duplicate species (from repeat catches/adopts) is much harder to scan as
+// one flat list sorted a single fixed way, so this makes the list itself
+// browsable instead of only the Fusion pickers.
+function buildTamerBrowseControls() {
+  const row = document.createElement('div');
+  row.className = 'shop-item';
+  row.innerHTML = '<div class="shop-item-info"><span class="shop-item-name">Browse</span><span class="shop-item-desc">Sort and filter your companion roster.</span></div>';
+
+  const sortBtn = document.createElement('button');
+  sortBtn.className = 'btn btn-small';
+  sortBtn.textContent = `Sort: ${TAMER_SORT_MODES.find((m) => m.key === tamerSortMode).label}`;
+  sortBtn.addEventListener('click', () => {
+    const idx = TAMER_SORT_MODES.findIndex((m) => m.key === tamerSortMode);
+    tamerSortMode = TAMER_SORT_MODES[(idx + 1) % TAMER_SORT_MODES.length].key;
+    renderTamer();
+  });
+  row.appendChild(sortBtn);
+
+  const filterBtn = document.createElement('button');
+  filterBtn.className = 'btn btn-small';
+  filterBtn.textContent = `Filter: ${TAMER_FILTER_MODES.find((m) => m.key === tamerFilterMode).label}`;
+  filterBtn.addEventListener('click', () => {
+    const idx = TAMER_FILTER_MODES.findIndex((m) => m.key === tamerFilterMode);
+    tamerFilterMode = TAMER_FILTER_MODES[(idx + 1) % TAMER_FILTER_MODES.length].key;
+    renderTamer();
+  });
+  row.appendChild(filterBtn);
+
   return row;
 }
 
