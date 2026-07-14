@@ -2,13 +2,19 @@ import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDE
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petIsElite, petIsLocked, petDisplayName, petAbilities, findPetInstance, makePetInstance, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty, rollLegendaryDrop } from './battle.js';
+import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty, rollLegendaryDrop, rollArenaMilestone } from './battle.js';
 
 let state = null;
 let battle = null;
 let prevPos = null;
 let bossRush = null;
 let rivalBattle = null;
+// Every .modal shares the same z-index, so showing modal-chest while
+// modal-arena is also visible would let arena's later DOM position swallow
+// the chest's own Close button. Set only when an Arena milestone shows a
+// chest on its own (Arena reopens instead once the chest is dismissed) —
+// see the shared btn-chest-close handler below.
+let pendingArenaReturn = false;
 
 // Pet Tamer sub-navigation: 'list' (species roster + Adopt/Charm/Held
 // Items/Mercenary), 'species' (every owned instance of one species), or
@@ -438,16 +444,33 @@ function resolveBattleEnd() {
     }
     if (battle.isArena) {
       p.bountyProgress.arenaWins += 1;
-      // No chest roll here — the Arena already pays out extra gold/XP per
-      // wave. Winning re-opens the Arena modal for the next wave instead of
-      // returning to free-roam, keeping the "how far can you go" loop tight.
-      if (state.arenaWave > p.arenaBestWave) p.arenaBestWave = state.arenaWave;
+      // Arena wins otherwise never roll a chest (they already pay out extra
+      // gold/XP per wave) — but a genuinely NEW personal best wave (not a
+      // repeat clear after a loss reset, so this can't be farmed) pays out
+      // a milestone bonus every 10 waves, with a shot at a Legendary every
+      // 25th. Winning still re-opens the Arena modal for the next wave
+      // instead of returning to free-roam, keeping the "how far can you go"
+      // loop tight — a milestone chest shows on its own first (see
+      // pendingArenaReturn) with Arena reopening once it's dismissed.
+      const clearedWave = state.arenaWave;
+      const isNewBest = clearedWave > p.arenaBestWave;
+      if (isNewBest) p.arenaBestWave = clearedWave;
       state.arenaWave += 1;
+      const milestone = isNewBest ? rollArenaMilestone(state, clearedWave) : null;
+      if (milestone && milestone.legendarySlot) {
+        msg += ` A Legendary item gleams among the remains: ${LEGENDARIES[milestone.legendarySlot].name}!`;
+      }
       autosave();
-      showToast(msg, 2000);
+      showToast(msg, milestone ? 2800 : 2000);
       goToMap();
       renderArena();
-      showModal('modal-arena');
+      if (milestone && milestone.chest) {
+        pendingArenaReturn = true;
+        renderChest(milestone.chest);
+        showModal('modal-chest');
+      } else {
+        showModal('modal-arena');
+      }
       return;
     }
     // Elite kills always drop a chest, on top of their own bigger gold/XP.
@@ -1553,7 +1576,7 @@ function renderCain() {
 // ---------- Arena ----------
 function renderArena() {
   const p = state.player;
-  el('arena-sub').textContent = `Wave ${state.arenaWave} — Best: Wave ${p.arenaBestWave}`;
+  el('arena-sub').textContent = `Wave ${state.arenaWave} — Best: Wave ${p.arenaBestWave} — a new best wave pays a bonus chest every 10 waves (a shot at a Legendary every 25th)`;
   el('btn-arena-fight').textContent = `Fight Wave ${state.arenaWave}`;
 }
 
@@ -2679,6 +2702,10 @@ function wireEvents() {
   el('btn-chest-close').addEventListener('click', () => {
     hideModal('modal-chest');
     updateHud();
+    if (pendingArenaReturn) {
+      pendingArenaReturn = false;
+      showModal('modal-arena');
+    }
   });
 
   // Town modal

@@ -528,6 +528,30 @@ export function rollLegendaryDrop(state, bossKey) {
   return slot;
 }
 
+// The Arena otherwise never rolls a chest (its wins already pay bonus
+// gold/XP per wave) — this is the endless ladder's own payoff for pushing
+// past a personal best. Only ever called for a genuinely NEW best wave (not
+// a repeat clear after a loss reset), so it can't be farmed by intentionally
+// losing and re-clearing the same milestone wave. Every 10th wave pays out
+// a bonus chest; every 25th also has a shot at a random unowned Legendary —
+// any slot, not gated to that item's specific boss, since the reward here
+// is for the ladder itself.
+export function rollArenaMilestone(state, wave) {
+  const isChestMilestone = wave % 10 === 0;
+  const isLegendaryMilestone = wave % 25 === 0;
+  if (!isChestMilestone && !isLegendaryMilestone) return null;
+  const chest = isChestMilestone ? rollChest(state, true) : null;
+  let legendarySlot = null;
+  if (isLegendaryMilestone) {
+    const unowned = Object.keys(LEGENDARIES).filter((s) => !state.player.ownedLegendaries.includes(s));
+    if (unowned.length > 0 && Math.random() < LEGENDARY_DROP_CHANCE) {
+      legendarySlot = unowned[Math.floor(Math.random() * unowned.length)];
+      state.player.ownedLegendaries.push(legendarySlot);
+    }
+  }
+  return { chest, legendarySlot };
+}
+
 const GEAR_SLOT_KEYS = Object.keys(GEAR_SLOTS);
 
 // Picks an unowned piece from a random equipment slot, anchored to the
