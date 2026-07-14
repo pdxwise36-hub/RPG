@@ -146,6 +146,16 @@ const THEME_MOOD = {
 const BOSS_CLEARED_COLOR = '#caa53d';
 const SEALED_PORTAL_COLOR = '#3a3a42';
 
+// A cheap, deterministic per-tile hash — used to vary grass blades/path
+// texture/water ripples across a tile's own (x, y) so the extra decoration
+// below doesn't look like an obviously repeating stamp, without resorting
+// to Math.random() (which would make every redraw of the same tile jitter).
+function tileHash(x, y) {
+  let h = (x * 374761393 + y * 668265263) ^ (x << 13);
+  h = (h ^ (h >>> 15)) * 1274126177;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
 export function drawMap(ctx, state) {
   const map = MAPS[state.mapId];
   const layout = state.layouts[state.mapId];
@@ -169,39 +179,107 @@ export function drawMap(ctx, state) {
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
       if (tile === TILE.GRASS) {
-        const speckle = {
-          warm: 'rgba(255,255,255,0.05)',
-          arcane: 'rgba(180,150,255,0.08)',
-          frost: 'rgba(255,255,255,0.35)',
-          ember: 'rgba(255,120,60,0.15)',
+        // A soft top-lit gradient reads as gentle terrain shading instead
+        // of one flat fill, then a handful of short blade strokes (varied
+        // per-tile via tileHash so it isn't an obviously repeating stamp)
+        // stand in for individual grass without needing sprite art.
+        const grad = ctx.createLinearGradient(px, py, px, py + TILE_SIZE);
+        grad.addColorStop(0, 'rgba(255,255,255,0.06)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.05)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        const bladeColor = {
+          warm: 'rgba(255,255,255,0.12)',
+          arcane: 'rgba(180,150,255,0.16)',
+          frost: 'rgba(255,255,255,0.5)',
+          ember: 'rgba(255,140,70,0.25)',
         }[mood];
-        ctx.fillStyle = speckle;
-        if ((x + y) % 2 === 0) ctx.fillRect(px + 6, py + 8, 3, 3);
-        if ((x * 3 + y) % 5 === 0) ctx.fillRect(px + 20, py + 20, 3, 3);
+        const gh = tileHash(x, y);
+        ctx.strokeStyle = bladeColor;
+        ctx.lineWidth = 1.4;
+        for (let i = 0; i < 4; i++) {
+          const seed = (gh >> (i * 5)) & 0x1f;
+          const bx = px + 4 + (seed % (TILE_SIZE - 8));
+          const by = py + TILE_SIZE - 4 - (seed % 5);
+          const lean = ((seed % 3) - 1) * 2;
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + lean, by - 5 - (seed % 4));
+          ctx.stroke();
+        }
+      } else if (tile === TILE.PATH) {
+        // Path had no decoration at all before — a few worn dirt/stone
+        // flecks (position/size varied per-tile via tileHash) so a long
+        // corridor doesn't read as one uniform color block.
+        const wh = tileHash(x, y);
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+        for (let i = 0; i < 3; i++) {
+          const seed = (wh >> (i * 6)) & 0x3f;
+          const dx = px + 4 + (seed % (TILE_SIZE - 8));
+          const dy = py + 4 + ((seed * 7) % (TILE_SIZE - 8));
+          const size = 1.5 + (seed % 3);
+          ctx.beginPath();
+          ctx.ellipse(dx, dy, size, size * 0.6, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
       } else if (tile === TILE.WATER) {
+        // A vertical gradient gives the water actual depth instead of one
+        // flat fill; each mood then layers on 2 themed ripple/glint lines
+        // (offset per-tile via tileHash) instead of just 1, for more
+        // motion-suggesting detail on a still canvas redraw.
+        const grad = ctx.createLinearGradient(px, py, px, py + TILE_SIZE);
+        grad.addColorStop(0, 'rgba(255,255,255,0.06)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.14)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        const wh2 = tileHash(x, y);
+        const yOff = (wh2 % 7) - 3;
         if (mood === 'arcane') {
           ctx.strokeStyle = 'rgba(120,90,180,0.25)';
           ctx.beginPath();
-          ctx.moveTo(px + 6, py + 10); ctx.lineTo(px + 14, py + 20); ctx.lineTo(px + 8, py + 28);
+          ctx.moveTo(px + 6, py + 10 + yOff); ctx.lineTo(px + 14, py + 20 + yOff); ctx.lineTo(px + 8, py + 28 + yOff);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(160,130,220,0.18)';
+          ctx.beginPath();
+          ctx.moveTo(px + 20, py + 6 - yOff); ctx.lineTo(px + 26, py + 16 - yOff);
           ctx.stroke();
         } else if (mood === 'frost') {
           ctx.strokeStyle = 'rgba(200,240,255,0.4)';
           ctx.beginPath();
-          ctx.moveTo(px + 5, py + 8); ctx.lineTo(px + 16, py + 18); ctx.lineTo(px + 10, py + 27);
-          ctx.moveTo(px + 16, py + 18); ctx.lineTo(px + 26, py + 10);
+          ctx.moveTo(px + 5, py + 8 + yOff); ctx.lineTo(px + 16, py + 18 + yOff); ctx.lineTo(px + 10, py + 27 + yOff);
+          ctx.moveTo(px + 16, py + 18 + yOff); ctx.lineTo(px + 26, py + 10 + yOff);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+          ctx.beginPath();
+          ctx.moveTo(px + 3, py + 22 - yOff); ctx.lineTo(px + 12, py + 22 - yOff);
           ctx.stroke();
         } else if (mood === 'ember') {
           ctx.fillStyle = 'rgba(255,200,80,0.55)';
-          ctx.beginPath(); ctx.arc(px + 12, py + 20, 3, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(px + 21, py + 12, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(px + 12, py + 20 + yOff, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(px + 21, py + 12 + yOff, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(255,150,60,0.3)';
+          ctx.beginPath(); ctx.arc(px + 8, py + 8 - yOff, 1.6, 0, Math.PI * 2); ctx.fill();
         } else {
           ctx.strokeStyle = 'rgba(255,255,255,0.15)';
           ctx.beginPath();
-          ctx.moveTo(px + 4, py + 16);
-          ctx.lineTo(px + 28, py + 16);
+          ctx.moveTo(px + 4, py + 16 + yOff);
+          ctx.lineTo(px + 28, py + 16 + yOff);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+          ctx.beginPath();
+          ctx.moveTo(px + 6, py + 24 - yOff);
+          ctx.lineTo(px + 22, py + 24 - yOff);
           ctx.stroke();
         }
       } else if (tile === TILE.TREE) {
+        // A ground shadow first grounds the canopy instead of it looking
+        // like it's floating on the tile, and a light highlight sliver on
+        // top of each mood's existing shape adds a touch of dimensionality
+        // — both shared across every mood instead of duplicated per-branch.
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(px + 16, py + 28, 10, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
         if (mood === 'arcane') {
           ctx.fillStyle = '#4a4260';
           ctx.beginPath();
@@ -230,6 +308,11 @@ export function drawMap(ctx, state) {
           ctx.arc(px + 16, py + 14, 12, 0, Math.PI * 2);
           ctx.fill();
         }
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath();
+        ctx.moveTo(px + 16, py + 6); ctx.lineTo(px + 20, py + 19); ctx.lineTo(px + 12, py + 19);
+        ctx.closePath();
+        ctx.fill();
       } else if (tile === TILE.TOWN) {
         ctx.fillStyle = '#e8d9a8';
         ctx.fillRect(px + 8, py + 14, 16, 14);

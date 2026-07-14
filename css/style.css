@@ -210,6 +210,7 @@ html, body {
 .combatant { display: flex; flex-direction: column; gap: 6px; }
 .combatant-name { font-weight: 700; }
 .sprite {
+  position: relative;
   align-self: center;
   width: 84px;
   height: 84px;
@@ -228,6 +229,48 @@ html, body {
   background-size: 88%;
 }
 .player-sprite { background-color: rgba(58, 90, 122, 0.15); }
+
+/* Battle juice: a hit flash + floating damage/heal number over whichever
+   sprite's HP just changed, plus a shake for the player taking real damage
+   (see animateHit in ui.js). */
+.floating-text {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 800;
+  font-size: 1.15rem;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+  animation: floatUp 0.9s ease-out forwards;
+  z-index: 5;
+}
+.damage-text { color: #ff5f5f; }
+.heal-text { color: #6bffb0; }
+@keyframes floatUp {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+}
+.hit-flash { animation: hitFlash 0.35s ease-out; }
+@keyframes hitFlash {
+  0% { filter: brightness(2.2) saturate(0.3) drop-shadow(0 0 8px #ff3b3b); }
+  100% { filter: none; }
+}
+.heal-flash { animation: healFlash 0.45s ease-out; }
+@keyframes healFlash {
+  0% { filter: brightness(1.6) drop-shadow(0 0 8px #4dffa0); }
+  100% { filter: none; }
+}
+.shake { animation: shakeX 0.35s ease-in-out; }
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
 .sprite-row {
   display: flex;
   flex-direction: row;

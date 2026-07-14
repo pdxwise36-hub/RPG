@@ -9,6 +9,14 @@ let battle = null;
 let prevPos = null;
 let bossRush = null;
 let rivalBattle = null;
+// The last HP renderBattle() actually painted for each combatant — compared
+// against the current value on every re-render so a hit flash/floating
+// number/shake can fire off whatever changed since the last frame, without
+// battle.js needing to report deltas explicitly (every action already just
+// mutates hp directly). Reset to null (no baseline yet) whenever a fresh
+// battle starts, so the very first render never fires a false "hit".
+let lastEnemyHp = null;
+let lastPlayerHp = null;
 // Every .modal shares the same z-index, so showing modal-chest while
 // modal-arena is also visible would let arena's later DOM position swallow
 // the chest's own Close button. Set only when an Arena milestone shows a
@@ -241,6 +249,33 @@ function handleMove(dir) {
   }
 }
 
+// A hit flash + floating "-N"/"+N" number over whichever sprite (enemy or
+// player) just changed HP since the last render, plus an optional shake for
+// real damage taken (not healing). One combined animation per render, not
+// per individual sub-hit within the round (pet/merc/enemy actions all land
+// within the same renderBattle() call) — still reads as a satisfying
+// "something happened" cue without battle.js needing to report per-hit
+// deltas itself.
+function animateHit(spriteId, delta, opts = {}) {
+  const target = el(spriteId);
+  const isHeal = delta < 0;
+  const amount = Math.abs(delta);
+  if (amount === 0) return;
+  const popup = document.createElement('div');
+  popup.className = `floating-text ${isHeal ? 'heal-text' : 'damage-text'}`;
+  popup.textContent = `${isHeal ? '+' : '-'}${amount}`;
+  target.appendChild(popup);
+  popup.addEventListener('animationend', () => popup.remove());
+
+  // Reset-then-reflow-then-reapply so a second hit landing before the first
+  // animation finished restarts it instead of silently no-op'ing (adding a
+  // class that's already present doesn't retrigger a CSS animation).
+  target.classList.remove('hit-flash', 'heal-flash', 'shake');
+  void target.offsetWidth;
+  target.classList.add(isHeal ? 'heal-flash' : 'hit-flash');
+  if (opts.shake && !isHeal) target.classList.add('shake');
+}
+
 // ---------- Battle screen ----------
 function renderBattle() {
   const p = state.player;
@@ -256,6 +291,15 @@ function renderBattle() {
   el('battle-mp-fill').style.width = `${pct(p.mp, p.maxMp)}%`;
   el('battle-mp-text').textContent = `${p.mp}/${p.maxMp}`;
   el('battle-log').innerHTML = battle.log.map((l) => `<div>${l}</div>`).join('');
+
+  if (lastEnemyHp !== null && battle.enemy.hp !== lastEnemyHp) {
+    animateHit('enemy-sprite', lastEnemyHp - battle.enemy.hp);
+  }
+  if (lastPlayerHp !== null && p.hp !== lastPlayerHp) {
+    animateHit('player-sprite', lastPlayerHp - p.hp, { shake: true });
+  }
+  lastEnemyHp = battle.enemy.hp;
+  lastPlayerHp = p.hp;
 
   const petEl = el('pet-sprite');
   const energyTrack = el('pet-energy-track');
@@ -343,6 +387,10 @@ function startBattle(enemyDef, isBoss, isArena = false, isBossRush = false, isRi
   battle.isArena = isArena;
   battle.isBossRush = isBossRush;
   battle.isRival = isRival;
+  // No baseline yet for the new fight — the first renderBattle() below just
+  // establishes it instead of animating a "hit" for the fresh HP totals.
+  lastEnemyHp = null;
+  lastPlayerHp = null;
   el('battle-menu-main').classList.remove('hidden');
   el('battle-menu-items').classList.add('hidden');
   el('battle-menu-skills').classList.add('hidden');
