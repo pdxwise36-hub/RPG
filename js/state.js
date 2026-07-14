@@ -123,7 +123,7 @@ export function fromSaveObject(saved) {
     const legacyShiny = saved.player.shinyPets || [];
     player.pets = saved.player.ownedPets.map((key) => {
       const prog = legacyProgress[key] || { level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext };
-      return { id: key, key, level: prog.level, xp: prog.xp, xpToNext: prog.xpToNext, shiny: legacyShiny.includes(key), elite: false };
+      return { id: key, key, level: prog.level, xp: prog.xp, xpToNext: prog.xpToNext, shiny: legacyShiny.includes(key), elite: false, locked: false };
     });
     // Legacy heldItems/fusionBonus were already keyed by species key, which
     // is exactly the instance id just assigned above, so both carry over
@@ -380,7 +380,7 @@ let petInstanceCounter = 0;
 export function makePetInstance(key, { shiny = false, elite = false } = {}) {
   petInstanceCounter += 1;
   const id = `${key}_${Date.now().toString(36)}_${petInstanceCounter.toString(36)}`;
-  return { id, key, level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext, shiny, elite };
+  return { id, key, level: 1, xp: 0, xpToNext: PLAYER_BASE.xpToNext, shiny, elite, locked: false };
 }
 
 // Advances xp/xpToNext/level on any {level, xp, xpToNext} entity using the
@@ -446,6 +446,15 @@ export function petIsShiny(player, petId) {
 export function petIsElite(player, petId) {
   const instance = findPetInstance(player, petId);
   return !!(instance && instance.elite);
+}
+
+// A Locked companion opts out of ever being offered as Fusion Material —
+// a permanent safeguard for a catch you never want at risk of being
+// sacrificed by a misclick, on top of the Shiny/Elite warnings the
+// Material picker already shows.
+export function petIsLocked(player, petId) {
+  const instance = findPetInstance(player, petId);
+  return !!(instance && instance.locked);
 }
 
 export function petDisplayName(player, petId) {

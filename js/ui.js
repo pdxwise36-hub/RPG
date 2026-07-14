@@ -1,5 +1,5 @@
 import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, PARTY_SIZE, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
-import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petIsElite, petDisplayName, petAbilities, findPetInstance, makePetInstance, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
+import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petIsElite, petIsLocked, petDisplayName, petAbilities, findPetInstance, makePetInstance, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
 import { createBattle, pickRandomEnemy, pickArenaEnemy, playerAttack, playerSkill, playerItem, playerCapture, petActiveSkill, playerRun, grantRewards, rollChest, consumeItem, scaleForNGPlus, scaleForDifficulty, rollLegendaryDrop } from './battle.js';
@@ -1925,6 +1925,7 @@ function buildInstanceRow(instance, opts = {}) {
   const isLeader = p.activePetId === instance.id;
   const inParty = p.partyIds.includes(instance.id);
   const partyLabel = opts.showPartyControls ? (isLeader ? ' — Leader' : inParty ? ' — In Party' : '') : '';
+  const lockLabel = instance.locked ? ' — 🔒 Locked' : '';
   const progress = petXpProgress(p, instance.id);
 
   const row = document.createElement('div');
@@ -1934,7 +1935,7 @@ function buildInstanceRow(instance, opts = {}) {
     <div class="shop-item-icon${iconClass}" style="background-image:url('${pet.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name">${petDisplayName(p, instance.id)}</span>
-      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${abilityLabel ? ` — ${abilityLabel}` : ''}${heldLabel}${fusionLabel}${partyLabel}</span>
+      <span class="shop-item-desc">Lv. ${level} — +${powerPct}% ATK per turn${abilityLabel ? ` — ${abilityLabel}` : ''}${heldLabel}${fusionLabel}${partyLabel}${lockLabel}</span>
       <div class="bar-track pet-xp">
         <div class="bar-fill" style="width:${Math.round((progress.xpIntoLevel / progress.xpNeeded) * 100)}%"></div>
         <span class="bar-text">${progress.xpIntoLevel}/${progress.xpNeeded} XP</span>
@@ -2013,6 +2014,21 @@ function buildInstanceRow(instance, opts = {}) {
       });
       row.appendChild(fuseBtn);
     }
+
+    // Locking a companion permanently opts it out of ever being offered as
+    // Fusion Material — a stronger safeguard than the Shiny/Elite warnings
+    // for a catch you never want at risk of a misclick. Being chosen as a
+    // Base is always safe (it's kept, not sacrificed), so locking doesn't
+    // touch that.
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'btn btn-small';
+    lockBtn.textContent = instance.locked ? 'Unlock' : 'Lock';
+    lockBtn.addEventListener('click', () => {
+      instance.locked = !instance.locked;
+      autosave();
+      renderTamer();
+    });
+    row.appendChild(lockBtn);
   }
   return row;
 }
@@ -2092,12 +2108,17 @@ function renderTamerFusionMaterial() {
   list.appendChild(sectionHeading('Base (kept)'));
   list.appendChild(buildInstanceRow(base, {}));
 
-  const candidates = p.pets.filter((i) => i.id !== base.id).sort((a, b) => b.level - a.level);
+  // Locked companions (see the Lock/Unlock button on each instance row)
+  // never appear as Material candidates at all — a stronger safeguard than
+  // the Shiny/Elite warnings below for a catch you never want at risk.
+  const others = p.pets.filter((i) => i.id !== base.id).sort((a, b) => b.level - a.level);
+  const lockedCount = others.filter((i) => i.locked).length;
+  const candidates = others.filter((i) => !i.locked);
   if (candidates.length === 0) {
     list.appendChild(sectionHeading('Choose Material to Sacrifice'));
     const emptyRow = document.createElement('div');
     emptyRow.className = 'shop-item';
-    emptyRow.innerHTML = '<div class="shop-item-info"><span class="shop-item-desc">No other companions to fuse in.</span></div>';
+    emptyRow.innerHTML = `<div class="shop-item-info"><span class="shop-item-desc">${lockedCount > 0 ? 'All other companions are 🔒 Locked — unlock one from its Manage view first if you want to fuse it.' : 'No other companions to fuse in.'}</span></div>`;
     list.appendChild(emptyRow);
     return;
   }
@@ -2134,7 +2155,7 @@ function renderTamerFusionMaterial() {
   const plainCandidates = candidates.filter((i) => !i.shiny && !i.elite);
   const specialCandidates = candidates.filter((i) => i.shiny || i.elite);
   if (plainCandidates.length > 0) {
-    list.appendChild(sectionHeading('Choose Material to Sacrifice'));
+    list.appendChild(sectionHeading(`Choose Material to Sacrifice${lockedCount > 0 ? ` (${lockedCount} Locked companion${lockedCount > 1 ? 's' : ''} hidden)` : ''}`));
     plainCandidates.forEach((instance) => list.appendChild(buildMaterialRow(instance)));
   }
   if (specialCandidates.length > 0) {

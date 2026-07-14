@@ -659,7 +659,11 @@ export const PLAYER_BASE = {
   // instance instead of being blocked, so an Elite or Shiny catch is always
   // worth going for even if you already own a plain one. Each instance:
   // { id (unique, permanent), key (species — looks up ALL_PET_DEFS for
-  // name/sprite/power/ability), level, xp, xpToNext, shiny, elite }.
+  // name/sprite/power/ability), level, xp, xpToNext, shiny, elite, locked }.
+  // `locked` opts an instance out of ever being offered as Fusion Material
+  // — a permanent catch you never want at risk of being sacrificed by a
+  // misclick, on top of the Shiny/Elite warnings the Material picker
+  // already shows.
   pets: [],
   // The active companion party, in slot order — index 0 is the "leader"
   // (the one Rally/Fusion/the battle-screen main portrait use), up to
