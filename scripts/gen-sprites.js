@@ -1216,6 +1216,29 @@ function buildHeldItemIcon({ main, trim, dark }) {
   return rasterize(g, { m: main, t: trim, d: dark }, 6);
 }
 
+// 14x14 heater-shield silhouette (wide top tapering to a point), shared by
+// all ten Shield tiers.
+function buildShieldIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 2, 1, 10, 3, 'm');
+  fillRect(g, 3, 4, 8, 4, 'm');
+  fillRect(g, 4, 8, 6, 3, 'm');
+  fillRect(g, 5, 11, 4, 2, 'm');
+  fillRect(g, 6, 3, 2, 7, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
+// 14x14 horizontal belt band with a squared buckle, shared by all ten Belt
+// tiers.
+function buildBeltIcon({ main, trim, dark }) {
+  const g = makeGrid(14, 14);
+  fillRect(g, 1, 5, 12, 4, 'm');
+  fillRect(g, 5, 4, 4, 6, 't');
+  addRim(g, 'm', 'd');
+  return rasterize(g, { m: main, t: trim, d: dark }, 6);
+}
+
 // One shared 10-tier color ramp (rusty -> iron -> steel -> mithril -> flame
 // -> frost -> thunder -> void -> dragon -> celestial) reused across helms,
 // gloves, and boots so a tier reads the same regardless of slot.
@@ -1242,6 +1265,8 @@ const BOOTS_KEYS = ['wornSandals', 'leatherBoots', 'ironGreaves', 'steelBoots', 
 const CHARM_KEYS = ['frayedCharm', 'carvedCharm', 'ironCharm', 'steelCharm', 'mithrilCharm', 'flameforgedCharm', 'frostboundCharm', 'thunderCharm', 'voidboundCharm', 'celestialCharm'];
 const AMULET_KEYS = ['tarnishedAmulet', 'bronzeAmulet', 'jadeAmulet', 'silverAmulet', 'runedAmulet', 'enchantedAmulet', 'frostkissedAmulet', 'stormboundAmulet', 'voidwovenAmulet', 'celestialAmulet'];
 const RING_KEYS = ['wornRing', 'copperRing', 'jadeRing', 'mithrilRing', 'runicRing', 'emberRing', 'frostRing', 'stormRing', 'voidRing', 'celestialRing'];
+const SHIELD_KEYS = ['crackedBuckler', 'woodenTarge', 'ironBuckler', 'steelKiteShield', 'mithrilWall', 'dragonscaleWard', 'runicBulwark', 'shadowveilWard', 'stormwardBulwark', 'celestialBulwark'];
+const BELT_KEYS = ['frayedSash', 'leatherBelt', 'ironGirdle', 'steelWaistguard', 'mithrilCinch', 'flameforgedSash', 'frostboundGirdle', 'thunderweaveBelt', 'voidwovenCinch', 'celestialSash'];
 
 const outDir = path.join(__dirname, '..', 'icons', 'sprites');
 fs.mkdirSync(outDir, { recursive: true });
@@ -1377,6 +1402,8 @@ const sprites = {
 HELMET_KEYS.forEach((key, i) => { sprites[`hlm-${key}.png`] = () => buildHelmetIcon(tierColors(i)); });
 GLOVES_KEYS.forEach((key, i) => { sprites[`glv-${key}.png`] = () => buildGlovesIcon(tierColors(i)); });
 BOOTS_KEYS.forEach((key, i) => { sprites[`bts-${key}.png`] = () => buildBootsIcon(tierColors(i)); });
+SHIELD_KEYS.forEach((key, i) => { sprites[`shd-${key}.png`] = () => buildShieldIcon(tierColors(i)); });
+BELT_KEYS.forEach((key, i) => { sprites[`blt-${key}.png`] = () => buildBeltIcon(tierColors(i)); });
 sprites['chm-none.png'] = () => buildCharmIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });
 CHARM_KEYS.forEach((key, i) => { sprites[`chm-${key}.png`] = () => buildCharmIcon(tierColors(i)); });
 sprites['amu-none.png'] = () => buildAmuletIcon({ main: hex('#5a5a5a'), trim: hex('#3a3a3a'), dark: hex('#2a2a2a') });

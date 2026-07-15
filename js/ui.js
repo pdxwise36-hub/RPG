@@ -722,8 +722,47 @@ function gearStatLabel(slot, item) {
     case 'helmet': return `-${item.mpCostReduction}% Skill Cost, +${item.xpBonusPercent}% XP`;
     case 'gloves': return `${item.critChance}% Crit Chance`;
     case 'boots': return `${item.dodgeChance}% Dodge, +${item.goldBonusPercent}% Gold`;
+    case 'shield': return `+${item.defBonus} DEF`;
+    case 'belt': return `${item.hpRegenPercent}% HP Regen/turn`;
     default: return '';
   }
+}
+
+// Which numeric field(s) actually drive gearStatLabel per slot, each with a
+// short name for the compare delta below — every field here reads "higher
+// is better" (mpCostReduction is itself a magnitude-of-reduction, not a
+// cost), so the diff sign always means what it looks like.
+const GEAR_COMPARE_FIELDS = {
+  weapon: [['atkBonus', 'ATK']],
+  armor: [['defBonus', 'DEF']],
+  helmet: [['mpCostReduction', 'Skill Cost Cut'], ['xpBonusPercent', 'XP']],
+  gloves: [['critChance', 'Crit']],
+  boots: [['dodgeChance', 'Dodge'], ['goldBonusPercent', 'Gold']],
+  shield: [['defBonus', 'DEF']],
+  belt: [['hpRegenPercent', 'HP Regen']],
+};
+
+// A small "(+4 ATK vs equipped)" delta so a shop/backpack row reads as an
+// upgrade or a downgrade at a glance instead of making you hold both
+// numbers in your head — empty string for whatever's already equipped, or
+// a slot with no comparable stat.
+function gearCompareLabel(slot, item) {
+  const p = state.player;
+  const cfg = GEAR_SLOTS[slot];
+  const fields = GEAR_COMPARE_FIELDS[slot];
+  if (!cfg || !fields) return '';
+  const equippedKey = p[cfg.equipField];
+  if (equippedKey === item.key) return '';
+  const equipped = cfg.registry[equippedKey];
+  const parts = fields
+    .map(([field, label]) => ({ diff: item[field] - equipped[field], label }))
+    .filter(({ diff }) => diff !== 0)
+    .map(({ diff, label }) => `${diff > 0 ? '+' : ''}${diff} ${label}`);
+  if (parts.length === 0) return '';
+  const better = fields.some(([field]) => item[field] > equipped[field]);
+  const worse = fields.some(([field]) => item[field] < equipped[field]);
+  const cls = better && !worse ? 'gear-compare-better' : (worse && !better ? 'gear-compare-worse' : 'gear-compare-mixed');
+  return ` <span class="gear-compare ${cls}">(${parts.join(', ')} vs equipped)</span>`;
 }
 
 // Turns a SET_BONUSES threshold's bonus object into a readable summary —
@@ -1021,7 +1060,7 @@ function buildInventoryTile(gear, slot) {
   tile.innerHTML = `
     <div class="inventory-tile-icon" style="background-image:url('${gear.sprite}')"></div>
     <span class="inventory-tile-name ${qualityClass}">${gear.name}</span>
-    <span class="inventory-tile-stat">${gearStatLabel(slot, gear)}</span>
+    <span class="inventory-tile-stat">${gearStatLabel(slot, gear)}${gearCompareLabel(slot, gear)}</span>
   `;
   tile.addEventListener('click', () => {
     p[cfg.equipField] = gear.key;
@@ -1399,6 +1438,7 @@ const ENCHANT_STAT_LABELS = {
   critChance: (v) => `+${v}% Crit`,
   dodgeChance: (v) => `+${v}% Dodge`,
   goldBonusPercent: (v) => `+${v}% Gold`,
+  hpRegenPercent: (v) => `+${v}% HP Regen`,
 };
 
 // A stat bonus (see ENCHANT_STATS) per owned gear key, stacked regardless of
@@ -1479,7 +1519,7 @@ function buildArmoryRow(item, slot) {
     <div class="shop-item-icon" style="background-image:url('${item.sprite}')"></div>
     <div class="shop-item-info">
       <span class="shop-item-name ${qualityClass}">${legendary ? legendary.name : item.name}${affix ? ` ${affix.name}` : ''}${set ? ` <span class="bestiary-caught">(${set.name})</span>` : ''}</span>
-      <span class="shop-item-desc">${gearStatLabel(slot, item)}${affix ? `, ${SET_STAT_LABELS[affix.statKey](affix.value)}` : ''}${legendary ? `, ${SET_STAT_LABELS[legendary.statKey](legendary.value)}` : ''}${sockets > 0 ? ` — ${sockets} Socket` : ''} — ${owned ? 'Owned' : priceLabel}</span>
+      <span class="shop-item-desc">${gearStatLabel(slot, item)}${affix ? `, ${SET_STAT_LABELS[affix.statKey](affix.value)}` : ''}${legendary ? `, ${SET_STAT_LABELS[legendary.statKey](legendary.value)}` : ''}${sockets > 0 ? ` — ${sockets} Socket` : ''} — ${owned ? 'Owned' : priceLabel}${gearCompareLabel(slot, item)}</span>
     </div>
   `;
   const btn = document.createElement('button');
@@ -1847,6 +1887,45 @@ function renderCaravan() {
 // data.js) — Nightmare unlocks once you've beaten the true final boss;
 // Hell unlocks once you've beaten it again specifically while on
 // Nightmare (state.flags.nightmareCleared, set in resolveBattleEnd).
+// How many tiers above your current one the New Game+ picker offers at
+// once — a big jump is exactly the point (see startNewGamePlus in
+// state.js), so this isn't a hard ceiling, just how many rows to list
+// before the player would need to reopen the modal for another batch.
+const NG_PLUS_LEVEL_CHOICES = 10;
+
+// Lets the player jump straight to a higher New Game+ tier instead of
+// always stepping up by exactly 1 — every row is a real, bigger-than-+1
+// option so grinding through low tiers one at a time is never required.
+function renderNgPlusOptions() {
+  const p = state.player;
+  const list = el('ngplus-list');
+  list.innerHTML = '';
+  const current = p.ngPlusLevel || 0;
+  for (let level = current + 1; level <= current + NG_PLUS_LEVEL_CHOICES; level++) {
+    const mult = ngPlusMultiplier(level);
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-item-info">
+        <span class="shop-item-name">New Game+${level}</span>
+        <span class="shop-item-desc">${mult.toFixed(1)}x enemy stats and rewards</span>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    btn.textContent = level === current + 1 ? 'Begin' : 'Jump Here';
+    btn.addEventListener('click', () => {
+      hideModal('modal-ngplus-confirm');
+      startNewGamePlus(state, level);
+      autosave();
+      goToMap();
+      showToast(`New Game+${level} begins — everything hits harder, and pays more.`, 3200);
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+}
+
 function renderDifficulty() {
   const p = state.player;
   const list = el('difficulty-list');
@@ -2942,6 +3021,7 @@ function wireEvents() {
   });
   el('btn-town-ngplus').addEventListener('click', () => {
     hideModal('modal-town');
+    renderNgPlusOptions();
     showModal('modal-ngplus-confirm');
   });
   el('btn-town-abyss').addEventListener('click', () => {
@@ -3030,14 +3110,8 @@ function wireEvents() {
   // New Game+
   el('btn-victory-ngplus').addEventListener('click', () => {
     showScreen('map'); // underlying screen for the confirm modal to sit over
+    renderNgPlusOptions();
     showModal('modal-ngplus-confirm');
-  });
-  el('btn-ngplus-confirm').addEventListener('click', () => {
-    hideModal('modal-ngplus-confirm');
-    startNewGamePlus(state);
-    autosave();
-    goToMap();
-    showToast(`New Game+ ${state.player.ngPlusLevel} begins — everything hits harder, and pays more.`, 3200);
   });
   el('btn-ngplus-cancel').addEventListener('click', () => hideModal('modal-ngplus-confirm'));
 

@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, ELITE_CAPTURE_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, SHIELDS, BELTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, ELITE_CAPTURE_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -50,9 +50,12 @@ export function newGameState(heroName) {
 // itself — level, gear, pets, skills, gold, bestiary, achievements,
 // enchants, bounty progress — carries over untouched. Enemy/boss stats
 // (and their payout) scale up further with each cycle via ngPlusMultiplier.
-export function startNewGamePlus(state) {
+// `targetLevel` lets the player jump straight to a higher tier instead of
+// always stepping up by exactly 1 (see the NG+ level list in ui.js) —
+// defaults to +1 for any caller that doesn't care.
+export function startNewGamePlus(state, targetLevel) {
   const player = state.player;
-  player.ngPlusLevel = (player.ngPlusLevel || 0) + 1;
+  player.ngPlusLevel = targetLevel !== undefined ? targetLevel : (player.ngPlusLevel || 0) + 1;
   player.hp = player.maxHp;
   player.mp = player.maxMp;
   state.flags = {};
@@ -83,10 +86,13 @@ export function fromSaveObject(saved) {
     ...structuredClone(PLAYER_BASE),
     ...saved.player,
     inventory: { ...PLAYER_BASE.inventory, ...saved.player.inventory },
-    // Saves predating the Helmet/Gloves/Boots Enchant expansion only have
-    // weapon/armor keys here — a plain spread would otherwise wholesale
-    // replace enchantLevels and drop the newer slots' empty defaults.
+    // Saves predating the Helmet/Gloves/Boots Enchant expansion (and now the
+    // Shield/Belt slots) only have the older keys here — a plain spread
+    // would otherwise wholesale replace these and drop the newer slots'
+    // empty defaults.
     enchantLevels: { ...PLAYER_BASE.enchantLevels, ...saved.player.enchantLevels },
+    gearAffixes: { ...PLAYER_BASE.gearAffixes, ...saved.player.gearAffixes },
+    socketedGems: { ...PLAYER_BASE.socketedGems, ...saved.player.socketedGems },
   };
   // Migrate pre-equipment saves: old shape had flat atk/def instead of
   // baseAtk/baseDef, and no weapon/armor keys. Carry the old totals over as
@@ -274,7 +280,11 @@ export function effectiveAtk(player) {
 
 export function effectiveDef(player) {
   const armor = ARMORS[player.armorKey] || ARMORS.clothTunic;
-  return player.baseDef + armor.defBonus + enchantStatBonus(player, 'armor', player.armorKey, 'defBonus') + setBonusValue(player, 'def') + gearBonusAcrossSlots(player, 'def');
+  const shield = SHIELDS[player.shieldKey] || SHIELDS.crackedBuckler;
+  return player.baseDef + armor.defBonus + shield.defBonus
+    + enchantStatBonus(player, 'armor', player.armorKey, 'defBonus')
+    + enchantStatBonus(player, 'shield', player.shieldKey, 'defBonus')
+    + setBonusValue(player, 'def') + gearBonusAcrossSlots(player, 'def');
 }
 
 // Held Items (see HELD_ITEMS in data.js) stick to one specific companion
@@ -334,12 +344,14 @@ export function heldItemPetPowerBonus(player, petId) {
   return heldItemBonus(player, petId, 'petPower');
 }
 
-// Per-turn HP regen, combining Leftovers (the active companion's Held Item,
-// see applyHeldItemRegen in battle.js) with Warden's Bulwark's own set
-// bonus — both feed the same stat, so callers read this one combined total
-// instead of picking a single source.
+// Per-turn HP regen, combining the Belt's own tier, Leftovers (the active
+// companion's Held Item, see applyHeldItemRegen in battle.js), and Warden's
+// Bulwark's own set bonus — all feed the same stat, so callers read this
+// one combined total instead of picking a single source.
 export function hpRegenPercent(player) {
-  return activeHeldItemBonus(player, 'hpRegenPercent') + setBonusValue(player, 'hpRegenPercent');
+  const belt = BELTS[player.beltKey] || BELTS.frayedSash;
+  return belt.hpRegenPercent + enchantStatBonus(player, 'belt', player.beltKey, 'hpRegenPercent')
+    + activeHeldItemBonus(player, 'hpRegenPercent') + setBonusValue(player, 'hpRegenPercent') + gearBonusAcrossSlots(player, 'hpRegenPercent');
 }
 
 // The hireable Mercenary's own contribution — no XP/leveling, just its tier

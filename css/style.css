@@ -471,6 +471,11 @@ html, body {
 .item-quality-set { color: #3ecf6e; }
 .item-quality-legendary { color: #ff9d3d; font-weight: 700; }
 
+.gear-compare { font-size: 0.85em; font-weight: 600; }
+.gear-compare-better { color: #3ecf6e; }
+.gear-compare-worse { color: var(--danger); }
+.gear-compare-mixed { color: var(--text-dim); }
+
 .inventory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
 .inventory-tile {
   display: flex;

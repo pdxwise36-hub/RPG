@@ -252,7 +252,7 @@
           <div class="doll-portrait"><img src="icons/sprites/hero.png" alt="" /></div>
         </div>
         <div class="doll-cell slot-shield">
-          <div class="doll-slot locked" title="Shield — coming soon"></div>
+          <div id="slot-shield" class="doll-slot equip"></div>
           <span class="doll-label">Shield</span>
         </div>
         <div class="doll-cell slot-weapon">
@@ -272,7 +272,7 @@
           <span class="doll-label">Gloves</span>
         </div>
         <div class="doll-cell slot-belt">
-          <div class="doll-slot locked" title="Belt — coming soon"></div>
+          <div id="slot-belt" class="doll-slot equip"></div>
           <span class="doll-label">Belt</span>
         </div>
         <div class="doll-cell slot-boots">
@@ -348,12 +348,10 @@
   <!-- NEW GAME+ CONFIRM MODAL -->
   <div id="modal-ngplus-confirm" class="modal hidden">
     <div class="modal-card">
-      <h2>Start New Game+?</h2>
-      <p class="modal-sub">Every level's progress resets and you'll walk the chain again from the outskirts, with tougher monsters and bigger rewards. Your character — level, gear, pets, skills, gold, and collection progress — carries over untouched.</p>
-      <div class="menu-stack">
-        <button id="btn-ngplus-confirm" class="btn btn-primary">Begin New Game+</button>
-        <button id="btn-ngplus-cancel" class="btn">Not Yet</button>
-      </div>
+      <h2>Start New Game+</h2>
+      <p class="modal-sub">Every level's progress resets and you'll walk the chain again from the outskirts. Your character — level, gear, pets, skills, gold, and collection progress — carries over untouched. Pick how far to jump: higher tiers hit immediately, no grinding one level at a time.</p>
+      <div id="ngplus-list" class="shop-list"></div>
+      <button id="btn-ngplus-cancel" class="btn">Not Yet</button>
     </div>
   </div>
 

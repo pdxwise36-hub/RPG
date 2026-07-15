@@ -103,6 +103,39 @@ export const BOOTS = {
   celestialStriders: { key: 'celestialStriders', name: 'Celestial Striders', dodgeChance: 20, goldBonusPercent: 20, price: 1280 },
 };
 
+// A Shield stacks a second, independent source of flat defense on top of
+// Armor's defBonus (see effectiveDef in state.js) — same 10-tier weak-to-
+// strong spread and price curve as the other slots, just a supplementary
+// one so its per-tier defBonus runs a bit lower than Armor's own.
+export const SHIELDS = {
+  crackedBuckler: { key: 'crackedBuckler', name: 'Cracked Buckler', defBonus: 0, price: 0 },
+  woodenTarge: { key: 'woodenTarge', name: 'Wooden Targe', defBonus: 2, price: 30 },
+  ironBuckler: { key: 'ironBuckler', name: 'Iron Buckler', defBonus: 5, price: 90 },
+  steelKiteShield: { key: 'steelKiteShield', name: 'Steel Kite Shield', defBonus: 8, price: 160 },
+  mithrilWall: { key: 'mithrilWall', name: 'Mithril Wall', defBonus: 12, price: 260 },
+  dragonscaleWard: { key: 'dragonscaleWard', name: 'Dragonscale Ward', defBonus: 17, price: 380 },
+  runicBulwark: { key: 'runicBulwark', name: 'Runic Bulwark', defBonus: 22, price: 520 },
+  shadowveilWard: { key: 'shadowveilWard', name: 'Shadowveil Ward', defBonus: 28, price: 680 },
+  stormwardBulwark: { key: 'stormwardBulwark', name: 'Stormward Bulwark', defBonus: 35, price: 850 },
+  celestialBulwark: { key: 'celestialBulwark', name: 'Celestial Bulwark', defBonus: 43, price: 1080 },
+};
+
+// A Belt heals a percent of max HP every one of your turns in battle — the
+// same mechanic Leftovers (Held Item) and Warden's Bulwark (Set) already
+// use, so it slots straight into hpRegenPercent in state.js.
+export const BELTS = {
+  frayedSash: { key: 'frayedSash', name: 'Frayed Sash', hpRegenPercent: 0, price: 0 },
+  leatherBelt: { key: 'leatherBelt', name: 'Leather Belt', hpRegenPercent: 1, price: 35 },
+  ironGirdle: { key: 'ironGirdle', name: 'Iron Girdle', hpRegenPercent: 2, price: 110 },
+  steelWaistguard: { key: 'steelWaistguard', name: 'Steel Waistguard', hpRegenPercent: 3, price: 200 },
+  mithrilCinch: { key: 'mithrilCinch', name: 'Mithril Cinch', hpRegenPercent: 4, price: 320 },
+  flameforgedSash: { key: 'flameforgedSash', name: 'Flameforged Sash', hpRegenPercent: 5, price: 460 },
+  frostboundGirdle: { key: 'frostboundGirdle', name: 'Frostbound Girdle', hpRegenPercent: 6, price: 620 },
+  thunderweaveBelt: { key: 'thunderweaveBelt', name: 'Thunderweave Belt', hpRegenPercent: 7, price: 800 },
+  voidwovenCinch: { key: 'voidwovenCinch', name: 'Voidwoven Cinch', hpRegenPercent: 9, price: 1000 },
+  celestialSash: { key: 'celestialSash', name: 'Celestial Sash', hpRegenPercent: 11, price: 1280 },
+};
+
 // Icon art per piece — one shared silhouette template recolored per tier
 // (see scripts/gen-sprites.js), used by the Armory, Enchant, and Inventory.
 Object.values(WEAPONS).forEach((w) => { w.sprite = `icons/sprites/wpn-${w.key}.png`; });
@@ -110,6 +143,8 @@ Object.values(ARMORS).forEach((a) => { a.sprite = `icons/sprites/arm-${a.key}.pn
 Object.values(HELMETS).forEach((h) => { h.sprite = `icons/sprites/hlm-${h.key}.png`; });
 Object.values(GLOVES).forEach((g) => { g.sprite = `icons/sprites/glv-${g.key}.png`; });
 Object.values(BOOTS).forEach((b) => { b.sprite = `icons/sprites/bts-${b.key}.png`; });
+Object.values(SHIELDS).forEach((s) => { s.sprite = `icons/sprites/shd-${s.key}.png`; });
+Object.values(BELTS).forEach((b) => { b.sprite = `icons/sprites/blt-${b.key}.png`; });
 
 // Tier-ordered key lists so chest gear drops can be anchored to how deep the
 // player has traveled (insertion order already runs weak -> strong).
@@ -118,6 +153,8 @@ export const ARMOR_ORDER = Object.keys(ARMORS);
 export const HELMET_ORDER = Object.keys(HELMETS);
 export const GLOVES_ORDER = Object.keys(GLOVES);
 export const BOOTS_ORDER = Object.keys(BOOTS);
+export const SHIELD_ORDER = Object.keys(SHIELDS);
+export const BELT_ORDER = Object.keys(BELTS);
 
 // One place to look up "the registry/order/owned-list/equipped-key field for
 // this equipment slot" — every piece of UI that lists or equips gear (the
@@ -131,6 +168,8 @@ export const GEAR_SLOTS = {
   helmet: { registry: HELMETS, order: HELMET_ORDER, ownedField: 'ownedHelmets', equipField: 'helmKey', label: 'Helmet' },
   gloves: { registry: GLOVES, order: GLOVES_ORDER, ownedField: 'ownedGloves', equipField: 'glovesKey', label: 'Gloves' },
   boots: { registry: BOOTS, order: BOOTS_ORDER, ownedField: 'ownedBoots', equipField: 'bootsKey', label: 'Boots' },
+  shield: { registry: SHIELDS, order: SHIELD_ORDER, ownedField: 'ownedShields', equipField: 'shieldKey', label: 'Shield' },
+  belt: { registry: BELTS, order: BELT_ORDER, ownedField: 'ownedBelts', equipField: 'beltKey', label: 'Belt' },
 };
 
 // Diablo-style magic affixes: chest-found gear (never Armory-bought pieces)
@@ -640,11 +679,15 @@ export const PLAYER_BASE = {
   helmKey: 'clothCap',
   glovesKey: 'clothWraps',
   bootsKey: 'wornSandals',
+  shieldKey: 'crackedBuckler',
+  beltKey: 'frayedSash',
   ownedWeapons: ['rustySword'],
   ownedArmors: ['clothTunic'],
   ownedHelmets: ['clothCap'],
   ownedGloves: ['clothWraps'],
   ownedBoots: ['wornSandals'],
+  ownedShields: ['crackedBuckler'],
+  ownedBelts: ['frayedSash'],
   // Amulet and the two Rings are chest-only (see AMULETS/RINGS above) —
   // 'none' is always a valid equipped value even though it's never added to
   // the owned lists, so there's nothing to migrate for saves predating them.
@@ -709,12 +752,12 @@ export const PLAYER_BASE = {
   // — an extra stat bonus (see ENCHANT_STATS) on top of the gear's own
   // stats, bought repeatedly at the Armory regardless of which piece is
   // equipped.
-  enchantLevels: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
+  enchantLevels: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {}, shield: {}, belt: {} },
   // Per-slot+key magic affixes and socketed gems (see AFFIXES/GEMS above) —
   // both permanent upgrades to that key's identity, same shape as
   // enchantLevels, revealed/applied at identification time by Deckard Cain.
-  gearAffixes: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
-  socketedGems: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {} },
+  gearAffixes: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {}, shield: {}, belt: {} },
+  socketedGems: { weapon: {}, armor: {}, helmet: {}, gloves: {}, boots: {}, shield: {}, belt: {} },
   // Held Items (see HELD_ITEMS above) stick to one specific companion
   // instance permanently: { [instanceId]: heldItemKey }. ownedHeldItems is
   // the pool of chest-found items not currently (or not yet) assigned to
@@ -1362,6 +1405,8 @@ export const ENCHANT_STATS = {
   helmet: { mpCostReduction: 1, xpBonusPercent: 1 },
   gloves: { critChance: 1 },
   boots: { dodgeChance: 1, goldBonusPercent: 1 },
+  shield: { defBonus: ENCHANT_BONUS_PER_LEVEL },
+  belt: { hpRegenPercent: 1 },
 };
 
 // A small chance for a regular encounter to be an "Elite" — a buffed
