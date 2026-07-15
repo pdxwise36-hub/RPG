@@ -1887,20 +1887,52 @@ function renderCaravan() {
 // data.js) — Nightmare unlocks once you've beaten the true final boss;
 // Hell unlocks once you've beaten it again specifically while on
 // Nightmare (state.flags.nightmareCleared, set in resolveBattleEnd).
-// How many tiers above your current one the New Game+ picker offers at
-// once — a big jump is exactly the point (see startNewGamePlus in
-// state.js), so this isn't a hard ceiling, just how many rows to list
-// before the player would need to reopen the modal for another batch.
+// How many tiers above your current one the New Game+ picker's granular
+// list offers at once — a big jump is exactly what the quick-jump chips
+// and custom input below are for, so this isn't a hard ceiling, just how
+// many single-step rows to list before the player would reopen the modal.
 const NG_PLUS_LEVEL_CHOICES = 10;
 
+// Preset "+N levels" shortcuts shown as chips above the granular list, for
+// jumping straight to a much harder tier without typing a custom amount.
+const NG_PLUS_QUICK_JUMPS = [10, 25, 50, 100];
+
+// Actually starts New Game+ at `level` — shared by every entry point in
+// the picker (granular list rows, quick-jump chips, the custom input) so
+// they all resolve to the exact same effect.
+function beginNgPlus(level) {
+  hideModal('modal-ngplus-confirm');
+  startNewGamePlus(state, level);
+  autosave();
+  goToMap();
+  showToast(`New Game+${level} begins — everything hits harder, and pays more.`, 3200);
+}
+
 // Lets the player jump straight to a higher New Game+ tier instead of
-// always stepping up by exactly 1 — every row is a real, bigger-than-+1
-// option so grinding through low tiers one at a time is never required.
+// always stepping up by exactly 1 — a custom "jump ahead by N" input and a
+// row of quick-jump chips (+10/+25/+50/+100) for a big spike in one tap,
+// plus a granular next-10 list for fine control right above the current
+// tier.
 function renderNgPlusOptions() {
   const p = state.player;
+  const current = p.ngPlusLevel || 0;
+
+  const amountInput = el('ngplus-jump-amount');
+  amountInput.min = 1;
+
+  const quickJumps = el('ngplus-quick-jumps');
+  quickJumps.innerHTML = '';
+  NG_PLUS_QUICK_JUMPS.forEach((offset) => {
+    const level = current + offset;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small';
+    btn.textContent = `+${offset} (NG+${level})`;
+    btn.addEventListener('click', () => beginNgPlus(level));
+    quickJumps.appendChild(btn);
+  });
+
   const list = el('ngplus-list');
   list.innerHTML = '';
-  const current = p.ngPlusLevel || 0;
   for (let level = current + 1; level <= current + NG_PLUS_LEVEL_CHOICES; level++) {
     const mult = ngPlusMultiplier(level);
     const row = document.createElement('div');
@@ -1914,13 +1946,7 @@ function renderNgPlusOptions() {
     const btn = document.createElement('button');
     btn.className = 'btn btn-small';
     btn.textContent = level === current + 1 ? 'Begin' : 'Jump Here';
-    btn.addEventListener('click', () => {
-      hideModal('modal-ngplus-confirm');
-      startNewGamePlus(state, level);
-      autosave();
-      goToMap();
-      showToast(`New Game+${level} begins — everything hits harder, and pays more.`, 3200);
-    });
+    btn.addEventListener('click', () => beginNgPlus(level));
     row.appendChild(btn);
     list.appendChild(row);
   }
@@ -3114,6 +3140,11 @@ function wireEvents() {
     showModal('modal-ngplus-confirm');
   });
   el('btn-ngplus-cancel').addEventListener('click', () => hideModal('modal-ngplus-confirm'));
+  el('btn-ngplus-jump-custom').addEventListener('click', () => {
+    const amount = Math.floor(Number(el('ngplus-jump-amount').value));
+    if (!Number.isFinite(amount) || amount < 1) return;
+    beginNgPlus((state.player.ngPlusLevel || 0) + amount);
+  });
 
   // Battle menu
   el('btn-attack').addEventListener('click', () => { playerAttack(battle, state); renderBattle(); });

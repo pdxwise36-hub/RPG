@@ -419,6 +419,11 @@ html, body {
 }
 .armory-section:first-child { margin-top: 0; }
 
+.ngplus-jump-row { display: flex; align-items: center; gap: 8px; }
+.ngplus-jump-label { color: var(--text-dim); font-size: 0.9rem; flex-shrink: 0; }
+.ngplus-jump-input { min-height: 40px; padding: 8px; text-align: center; flex: 1; min-width: 0; }
+.ngplus-quick-jumps { display: flex; flex-wrap: wrap; gap: 8px; }
+
 .status-body { display: flex; flex-direction: column; gap: 8px; font-size: 0.95rem; }
 .status-row { display: flex; justify-content: space-between; }
 .status-row span:first-child { color: var(--text-dim); }

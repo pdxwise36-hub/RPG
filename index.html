@@ -350,6 +350,13 @@
     <div class="modal-card">
       <h2>Start New Game+</h2>
       <p class="modal-sub">Every level's progress resets and you'll walk the chain again from the outskirts. Your character — level, gear, pets, skills, gold, and collection progress — carries over untouched. Pick how far to jump: higher tiers hit immediately, no grinding one level at a time.</p>
+      <div class="ngplus-jump-row">
+        <span class="ngplus-jump-label">Jump ahead by</span>
+        <input type="number" id="ngplus-jump-amount" class="ngplus-jump-input" min="1" step="1" value="100" inputmode="numeric" />
+        <button id="btn-ngplus-jump-custom" class="btn btn-small">Go</button>
+      </div>
+      <div id="ngplus-quick-jumps" class="ngplus-quick-jumps"></div>
+      <h3 class="armory-section">Next Tiers</h3>
       <div id="ngplus-list" class="shop-list"></div>
       <button id="btn-ngplus-cancel" class="btn">Not Yet</button>
     </div>
