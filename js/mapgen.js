@@ -16,12 +16,14 @@ const MAX_COL = MAP_COLS - 3;
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-function isReachable(grid, start, target) {
+// Every WALKABLE tile reachable from `start` via 4-directional steps —
+// shared by isReachable (boss-specific check) and sealUnreachablePockets
+// (whole-grid cleanup) below.
+function floodReachable(grid, start) {
   const seen = new Set([`${start.x},${start.y}`]);
   const stack = [start];
   while (stack.length) {
     const { x, y } = stack.pop();
-    if (x === target.x && y === target.y) return true;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, ny = y + dy;
       const key = `${nx},${ny}`;
@@ -33,7 +35,29 @@ function isReachable(grid, start, target) {
       stack.push({ x: nx, y: ny });
     }
   }
-  return false;
+  return seen;
+}
+
+function isReachable(grid, start, target) {
+  return floodReachable(grid, start).has(`${target.x},${target.y}`);
+}
+
+// The obstacle scatter in buildOnce is independent of the carved path, so a
+// pocket of GRASS can end up fully ringed by TREE/WATER with no orthogonal
+// route back to the rest of the map — only the exact carved corridor is
+// guaranteed connected. A player wandering off the path (chasing an
+// encounter, exploring) could step into one of these pockets and find
+// themselves walled in with no way onward, since movement is 4-directional
+// only. Converts every WALKABLE tile NOT reachable from `start` into TREE
+// so the returned grid has no such traps — the whole playable area is
+// always one connected region.
+function sealUnreachablePockets(grid, start) {
+  const reachable = floodReachable(grid, start);
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      if (WALKABLE.has(grid[y][x]) && !reachable.has(`${x},${y}`)) grid[y][x] = TILE.TREE;
+    }
+  }
 }
 
 function buildOnce(obstacleChance, hasNextLevel) {
@@ -84,9 +108,14 @@ function buildOnce(obstacleChance, hasNextLevel) {
 export function generateZoneGrid(hasNextLevel = true) {
   for (let attempt = 0; attempt < 8; attempt++) {
     const layout = buildOnce(0.15, hasNextLevel);
-    if (isReachable(layout.grid, layout.startPos, layout.bossPos)) return layout;
+    if (isReachable(layout.grid, layout.startPos, layout.bossPos)) {
+      sealUnreachablePockets(layout.grid, layout.startPos);
+      return layout;
+    }
   }
-  return buildOnce(0, hasNextLevel);
+  const layout = buildOnce(0, hasNextLevel);
+  sealUnreachablePockets(layout.grid, layout.startPos);
+  return layout;
 }
 
 // Town's fixed grid — same every playthrough, every visit. No grass tiles
