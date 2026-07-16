@@ -609,6 +609,34 @@ export const MERCENARIES = [
   { key: 'elite', name: 'Elite Mercenary', power: 1.0, price: 800 },
   { key: 'champion', name: 'Champion Mercenary', power: 1.4, price: 1500 },
 ];
+
+// The Mercenary has no hard level cap — MERCENARIES only hand-authors the
+// four named tiers (Rookie through Champion), but every tier past Champion
+// keeps scaling by formula instead of running out of entries. Power climbs
+// by the same flat step as the Elite->Champion jump; price keeps climbing
+// steeply (x1.5 per tier) so upgrading stays a real gold sink instead of
+// trivial to max out once you're past the named tiers.
+const MERC_POWER_STEP_PAST_CAP = MERCENARIES[3].power - MERCENARIES[2].power;
+const MERC_PRICE_GROWTH_PAST_CAP = 1.5;
+
+export function mercTierPower(tier) {
+  if (tier < 0) return 0;
+  if (tier < MERCENARIES.length) return MERCENARIES[tier].power;
+  const extra = tier - (MERCENARIES.length - 1);
+  return MERCENARIES[MERCENARIES.length - 1].power + extra * MERC_POWER_STEP_PAST_CAP;
+}
+
+export function mercTierPrice(tier) {
+  if (tier < MERCENARIES.length) return MERCENARIES[tier].price;
+  const extra = tier - (MERCENARIES.length - 1);
+  return Math.round(MERCENARIES[MERCENARIES.length - 1].price * Math.pow(MERC_PRICE_GROWTH_PAST_CAP, extra));
+}
+
+export function mercTierName(tier) {
+  if (tier < MERCENARIES.length) return MERCENARIES[tier].name;
+  const extra = tier - (MERCENARIES.length - 1);
+  return `${MERCENARIES[MERCENARIES.length - 1].name} +${extra}`;
+}
 export const MERC_WEAPONS = {
   none: { key: 'none', name: 'Bare Fists', atkBonus: 0, price: 0 },
   ironBlade: { key: 'ironBlade', name: 'Iron Blade', atkBonus: 8, price: 100 },

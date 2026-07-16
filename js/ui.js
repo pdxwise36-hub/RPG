@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, PARTY_SIZE, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
+import { ITEMS, SKILLS, WEAPONS, ARMORS, AMULETS, AMULET_ORDER, RINGS, RING_ORDER, GEAR_SLOTS, PETS, ALL_PET_DEFS, CAPTURE_ITEMS, CAPTURABLE_KEYS, CAPTURABLE_MONSTERS, CHARMS, CHARM_ORDER, HELD_ITEMS, HELD_ITEM_ORDER, mercTierPower, mercTierPrice, mercTierName, MERC_WEAPONS, MERC_ARMORS, MERC_WEAPON_ORDER, MERC_ARMOR_ORDER, MERC_SPRITE, AFFIXES, GEMS, GEM_ORDER, GEM_UPGRADE, GEM_COMBINE_COUNT, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_ENERGY_MAX, PARTY_SIZE, SHINY_CHANCE, ELITE_CHANCE, makeElite, SET_BONUSES, ENCHANT_STATS, setForPiece, fusionPowerGain, RIVAL_TEAM, scaleRivalOpponent, SKILL_TREES, skillTreeInfo, HERO_SPRITE, MAPS, LEVEL_CHAIN, ACHIEVEMENTS, ENCHANT_MAX_LEVEL, enchantCost, BOUNTY_TEMPLATES, ngPlusMultiplier, DIFFICULTIES, difficultyByKey, CONSUMABLE_ITEMS, IDENTIFY_COST, SKILL_ORDER } from './data.js';
 import { newGameState, toSaveObject, fromSaveObject, ensureLayout, effectiveAtk, effectiveDef, activeSetProgress, setWornCount, petLevel, petEffectivePower, petIsEvolved, petIsShiny, petIsElite, petIsLocked, petDisplayName, petAbilities, findPetInstance, makePetInstance, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemBonus, heldItemPetPowerBonus, mercEffectivePower, mercWeaponAtkBonus, mercDamageReduction, petXpProgress, enchantLevel, startNewGamePlus, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, unlockedTitles, playerDisplayName } from './state.js';
 import { hasSave, loadSave, writeSave, clearSave } from './save.js';
 import { drawMap, tryMove, heroImage, bossImages, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
@@ -964,7 +964,7 @@ function renderParty() {
   const mercRow = document.createElement('div');
   mercRow.className = 'status-row';
   const mercAbility = p.mercTier >= 0 && p.mercAbilityKey ? COMPANION_ABILITIES[p.mercAbilityKey] : null;
-  mercRow.innerHTML = `<span>Hired</span><span>${p.mercTier >= 0 ? `${MERCENARIES[p.mercTier].name} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)${mercAbility ? ` — ${mercAbility.name}` : ''}` : 'None'}</span>`;
+  mercRow.innerHTML = `<span>Hired</span><span>${p.mercTier >= 0 ? `${mercTierName(p.mercTier)} (+${Math.round(mercEffectivePower(p) * 100)}% ATK per turn)${mercAbility ? ` — ${mercAbility.name}` : ''}` : 'None'}</span>`;
   body.appendChild(mercRow);
 }
 
@@ -2638,37 +2638,36 @@ function buildHeldItemRow(itemKey) {
 // ---------- Mercenary Camp ----------
 // A single hireable ally distinct from the Pet roster — no XP/leveling of
 // its own, just an upgrade path (hire Rookie, later pay the difference up
-// through Champion) plus its own small Weapon/Armor loadout.
+// through Champion and beyond) plus its own small Weapon/Armor loadout.
+// No hard cap — every tier past Champion keeps scaling by formula (see
+// mercTierPower/mercTierPrice/mercTierName in data.js), so there's always
+// a next upgrade to buy if you keep pushing gold into it.
 function renderMercenaryCamp(list) {
   const p = state.player;
   list.appendChild(sectionHeading('Mercenary Camp'));
 
-  const merc = p.mercTier >= 0 ? MERCENARIES[p.mercTier] : null;
-  const next = MERCENARIES[p.mercTier + 1];
+  const hired = p.mercTier >= 0;
+  const nextTier = p.mercTier + 1;
+  const nextPrice = mercTierPrice(nextTier);
   const hireRow = document.createElement('div');
   hireRow.className = 'shop-item';
   hireRow.innerHTML = `
     <div class="shop-item-info">
-      <span class="shop-item-name">${merc ? merc.name : 'No Mercenary'}</span>
-      <span class="shop-item-desc">${merc ? `+${Math.round(merc.power * 100)}% ATK per turn` : 'Hire one to fight alongside your companion'}</span>
+      <span class="shop-item-name">${hired ? mercTierName(p.mercTier) : 'No Mercenary'}</span>
+      <span class="shop-item-desc">${hired ? `+${Math.round(mercTierPower(p.mercTier) * 100)}% ATK per turn` : 'Hire one to fight alongside your companion'}</span>
     </div>
   `;
   const hireBtn = document.createElement('button');
   hireBtn.className = 'btn btn-small';
-  if (!next) {
-    hireBtn.textContent = 'Max Tier';
-    hireBtn.disabled = true;
-  } else {
-    hireBtn.textContent = `${merc ? 'Upgrade' : 'Hire'} (${next.price}G)`;
-    hireBtn.disabled = p.gold < next.price;
-    hireBtn.addEventListener('click', () => {
-      if (p.gold < next.price) return;
-      p.gold -= next.price;
-      p.mercTier += 1;
-      autosave();
-      renderTamer();
-    });
-  }
+  hireBtn.textContent = `${hired ? 'Upgrade' : 'Hire'} (${nextPrice}G)`;
+  hireBtn.disabled = p.gold < nextPrice;
+  hireBtn.addEventListener('click', () => {
+    if (p.gold < nextPrice) return;
+    p.gold -= nextPrice;
+    p.mercTier += 1;
+    autosave();
+    renderTamer();
+  });
   hireRow.appendChild(hireBtn);
   list.appendChild(hireRow);
 

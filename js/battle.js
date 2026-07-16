@@ -1,4 +1,4 @@
-import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, MERCENARIES, MERC_WEAPONS, LEGENDARIES, LEGENDARY_DROP_CHANCE, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
+import { ITEMS, SKILLS, ALL_PET_DEFS, CHARM_ORDER, AMULET_ORDER, RING_ORDER, HELD_ITEM_ORDER, GEM_TYPE_KEYS, AFFIX_ORDER, AFFIX_CHANCE, mercTierPower, mercTierName, MERC_WEAPONS, LEGENDARIES, LEGENDARY_DROP_CHANCE, elementMultiplier, SHINY_CHANCE, LEVEL_GROWTH, MAPS, GEAR_SLOTS, PET_ENERGY_MAX, PET_ENERGY_PER_HIT, PET_SKILL_MULTIPLIER, ngPlusMultiplier, difficultyByKey } from './data.js';
 import { effectiveAtk, effectiveDef, petEffectivePower, petDisplayName, charmPowerBonus, petPowerSetBonus, gearPetPowerBonus, heldItemPetPowerBonus, hpRegenPercent, mercPowerSetBonus, elementalBonusPercent, itemFindBonus, skillPowerBonus, companionAbilityBonus, petOwnAbilityBonus, mercAbilityBonus, applyLevelUps, findPetInstance, makePetInstance, mpCostReduction, xpBonusPercent, critChance, dodgeChance, goldBonusPercent, mpRegenPercent, reflectPercent, mercDamageReduction } from './state.js';
 
 function rand(min, max) {
@@ -220,18 +220,18 @@ function petAttacks(battle, state) {
 function mercAttacks(battle, state) {
   const player = state.player;
   if (player.mercTier < 0) return;
-  const merc = MERCENARIES[player.mercTier];
+  const mercName = mercTierName(player.mercTier);
   const weapon = MERC_WEAPONS[player.mercWeaponKey] || MERC_WEAPONS.none;
-  const power = merc.power * (1 + mercPowerSetBonus(player) / 100);
+  const power = mercTierPower(player.mercTier) * (1 + mercPowerSetBonus(player) / 100);
   const dmg = Math.max(1, Math.round(effectiveAtk(player) * power) + weapon.atkBonus);
   battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
-  pushLog(battle, `${merc.name} strikes ${battle.enemy.name} for ${dmg}!`);
+  pushLog(battle, `${mercName} strikes ${battle.enemy.name} for ${dmg}!`);
   const vampiric = mercAbilityBonus(player, 'vampiric');
   if (vampiric > 0 && player.hp < player.maxHp) {
     const healed = Math.min(player.maxHp - player.hp, Math.round(dmg * vampiric / 100));
     if (healed > 0) {
       player.hp += healed;
-      pushLog(battle, `${merc.name}'s strike heals you for ${healed}!`);
+      pushLog(battle, `${mercName}'s strike heals you for ${healed}!`);
     }
   }
 }

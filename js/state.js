@@ -1,4 +1,4 @@
-import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, SHIELDS, BELTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, MERCENARIES, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, ELITE_CAPTURE_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
+import { PLAYER_BASE, WEAPONS, ARMORS, HELMETS, GLOVES, BOOTS, SHIELDS, BELTS, AMULETS, RINGS, CHARMS, HELD_ITEMS, mercTierPower, MERC_WEAPONS, MERC_ARMORS, AFFIXES, GEMS, socketCount, LEGENDARIES, COMPANION_ABILITIES, COMPANION_ABILITY_LEVEL, PET_EVOLVE_LEVEL, PET_EVOLVE_MULTIPLIER, SHINY_POWER_MULTIPLIER, ELITE_CAPTURE_POWER_MULTIPLIER, SET_BONUSES, GEAR_SLOTS, ENCHANT_STATS, MAPS, ALL_PET_DEFS, LEVEL_GROWTH, PET_LEVEL_POWER_BONUS, LEVEL_CHAIN, ACHIEVEMENTS } from './data.js';
 import { generateZoneGrid, getTownLayout } from './mapgen.js';
 
 // Ensures state.layouts[mapId] exists, generating a fresh random layout when
@@ -355,12 +355,13 @@ export function hpRegenPercent(player) {
 }
 
 // The hireable Mercenary's own contribution — no XP/leveling, just its tier
-// (see MERCENARIES) plus whatever small Weapon/Armor it's wearing. Armor's
-// defBonus converts into a modest, capped damage-reduction on incoming
-// hits (stacking with a Guardian companion's own %) instead of doing
-// nothing, so buying Mercenary Armor is a real choice, not just flavor.
+// (see MERCENARIES/mercTierPower — uncapped, keeps scaling past Champion)
+// plus whatever small Weapon/Armor it's wearing. Armor's defBonus converts
+// into a modest, capped damage-reduction on incoming hits (stacking with a
+// Guardian companion's own %) instead of doing nothing, so buying
+// Mercenary Armor is a real choice, not just flavor.
 export function mercEffectivePower(player) {
-  return player.mercTier >= 0 ? MERCENARIES[player.mercTier].power : 0;
+  return mercTierPower(player.mercTier);
 }
 export function mercWeaponAtkBonus(player) {
   return (MERC_WEAPONS[player.mercWeaponKey] || MERC_WEAPONS.none).atkBonus;
