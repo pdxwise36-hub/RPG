@@ -373,7 +373,7 @@ function buildHero(palette) {
     <rect x="84" y="90" width="32" height="8" rx="3" fill="${css(palette.g)}" stroke="${css(darken(palette.g, 0.4))}" stroke-width="1.5"/>
     <rect x="94" y="98" width="12" height="18" rx="4" fill="${css(palette.g)}" stroke="${css(darken(palette.g, 0.4))}" stroke-width="1.5"/>
     <circle cx="60" cy="38" r="26" fill="${skinFill}" stroke="${css(darken(palette.f, 0.25))}" stroke-width="2.5"/>
-    <path d="M 34 30 Q 36 8 60 8 Q 84 8 86 30 Q 86 18 60 16 Q 34 18 34 30 Z" fill="${css(palette.h)}" stroke="${css(darken(palette.h, 0.35))}" stroke-width="2"/>
+    <path d="M 46 25 L 50 6 L 55 17 L 60 2 L 65 17 L 70 6 L 74 25 Q 60 17 46 25 Z" fill="${css(palette.h)}" stroke="${css(darken(palette.h, 0.35))}" stroke-width="2" stroke-linejoin="round"/>
     <ellipse cx="50" cy="40" rx="4.5" ry="5.5" fill="${css(palette.o)}"/>
     <ellipse cx="70" cy="40" rx="4.5" ry="5.5" fill="${css(palette.o)}"/>
     <path d="M 50 54 Q 60 60 70 54" stroke="${css(darken(palette.f, 0.3))}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
