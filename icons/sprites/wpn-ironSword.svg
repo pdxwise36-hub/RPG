@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 104"><defs><linearGradient id="g127" x1="0%" y1="50%" x2="100%" y2="50%">
+    <stop offset="0%" stop-color="rgba(220,222,226,1)"/>
+    <stop offset="100%" stop-color="rgba(156,160,167,1)"/>
+  </linearGradient><linearGradient id="g128" x1="50%" y1="0%" x2="50%" y2="100%">
+    <stop offset="0%" stop-color="rgba(167,167,173,1)"/>
+    <stop offset="100%" stop-color="rgba(97,97,102,1)"/>
+  </linearGradient><linearGradient id="g129" x1="50%" y1="0%" x2="50%" y2="100%">
+    <stop offset="0%" stop-color="rgba(110,97,85,1)"/>
+    <stop offset="100%" stop-color="rgba(52,41,29,1)"/>
+  </linearGradient></defs>
+    <path d="M 50 6 L 60 16 L 60 62 L 40 62 L 40 16 Z" fill="url(#g127)" stroke="rgba(129,132,137,1)" stroke-width="1.8" stroke-linejoin="round"/>
+    <rect x="26" y="62" width="48" height="10" rx="4" fill="url(#g128)" stroke="rgba(83,83,88,1)" stroke-width="1.8"/>
+    <rect x="42" y="72" width="16" height="22" rx="5" fill="url(#g129)" stroke="rgba(44,35,25,1)" stroke-width="1.8"/>
+    <circle cx="50" cy="96" r="7" fill="url(#g128)" stroke="rgba(83,83,88,1)" stroke-width="1.8"/>
+  </svg>

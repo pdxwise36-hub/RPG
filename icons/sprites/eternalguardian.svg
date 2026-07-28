@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160"><defs><linearGradient id="g94" x1="12%" y1="18%" x2="88%" y2="82%">
+    <stop offset="0%" stop-color="rgba(245,236,200,1)"/>
+    <stop offset="100%" stop-color="rgba(156,146,111,1)"/>
+  </linearGradient><linearGradient id="g95" x1="50%" y1="0%" x2="50%" y2="100%">
+    <stop offset="0%" stop-color="rgba(255,255,255,1)"/>
+    <stop offset="100%" stop-color="rgba(179,179,179,1)"/>
+  </linearGradient></defs>
+    <ellipse cx="60" cy="152" rx="30" ry="7" fill="#000000" opacity="0.2"/>
+    <path d="M 24 78 L 16 88 L 20 128 L 30 122 Z" fill="url(#g94)" stroke="rgba(190,170,110,1)" stroke-width="2.5"/>
+    <path d="M 96 78 L 104 88 L 100 128 L 90 122 Z" fill="url(#g94)" stroke="rgba(190,170,110,1)" stroke-width="2.5"/>
+    <path d="M 78 96 L 100 84 L 106 66 L 96 62 L 86 78 Z" fill="rgba(220,200,150,1)" stroke="rgba(190,170,110,1)" stroke-width="2"/>
+    <rect x="42" y="120" width="16" height="30" rx="6" fill="url(#g94)" stroke="rgba(190,170,110,1)" stroke-width="2.5"/>
+    <rect x="62" y="120" width="16" height="30" rx="6" fill="url(#g94)" stroke="rgba(190,170,110,1)" stroke-width="2.5"/>
+    <rect x="40" y="144" width="20" height="10" rx="4" fill="rgba(140,120,80,1)"/>
+    <rect x="60" y="144" width="20" height="10" rx="4" fill="rgba(140,120,80,1)"/>
+    <path d="M 30 74 Q 60 64 90 74 L 92 122 Q 60 132 28 122 Z" fill="url(#g94)" stroke="rgba(190,170,110,1)" stroke-width="3"/>
+    <path d="M 34 84 Q 60 78 86 84 L 84 112 Q 60 120 36 112 Z" fill="url(#g95)"/>
+    <path d="M 32 26 Q 30 4 60 4 Q 90 4 88 26 Q 96 20 88 34 Q 90 52 68 60 Q 60 63 52 60 Q 30 52 32 34 Q 24 20 32 26 Z"
+          fill="url(#g94)" stroke="rgba(190,170,110,1)" stroke-width="3"/>
+    <ellipse cx="48" cy="38" rx="6" ry="7" fill="rgba(255,220,100,1)"/>
+    <ellipse cx="72" cy="38" rx="6" ry="7" fill="rgba(255,220,100,1)"/>
+    <circle cx="48" cy="39" r="2.6" fill="#1a1a1a"/>
+    <circle cx="72" cy="39" r="2.6" fill="#1a1a1a"/>
+  </svg>

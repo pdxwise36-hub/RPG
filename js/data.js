@@ -30,7 +30,7 @@ export const WALKABLE = new Set([
 ]);
 export const ENCOUNTER_TILES = new Set([TILE.GRASS]);
 
-export const HERO_SPRITE = 'icons/sprites/hero.png';
+export const HERO_SPRITE = 'icons/sprites/hero.svg';
 
 export const WEAPONS = {
   rustySword: { key: 'rustySword', name: 'Rusty Sword', atkBonus: 0, price: 0 },
@@ -138,13 +138,13 @@ export const BELTS = {
 
 // Icon art per piece — one shared silhouette template recolored per tier
 // (see scripts/gen-sprites.js), used by the Armory, Enchant, and Inventory.
-Object.values(WEAPONS).forEach((w) => { w.sprite = `icons/sprites/wpn-${w.key}.png`; });
-Object.values(ARMORS).forEach((a) => { a.sprite = `icons/sprites/arm-${a.key}.png`; });
-Object.values(HELMETS).forEach((h) => { h.sprite = `icons/sprites/hlm-${h.key}.png`; });
-Object.values(GLOVES).forEach((g) => { g.sprite = `icons/sprites/glv-${g.key}.png`; });
-Object.values(BOOTS).forEach((b) => { b.sprite = `icons/sprites/bts-${b.key}.png`; });
-Object.values(SHIELDS).forEach((s) => { s.sprite = `icons/sprites/shd-${s.key}.png`; });
-Object.values(BELTS).forEach((b) => { b.sprite = `icons/sprites/blt-${b.key}.png`; });
+Object.values(WEAPONS).forEach((w) => { w.sprite = `icons/sprites/wpn-${w.key}.svg`; });
+Object.values(ARMORS).forEach((a) => { a.sprite = `icons/sprites/arm-${a.key}.svg`; });
+Object.values(HELMETS).forEach((h) => { h.sprite = `icons/sprites/hlm-${h.key}.svg`; });
+Object.values(GLOVES).forEach((g) => { g.sprite = `icons/sprites/glv-${g.key}.svg`; });
+Object.values(BOOTS).forEach((b) => { b.sprite = `icons/sprites/bts-${b.key}.svg`; });
+Object.values(SHIELDS).forEach((s) => { s.sprite = `icons/sprites/shd-${s.key}.svg`; });
+Object.values(BELTS).forEach((b) => { b.sprite = `icons/sprites/blt-${b.key}.svg`; });
 
 // Tier-ordered key lists so chest gear drops can be anchored to how deep the
 // player has traveled (insertion order already runs weak -> strong).
@@ -453,16 +453,16 @@ export const PET_EVOLVE_MULTIPLIER = 1.3;
 // and weak to rare and strong, with the Dragonling as the top-tier prize.
 // Each also carries a hand-picked `ability` (see COMPANION_ABILITIES above).
 export const PETS = {
-  turtle: { key: 'turtle', name: 'Turtle', power: 0.3, price: 60, sprite: 'icons/sprites/turtle.png', ability: 'guardian' },
-  wolfPup: { key: 'wolfPup', name: 'Wolf Pup', power: 0.4, price: 80, sprite: 'icons/sprites/wolfpup.png', ability: 'berserker' },
-  fox: { key: 'fox', name: 'Fox', power: 0.5, price: 130, sprite: 'icons/sprites/fox.png', ability: 'swift' },
-  hawk: { key: 'hawk', name: 'Hawk', power: 0.55, price: 150, sprite: 'icons/sprites/hawk.png', ability: 'blessed' },
-  boar: { key: 'boar', name: 'Boar', power: 0.65, price: 200, sprite: 'icons/sprites/boar.png', ability: 'berserker' },
-  salamander: { key: 'salamander', name: 'Salamander', power: 0.7, price: 250, sprite: 'icons/sprites/salamander.png', ability: 'vampiric' },
-  owl: { key: 'owl', name: 'Owl', power: 0.8, price: 320, sprite: 'icons/sprites/owl.png', ability: 'blessed' },
-  babyGolem: { key: 'babyGolem', name: 'Baby Golem', power: 0.9, price: 400, sprite: 'icons/sprites/babygolem.png', ability: 'guardian' },
-  panther: { key: 'panther', name: 'Panther', power: 1.0, price: 500, sprite: 'icons/sprites/panther.png', ability: 'berserker' },
-  dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.png', ability: 'vampiric' },
+  turtle: { key: 'turtle', name: 'Turtle', power: 0.3, price: 60, sprite: 'icons/sprites/turtle.svg', ability: 'guardian' },
+  wolfPup: { key: 'wolfPup', name: 'Wolf Pup', power: 0.4, price: 80, sprite: 'icons/sprites/wolfpup.svg', ability: 'berserker' },
+  fox: { key: 'fox', name: 'Fox', power: 0.5, price: 130, sprite: 'icons/sprites/fox.svg', ability: 'swift' },
+  hawk: { key: 'hawk', name: 'Hawk', power: 0.55, price: 150, sprite: 'icons/sprites/hawk.svg', ability: 'blessed' },
+  boar: { key: 'boar', name: 'Boar', power: 0.65, price: 200, sprite: 'icons/sprites/boar.svg', ability: 'berserker' },
+  salamander: { key: 'salamander', name: 'Salamander', power: 0.7, price: 250, sprite: 'icons/sprites/salamander.svg', ability: 'vampiric' },
+  owl: { key: 'owl', name: 'Owl', power: 0.8, price: 320, sprite: 'icons/sprites/owl.svg', ability: 'blessed' },
+  babyGolem: { key: 'babyGolem', name: 'Baby Golem', power: 0.9, price: 400, sprite: 'icons/sprites/babygolem.svg', ability: 'guardian' },
+  panther: { key: 'panther', name: 'Panther', power: 1.0, price: 500, sprite: 'icons/sprites/panther.svg', ability: 'berserker' },
+  dragonling: { key: 'dragonling', name: 'Dragonling', power: 1.2, price: 650, sprite: 'icons/sprites/dragonling.svg', ability: 'vampiric' },
 };
 
 // Pets earn the exact same XP as the player from every kill they're active
@@ -505,7 +505,7 @@ export const CHARMS = {
   voidboundCharm: { key: 'voidboundCharm', name: 'Voidbound Charm', petPowerBonus: 60 },
   celestialCharm: { key: 'celestialCharm', name: 'Celestial Charm', petPowerBonus: 75 },
 };
-Object.values(CHARMS).forEach((c) => { c.sprite = `icons/sprites/chm-${c.key}.png`; });
+Object.values(CHARMS).forEach((c) => { c.sprite = `icons/sprites/chm-${c.key}.svg`; });
 export const CHARM_ORDER = Object.keys(CHARMS);
 
 // Amulet and the two Ring slots (see the Inventory paper doll's long-reserved
@@ -529,7 +529,7 @@ export const AMULETS = {
   voidwovenAmulet: { key: 'voidwovenAmulet', name: 'Voidwoven Amulet', mpRegenPercent: 29 },
   celestialAmulet: { key: 'celestialAmulet', name: 'Celestial Amulet', mpRegenPercent: 35 },
 };
-Object.values(AMULETS).forEach((a) => { a.sprite = `icons/sprites/amu-${a.key}.png`; });
+Object.values(AMULETS).forEach((a) => { a.sprite = `icons/sprites/amu-${a.key}.svg`; });
 export const AMULET_ORDER = Object.keys(AMULETS);
 
 export const RINGS = {
@@ -545,7 +545,7 @@ export const RINGS = {
   voidRing: { key: 'voidRing', name: 'Void Ring', reflectPercent: 23 },
   celestialRing: { key: 'celestialRing', name: 'Celestial Ring', reflectPercent: 28 },
 };
-Object.values(RINGS).forEach((r) => { r.sprite = `icons/sprites/rng-${r.key}.png`; });
+Object.values(RINGS).forEach((r) => { r.sprite = `icons/sprites/rng-${r.key}.svg`; });
 export const RING_ORDER = Object.keys(RINGS);
 
 // A Held Item sticks to one SPECIFIC companion permanently (unlike a
@@ -564,7 +564,7 @@ export const HELD_ITEMS = {
   goldenBell: { key: 'goldenBell', name: 'Golden Bell', desc: '+12% gold found while this companion is active.', statKey: 'goldBonusPercent', value: 12 },
   quickClaw: { key: 'quickClaw', name: 'Quick Claw', desc: '+8% your own dodge chance while this companion is active.', statKey: 'dodgeChance', value: 8 },
 };
-Object.values(HELD_ITEMS).forEach((h) => { h.sprite = `icons/sprites/hld-${h.key}.png`; });
+Object.values(HELD_ITEMS).forEach((h) => { h.sprite = `icons/sprites/hld-${h.key}.svg`; });
 export const HELD_ITEM_ORDER = Object.keys(HELD_ITEMS);
 
 // Fusion permanently sacrifices one owned companion into another: the
@@ -584,9 +584,9 @@ export function fusionPowerGain(sacrificeLevel) {
 // sprites rather than needing new art, and scales with the player's own
 // level so the rival stays a real fight at any point in the game.
 export const RIVAL_TEAM = [
-  { key: 'rivalDirewolf', name: "Rival's Direwolf", baseHp: 60, baseAtk: 20, baseDef: 8, sprite: 'icons/sprites/wolf.png' },
-  { key: 'rivalFalcon', name: "Rival's Falcon", baseHp: 50, baseAtk: 24, baseDef: 6, sprite: 'icons/sprites/hawk.png' },
-  { key: 'rivalShadowfang', name: "Rival's Shadowfang", baseHp: 75, baseAtk: 27, baseDef: 11, sprite: 'icons/sprites/panther.png' },
+  { key: 'rivalDirewolf', name: "Rival's Direwolf", baseHp: 60, baseAtk: 20, baseDef: 8, sprite: 'icons/sprites/wolf.svg' },
+  { key: 'rivalFalcon', name: "Rival's Falcon", baseHp: 50, baseAtk: 24, baseDef: 6, sprite: 'icons/sprites/hawk.svg' },
+  { key: 'rivalShadowfang', name: "Rival's Shadowfang", baseHp: 75, baseAtk: 27, baseDef: 11, sprite: 'icons/sprites/panther.svg' },
 ];
 export function scaleRivalOpponent(base, playerLevel) {
   const mult = 1 + playerLevel * 0.06;
@@ -651,7 +651,7 @@ export const MERC_ARMORS = {
 };
 export const MERC_WEAPON_ORDER = Object.keys(MERC_WEAPONS);
 export const MERC_ARMOR_ORDER = Object.keys(MERC_ARMORS);
-export const MERC_SPRITE = 'icons/sprites/mercenary.png';
+export const MERC_SPRITE = 'icons/sprites/mercenary.svg';
 
 // A small elemental effectiveness triangle (fire beats nature, nature beats
 // ice, ice beats fire) — 'physical' and 'void' never trigger a bonus or
@@ -846,160 +846,160 @@ export const LEVEL_GROWTH = {
 };
 
 export const ENEMIES = {
-  slime: { key: 'slime', name: 'Slime', maxHp: 12, atk: 3, def: 1, xp: 5, goldMin: 3, goldMax: 6, weight: 5, sprite: 'icons/sprites/slime.png' },
-  goblin: { key: 'goblin', name: 'Goblin', maxHp: 20, atk: 6, def: 2, xp: 10, goldMin: 6, goldMax: 12, weight: 3, sprite: 'icons/sprites/goblin.png' },
-  wolf: { key: 'wolf', name: 'Wolf', maxHp: 18, atk: 8, def: 1, xp: 12, goldMin: 8, goldMax: 14, weight: 2, sprite: 'icons/sprites/wolf.png' },
+  slime: { key: 'slime', name: 'Slime', maxHp: 12, atk: 3, def: 1, xp: 5, goldMin: 3, goldMax: 6, weight: 5, sprite: 'icons/sprites/slime.svg' },
+  goblin: { key: 'goblin', name: 'Goblin', maxHp: 20, atk: 6, def: 2, xp: 10, goldMin: 6, goldMax: 12, weight: 3, sprite: 'icons/sprites/goblin.svg' },
+  wolf: { key: 'wolf', name: 'Wolf', maxHp: 18, atk: 8, def: 1, xp: 12, goldMin: 8, goldMax: 14, weight: 2, sprite: 'icons/sprites/wolf.svg' },
 };
 
 export const BOSS = {
-  key: 'darkknight', name: 'Dark Knight', maxHp: 70, atk: 12, def: 5, xp: 150, goldMin: 100, goldMax: 100, sprite: 'icons/sprites/darkknight.png',
+  key: 'darkknight', name: 'Dark Knight', maxHp: 70, atk: 12, def: 5, xp: 150, goldMin: 100, goldMax: 100, sprite: 'icons/sprites/darkknight.svg',
 };
 
 export const DEPTHS_ENEMIES = {
-  bat: { key: 'bat', name: 'Bat', maxHp: 16, atk: 9, def: 2, xp: 14, goldMin: 10, goldMax: 16, weight: 4, sprite: 'icons/sprites/bat.png' },
-  specter: { key: 'specter', name: 'Specter', maxHp: 26, atk: 10, def: 4, xp: 18, goldMin: 14, goldMax: 22, weight: 3, sprite: 'icons/sprites/specter.png' },
+  bat: { key: 'bat', name: 'Bat', maxHp: 16, atk: 9, def: 2, xp: 14, goldMin: 10, goldMax: 16, weight: 4, sprite: 'icons/sprites/bat.svg' },
+  specter: { key: 'specter', name: 'Specter', maxHp: 26, atk: 10, def: 4, xp: 18, goldMin: 14, goldMax: 22, weight: 3, sprite: 'icons/sprites/specter.svg' },
 };
 
 export const LICH = {
-  key: 'lich', name: 'The Lich', maxHp: 100, atk: 15, def: 7, xp: 250, goldMin: 200, goldMax: 200, sprite: 'icons/sprites/lich.png',
+  key: 'lich', name: 'The Lich', maxHp: 100, atk: 15, def: 7, xp: 250, goldMin: 200, goldMax: 200, sprite: 'icons/sprites/lich.svg',
 };
 
 export const FROSTREACH_ENEMIES = {
-  frostGolem: { key: 'frostGolem', name: 'Frost Golem', maxHp: 32, atk: 12, def: 6, xp: 24, goldMin: 18, goldMax: 26, weight: 3, sprite: 'icons/sprites/frostgolem.png' },
-  iceSprite: { key: 'iceSprite', name: 'Ice Sprite', maxHp: 20, atk: 11, def: 3, xp: 20, goldMin: 16, goldMax: 22, weight: 4, sprite: 'icons/sprites/icesprite.png' },
+  frostGolem: { key: 'frostGolem', name: 'Frost Golem', maxHp: 32, atk: 12, def: 6, xp: 24, goldMin: 18, goldMax: 26, weight: 3, sprite: 'icons/sprites/frostgolem.svg' },
+  iceSprite: { key: 'iceSprite', name: 'Ice Sprite', maxHp: 20, atk: 11, def: 3, xp: 20, goldMin: 16, goldMax: 22, weight: 4, sprite: 'icons/sprites/icesprite.svg' },
 };
 
 export const GLACIAL_TITAN = {
-  key: 'glacialtitan', name: 'Glacial Titan', maxHp: 135, atk: 18, def: 9, xp: 350, goldMin: 300, goldMax: 300, sprite: 'icons/sprites/glacialtitan.png',
+  key: 'glacialtitan', name: 'Glacial Titan', maxHp: 135, atk: 18, def: 9, xp: 350, goldMin: 300, goldMax: 300, sprite: 'icons/sprites/glacialtitan.svg',
 };
 
 export const SPIRE_ENEMIES = {
-  wyrmling: { key: 'wyrmling', name: 'Wyrmling', maxHp: 36, atk: 14, def: 6, xp: 30, goldMin: 24, goldMax: 32, weight: 4, sprite: 'icons/sprites/wyrmling.png' },
-  drake: { key: 'drake', name: 'Drake', maxHp: 48, atk: 16, def: 8, xp: 38, goldMin: 30, goldMax: 40, weight: 3, sprite: 'icons/sprites/drake.png' },
+  wyrmling: { key: 'wyrmling', name: 'Wyrmling', maxHp: 36, atk: 14, def: 6, xp: 30, goldMin: 24, goldMax: 32, weight: 4, sprite: 'icons/sprites/wyrmling.svg' },
+  drake: { key: 'drake', name: 'Drake', maxHp: 48, atk: 16, def: 8, xp: 38, goldMin: 30, goldMax: 40, weight: 3, sprite: 'icons/sprites/drake.svg' },
 };
 
 export const ANCIENT_DRAGON = {
-  key: 'ancientdragon', name: 'The Ancient Dragon', maxHp: 180, atk: 22, def: 11, xp: 500, goldMin: 500, goldMax: 500, sprite: 'icons/sprites/ancientdragon.png',
+  key: 'ancientdragon', name: 'The Ancient Dragon', maxHp: 180, atk: 22, def: 11, xp: 500, goldMin: 500, goldMax: 500, sprite: 'icons/sprites/ancientdragon.svg',
 };
 
 export const SUNKENRUINS_ENEMIES = {
-  merfolkRaider: { key: 'merfolkRaider', name: 'Merfolk Raider', maxHp: 40, atk: 15, def: 7, xp: 32, goldMin: 24, goldMax: 32, weight: 4, sprite: 'icons/sprites/merfolkraider.png' },
-  reefSerpent: { key: 'reefSerpent', name: 'Reef Serpent', maxHp: 46, atk: 17, def: 8, xp: 38, goldMin: 28, goldMax: 36, weight: 3, sprite: 'icons/sprites/reefserpent.png' },
+  merfolkRaider: { key: 'merfolkRaider', name: 'Merfolk Raider', maxHp: 40, atk: 15, def: 7, xp: 32, goldMin: 24, goldMax: 32, weight: 4, sprite: 'icons/sprites/merfolkraider.svg' },
+  reefSerpent: { key: 'reefSerpent', name: 'Reef Serpent', maxHp: 46, atk: 17, def: 8, xp: 38, goldMin: 28, goldMax: 36, weight: 3, sprite: 'icons/sprites/reefserpent.svg' },
 };
 export const DROWNED_QUEEN = {
-  key: 'drownedqueen', name: 'The Drowned Queen', maxHp: 220, atk: 24, def: 13, xp: 600, goldMin: 600, goldMax: 600, sprite: 'icons/sprites/drownedqueen.png',
+  key: 'drownedqueen', name: 'The Drowned Queen', maxHp: 220, atk: 24, def: 13, xp: 600, goldMin: 600, goldMax: 600, sprite: 'icons/sprites/drownedqueen.svg',
 };
 
 export const WHISPERINGWOODS_ENEMIES = {
-  thornling: { key: 'thornling', name: 'Thornling', maxHp: 48, atk: 17, def: 8, xp: 38, goldMin: 30, goldMax: 38, weight: 4, sprite: 'icons/sprites/thornling.png' },
-  wispMoth: { key: 'wispMoth', name: 'Wisp Moth', maxHp: 42, atk: 19, def: 6, xp: 40, goldMin: 32, goldMax: 40, weight: 3, sprite: 'icons/sprites/wispmoth.png' },
+  thornling: { key: 'thornling', name: 'Thornling', maxHp: 48, atk: 17, def: 8, xp: 38, goldMin: 30, goldMax: 38, weight: 4, sprite: 'icons/sprites/thornling.svg' },
+  wispMoth: { key: 'wispMoth', name: 'Wisp Moth', maxHp: 42, atk: 19, def: 6, xp: 40, goldMin: 32, goldMax: 40, weight: 3, sprite: 'icons/sprites/wispmoth.svg' },
 };
 export const ELDER_ENT = {
-  key: 'elderent', name: 'The Elder Ent', maxHp: 260, atk: 26, def: 14, xp: 680, goldMin: 680, goldMax: 680, sprite: 'icons/sprites/elderent.png',
+  key: 'elderent', name: 'The Elder Ent', maxHp: 260, atk: 26, def: 14, xp: 680, goldMin: 680, goldMax: 680, sprite: 'icons/sprites/elderent.svg',
 };
 
 export const SANDSCAR_ENEMIES = {
-  dustJackal: { key: 'dustJackal', name: 'Dust Jackal', maxHp: 56, atk: 19, def: 9, xp: 44, goldMin: 36, goldMax: 44, weight: 4, sprite: 'icons/sprites/dustjackal.png' },
-  sandViper: { key: 'sandViper', name: 'Sand Viper', maxHp: 52, atk: 21, def: 8, xp: 46, goldMin: 38, goldMax: 46, weight: 3, sprite: 'icons/sprites/sandviper.png' },
+  dustJackal: { key: 'dustJackal', name: 'Dust Jackal', maxHp: 56, atk: 19, def: 9, xp: 44, goldMin: 36, goldMax: 44, weight: 4, sprite: 'icons/sprites/dustjackal.svg' },
+  sandViper: { key: 'sandViper', name: 'Sand Viper', maxHp: 52, atk: 21, def: 8, xp: 46, goldMin: 38, goldMax: 46, weight: 3, sprite: 'icons/sprites/sandviper.svg' },
 };
 export const SAND_REAVER = {
-  key: 'sandreaver', name: 'The Sand Reaver', maxHp: 300, atk: 28, def: 16, xp: 760, goldMin: 760, goldMax: 760, sprite: 'icons/sprites/sandreaver.png',
+  key: 'sandreaver', name: 'The Sand Reaver', maxHp: 300, atk: 28, def: 16, xp: 760, goldMin: 760, goldMax: 760, sprite: 'icons/sprites/sandreaver.svg',
 };
 
 export const VOLCANIC_ENEMIES = {
-  cinderImp: { key: 'cinderImp', name: 'Cinder Imp', maxHp: 62, atk: 21, def: 10, xp: 50, goldMin: 42, goldMax: 50, weight: 4, sprite: 'icons/sprites/cinderimp.png' },
-  magmaHound: { key: 'magmaHound', name: 'Magma Hound', maxHp: 68, atk: 23, def: 10, xp: 54, goldMin: 46, goldMax: 54, weight: 3, sprite: 'icons/sprites/magmahound.png' },
+  cinderImp: { key: 'cinderImp', name: 'Cinder Imp', maxHp: 62, atk: 21, def: 10, xp: 50, goldMin: 42, goldMax: 50, weight: 4, sprite: 'icons/sprites/cinderimp.svg' },
+  magmaHound: { key: 'magmaHound', name: 'Magma Hound', maxHp: 68, atk: 23, def: 10, xp: 54, goldMin: 46, goldMax: 54, weight: 3, sprite: 'icons/sprites/magmahound.svg' },
 };
 export const MOLTEN_WYRM = {
-  key: 'moltenwyrm', name: 'The Molten Wyrm', maxHp: 340, atk: 30, def: 17, xp: 840, goldMin: 840, goldMax: 840, sprite: 'icons/sprites/moltenwyrm.png',
+  key: 'moltenwyrm', name: 'The Molten Wyrm', maxHp: 340, atk: 30, def: 17, xp: 840, goldMin: 840, goldMax: 840, sprite: 'icons/sprites/moltenwyrm.svg',
 };
 
 export const SHATTEREDPEAKS_ENEMIES = {
-  stormHarpy: { key: 'stormHarpy', name: 'Storm Harpy', maxHp: 70, atk: 23, def: 11, xp: 56, goldMin: 48, goldMax: 56, weight: 4, sprite: 'icons/sprites/stormharpy.png' },
-  rockWyvern: { key: 'rockWyvern', name: 'Rock Wyvern', maxHp: 76, atk: 25, def: 12, xp: 60, goldMin: 52, goldMax: 60, weight: 3, sprite: 'icons/sprites/rockwyvern.png' },
+  stormHarpy: { key: 'stormHarpy', name: 'Storm Harpy', maxHp: 70, atk: 23, def: 11, xp: 56, goldMin: 48, goldMax: 56, weight: 4, sprite: 'icons/sprites/stormharpy.svg' },
+  rockWyvern: { key: 'rockWyvern', name: 'Rock Wyvern', maxHp: 76, atk: 25, def: 12, xp: 60, goldMin: 52, goldMax: 60, weight: 3, sprite: 'icons/sprites/rockwyvern.svg' },
 };
 export const STORMGUARD_TITAN = {
-  key: 'stormguardtitan', name: 'The Stormguard Titan', maxHp: 380, atk: 32, def: 19, xp: 920, goldMin: 920, goldMax: 920, sprite: 'icons/sprites/stormguardtitan.png',
+  key: 'stormguardtitan', name: 'The Stormguard Titan', maxHp: 380, atk: 32, def: 19, xp: 920, goldMin: 920, goldMax: 920, sprite: 'icons/sprites/stormguardtitan.svg',
 };
 
 export const BLIGHTMARSH_ENEMIES = {
-  bogLeech: { key: 'bogLeech', name: 'Bog Leech', maxHp: 78, atk: 25, def: 12, xp: 62, goldMin: 54, goldMax: 62, weight: 4, sprite: 'icons/sprites/bogleech.png' },
-  plagueRat: { key: 'plagueRat', name: 'Plague Rat', maxHp: 72, atk: 27, def: 11, xp: 64, goldMin: 56, goldMax: 64, weight: 3, sprite: 'icons/sprites/plaguerat.png' },
+  bogLeech: { key: 'bogLeech', name: 'Bog Leech', maxHp: 78, atk: 25, def: 12, xp: 62, goldMin: 54, goldMax: 62, weight: 4, sprite: 'icons/sprites/bogleech.svg' },
+  plagueRat: { key: 'plagueRat', name: 'Plague Rat', maxHp: 72, atk: 27, def: 11, xp: 64, goldMin: 56, goldMax: 64, weight: 3, sprite: 'icons/sprites/plaguerat.svg' },
 };
 export const ROTLORD = {
-  key: 'rotlord', name: 'The Rotlord', maxHp: 420, atk: 34, def: 20, xp: 1000, goldMin: 1000, goldMax: 1000, sprite: 'icons/sprites/rotlord.png',
+  key: 'rotlord', name: 'The Rotlord', maxHp: 420, atk: 34, def: 20, xp: 1000, goldMin: 1000, goldMax: 1000, sprite: 'icons/sprites/rotlord.svg',
 };
 
 export const CRYSTALCAVERNS_ENEMIES = {
-  crystalStalker: { key: 'crystalStalker', name: 'Crystal Stalker', maxHp: 86, atk: 27, def: 14, xp: 68, goldMin: 60, goldMax: 68, weight: 4, sprite: 'icons/sprites/crystalstalker.png' },
-  gemOoze: { key: 'gemOoze', name: 'Gem Ooze', maxHp: 92, atk: 29, def: 13, xp: 72, goldMin: 64, goldMax: 72, weight: 3, sprite: 'icons/sprites/gemooze.png' },
+  crystalStalker: { key: 'crystalStalker', name: 'Crystal Stalker', maxHp: 86, atk: 27, def: 14, xp: 68, goldMin: 60, goldMax: 68, weight: 4, sprite: 'icons/sprites/crystalstalker.svg' },
+  gemOoze: { key: 'gemOoze', name: 'Gem Ooze', maxHp: 92, atk: 29, def: 13, xp: 72, goldMin: 64, goldMax: 72, weight: 3, sprite: 'icons/sprites/gemooze.svg' },
 };
 export const PRISM_COLOSSUS = {
-  key: 'prismcolossus', name: 'The Prism Colossus', maxHp: 460, atk: 36, def: 22, xp: 1080, goldMin: 1080, goldMax: 1080, sprite: 'icons/sprites/prismcolossus.png',
+  key: 'prismcolossus', name: 'The Prism Colossus', maxHp: 460, atk: 36, def: 22, xp: 1080, goldMin: 1080, goldMax: 1080, sprite: 'icons/sprites/prismcolossus.svg',
 };
 
 export const SHADOWFEN_ENEMIES = {
-  shadeStalker: { key: 'shadeStalker', name: 'Shade Stalker', maxHp: 94, atk: 29, def: 15, xp: 74, goldMin: 66, goldMax: 74, weight: 4, sprite: 'icons/sprites/shadestalker.png' },
-  nightmareHound: { key: 'nightmareHound', name: 'Nightmare Hound', maxHp: 100, atk: 31, def: 14, xp: 78, goldMin: 70, goldMax: 78, weight: 3, sprite: 'icons/sprites/nightmarehound.png' },
+  shadeStalker: { key: 'shadeStalker', name: 'Shade Stalker', maxHp: 94, atk: 29, def: 15, xp: 74, goldMin: 66, goldMax: 74, weight: 4, sprite: 'icons/sprites/shadestalker.svg' },
+  nightmareHound: { key: 'nightmareHound', name: 'Nightmare Hound', maxHp: 100, atk: 31, def: 14, xp: 78, goldMin: 70, goldMax: 78, weight: 3, sprite: 'icons/sprites/nightmarehound.svg' },
 };
 export const NIGHTMARE_DRAKE = {
-  key: 'nightmaredrake', name: 'The Nightmare Drake', maxHp: 500, atk: 38, def: 23, xp: 1160, goldMin: 1160, goldMax: 1160, sprite: 'icons/sprites/nightmaredrake.png',
+  key: 'nightmaredrake', name: 'The Nightmare Drake', maxHp: 500, atk: 38, def: 23, xp: 1160, goldMin: 1160, goldMax: 1160, sprite: 'icons/sprites/nightmaredrake.svg',
 };
 
 export const CELESTIAL_ENEMIES = {
-  starWisp: { key: 'starWisp', name: 'Star Wisp', maxHp: 102, atk: 31, def: 16, xp: 80, goldMin: 72, goldMax: 80, weight: 4, sprite: 'icons/sprites/starwisp.png' },
-  cloudSerpent: { key: 'cloudSerpent', name: 'Cloud Serpent', maxHp: 108, atk: 33, def: 16, xp: 84, goldMin: 76, goldMax: 84, weight: 3, sprite: 'icons/sprites/cloudserpent.png' },
+  starWisp: { key: 'starWisp', name: 'Star Wisp', maxHp: 102, atk: 31, def: 16, xp: 80, goldMin: 72, goldMax: 80, weight: 4, sprite: 'icons/sprites/starwisp.svg' },
+  cloudSerpent: { key: 'cloudSerpent', name: 'Cloud Serpent', maxHp: 108, atk: 33, def: 16, xp: 84, goldMin: 76, goldMax: 84, weight: 3, sprite: 'icons/sprites/cloudserpent.svg' },
 };
 export const ASTRAL_GUARDIAN = {
-  key: 'astralguardian', name: 'The Astral Guardian', maxHp: 540, atk: 40, def: 25, xp: 1240, goldMin: 1240, goldMax: 1240, sprite: 'icons/sprites/astralguardian.png',
+  key: 'astralguardian', name: 'The Astral Guardian', maxHp: 540, atk: 40, def: 25, xp: 1240, goldMin: 1240, goldMax: 1240, sprite: 'icons/sprites/astralguardian.svg',
 };
 
 export const VOIDRIFT_ENEMIES = {
-  voidSpawn: { key: 'voidSpawn', name: 'Void Spawn', maxHp: 116, atk: 34, def: 17, xp: 90, goldMin: 80, goldMax: 90, weight: 4, sprite: 'icons/sprites/voidspawn.png' },
-  chaosHound: { key: 'chaosHound', name: 'Chaos Hound', maxHp: 122, atk: 36, def: 18, xp: 96, goldMin: 84, goldMax: 94, weight: 3, sprite: 'icons/sprites/chaoshound.png' },
+  voidSpawn: { key: 'voidSpawn', name: 'Void Spawn', maxHp: 116, atk: 34, def: 17, xp: 90, goldMin: 80, goldMax: 90, weight: 4, sprite: 'icons/sprites/voidspawn.svg' },
+  chaosHound: { key: 'chaosHound', name: 'Chaos Hound', maxHp: 122, atk: 36, def: 18, xp: 96, goldMin: 84, goldMax: 94, weight: 3, sprite: 'icons/sprites/chaoshound.svg' },
 };
 export const WORLD_SERPENT = {
-  key: 'worldserpent', name: 'The World Serpent', maxHp: 640, atk: 45, def: 28, xp: 1600, goldMin: 1600, goldMax: 1600, sprite: 'icons/sprites/worldserpent.png',
+  key: 'worldserpent', name: 'The World Serpent', maxHp: 640, atk: 45, def: 28, xp: 1600, goldMin: 1600, goldMax: 1600, sprite: 'icons/sprites/worldserpent.svg',
 };
 
 export const ASHENWASTES_ENEMIES = {
-  ashWraith: { key: 'ashWraith', name: 'Ash Wraith', maxHp: 130, atk: 37, def: 19, xp: 100, goldMin: 90, goldMax: 100, weight: 4, sprite: 'icons/sprites/ashwraith.png' },
-  cinderGolem: { key: 'cinderGolem', name: 'Cinder Golem', maxHp: 140, atk: 39, def: 20, xp: 108, goldMin: 94, goldMax: 104, weight: 3, sprite: 'icons/sprites/cindergolem.png' },
+  ashWraith: { key: 'ashWraith', name: 'Ash Wraith', maxHp: 130, atk: 37, def: 19, xp: 100, goldMin: 90, goldMax: 100, weight: 4, sprite: 'icons/sprites/ashwraith.svg' },
+  cinderGolem: { key: 'cinderGolem', name: 'Cinder Golem', maxHp: 140, atk: 39, def: 20, xp: 108, goldMin: 94, goldMax: 104, weight: 3, sprite: 'icons/sprites/cindergolem.svg' },
 };
 export const ASHLORD = {
-  key: 'ashlord', name: 'The Ashlord', maxHp: 700, atk: 48, def: 30, xp: 1750, goldMin: 1750, goldMax: 1750, sprite: 'icons/sprites/ashlord.png',
+  key: 'ashlord', name: 'The Ashlord', maxHp: 700, atk: 48, def: 30, xp: 1750, goldMin: 1750, goldMax: 1750, sprite: 'icons/sprites/ashlord.svg',
 };
 
 export const STORMCITADEL_ENEMIES = {
-  thunderHawk: { key: 'thunderHawk', name: 'Thunder Hawk', maxHp: 145, atk: 40, def: 21, xp: 112, goldMin: 100, goldMax: 110, weight: 4, sprite: 'icons/sprites/thunderhawk.png' },
-  stormElemental: { key: 'stormElemental', name: 'Storm Elemental', maxHp: 155, atk: 42, def: 22, xp: 120, goldMin: 104, goldMax: 114, weight: 3, sprite: 'icons/sprites/stormelemental.png' },
+  thunderHawk: { key: 'thunderHawk', name: 'Thunder Hawk', maxHp: 145, atk: 40, def: 21, xp: 112, goldMin: 100, goldMax: 110, weight: 4, sprite: 'icons/sprites/thunderhawk.svg' },
+  stormElemental: { key: 'stormElemental', name: 'Storm Elemental', maxHp: 155, atk: 42, def: 22, xp: 120, goldMin: 104, goldMax: 114, weight: 3, sprite: 'icons/sprites/stormelemental.svg' },
 };
 export const TEMPEST_KING = {
-  key: 'tempestking', name: 'The Tempest King', maxHp: 760, atk: 51, def: 32, xp: 1900, goldMin: 1900, goldMax: 1900, sprite: 'icons/sprites/tempestking.png',
+  key: 'tempestking', name: 'The Tempest King', maxHp: 760, atk: 51, def: 32, xp: 1900, goldMin: 1900, goldMax: 1900, sprite: 'icons/sprites/tempestking.svg',
 };
 
 export const BONEWASTES_ENEMIES = {
-  boneReaper: { key: 'boneReaper', name: 'Bone Reaper', maxHp: 160, atk: 43, def: 23, xp: 124, goldMin: 112, goldMax: 122, weight: 4, sprite: 'icons/sprites/bonereaper.png' },
-  wraithSerpent: { key: 'wraithSerpent', name: 'Wraith Serpent', maxHp: 170, atk: 45, def: 24, xp: 132, goldMin: 116, goldMax: 126, weight: 3, sprite: 'icons/sprites/wraithserpent.png' },
+  boneReaper: { key: 'boneReaper', name: 'Bone Reaper', maxHp: 160, atk: 43, def: 23, xp: 124, goldMin: 112, goldMax: 122, weight: 4, sprite: 'icons/sprites/bonereaper.svg' },
+  wraithSerpent: { key: 'wraithSerpent', name: 'Wraith Serpent', maxHp: 170, atk: 45, def: 24, xp: 132, goldMin: 116, goldMax: 126, weight: 3, sprite: 'icons/sprites/wraithserpent.svg' },
 };
 export const BONE_EMPEROR = {
-  key: 'boneemperor', name: 'The Bone Emperor', maxHp: 820, atk: 54, def: 34, xp: 2050, goldMin: 2050, goldMax: 2050, sprite: 'icons/sprites/boneemperor.png',
+  key: 'boneemperor', name: 'The Bone Emperor', maxHp: 820, atk: 54, def: 34, xp: 2050, goldMin: 2050, goldMax: 2050, sprite: 'icons/sprites/boneemperor.svg',
 };
 
 export const CHAOSRIFT_ENEMIES = {
-  chaosSpawn: { key: 'chaosSpawn', name: 'Chaos Spawn', maxHp: 175, atk: 46, def: 25, xp: 136, goldMin: 124, goldMax: 134, weight: 4, sprite: 'icons/sprites/chaosspawn.png' },
-  voidHound: { key: 'voidHound', name: 'Void Hound', maxHp: 185, atk: 48, def: 26, xp: 144, goldMin: 128, goldMax: 138, weight: 3, sprite: 'icons/sprites/voidhound.png' },
+  chaosSpawn: { key: 'chaosSpawn', name: 'Chaos Spawn', maxHp: 175, atk: 46, def: 25, xp: 136, goldMin: 124, goldMax: 134, weight: 4, sprite: 'icons/sprites/chaosspawn.svg' },
+  voidHound: { key: 'voidHound', name: 'Void Hound', maxHp: 185, atk: 48, def: 26, xp: 144, goldMin: 128, goldMax: 138, weight: 3, sprite: 'icons/sprites/voidhound.svg' },
 };
 export const CHAOS_HARBINGER = {
-  key: 'chaosharbinger', name: 'The Chaos Harbinger', maxHp: 880, atk: 57, def: 36, xp: 2200, goldMin: 2200, goldMax: 2200, sprite: 'icons/sprites/chaosharbinger.png',
+  key: 'chaosharbinger', name: 'The Chaos Harbinger', maxHp: 880, atk: 57, def: 36, xp: 2200, goldMin: 2200, goldMax: 2200, sprite: 'icons/sprites/chaosharbinger.svg',
 };
 
 export const THRONEOFETERNITY_ENEMIES = {
-  eternalGuardian: { key: 'eternalGuardian', name: 'Eternal Guardian', maxHp: 190, atk: 49, def: 27, xp: 148, goldMin: 136, goldMax: 146, weight: 4, sprite: 'icons/sprites/eternalguardian.png' },
-  timelessWraith: { key: 'timelessWraith', name: 'Timeless Wraith', maxHp: 200, atk: 51, def: 28, xp: 156, goldMin: 140, goldMax: 150, weight: 3, sprite: 'icons/sprites/timelesswraith.png' },
+  eternalGuardian: { key: 'eternalGuardian', name: 'Eternal Guardian', maxHp: 190, atk: 49, def: 27, xp: 148, goldMin: 136, goldMax: 146, weight: 4, sprite: 'icons/sprites/eternalguardian.svg' },
+  timelessWraith: { key: 'timelessWraith', name: 'Timeless Wraith', maxHp: 200, atk: 51, def: 28, xp: 156, goldMin: 140, goldMax: 150, weight: 3, sprite: 'icons/sprites/timelesswraith.svg' },
 };
 export const ETERNAL_SOVEREIGN = {
-  key: 'eternalsovereign', name: 'The Eternal Sovereign', maxHp: 1000, atk: 62, def: 40, xp: 3000, goldMin: 3000, goldMax: 3000, sprite: 'icons/sprites/eternalsovereign.png',
+  key: 'eternalsovereign', name: 'The Eternal Sovereign', maxHp: 1000, atk: 62, def: 40, xp: 3000, goldMin: 3000, goldMax: 3000, sprite: 'icons/sprites/eternalsovereign.svg',
 };
 
 // Post-game only — see the "Descend into the Abyss" Town button, shown
@@ -1008,51 +1008,51 @@ export const ETERNAL_SOVEREIGN = {
 // "the way onward has opened" toast), so it's appended to LEVEL_CHAIN by
 // hand below instead of being discovered by walking nextMap links.
 export const ABYSSAL_ENEMIES = {
-  mawOfTheDeep: { key: 'mawOfTheDeep', name: 'Maw of the Deep', maxHp: 210, atk: 54, def: 29, xp: 165, goldMin: 150, goldMax: 160, weight: 4, sprite: 'icons/sprites/mawofthedeep.png' },
-  gloomfang: { key: 'gloomfang', name: 'Gloomfang', maxHp: 220, atk: 56, def: 30, xp: 172, goldMin: 155, goldMax: 165, weight: 3, sprite: 'icons/sprites/gloomfang.png' },
+  mawOfTheDeep: { key: 'mawOfTheDeep', name: 'Maw of the Deep', maxHp: 210, atk: 54, def: 29, xp: 165, goldMin: 150, goldMax: 160, weight: 4, sprite: 'icons/sprites/mawofthedeep.svg' },
+  gloomfang: { key: 'gloomfang', name: 'Gloomfang', maxHp: 220, atk: 56, def: 30, xp: 172, goldMin: 155, goldMax: 165, weight: 3, sprite: 'icons/sprites/gloomfang.svg' },
 };
 export const FORMLESS_KING = {
-  key: 'formlessking', name: 'The Formless King', maxHp: 1100, atk: 66, def: 42, xp: 3300, goldMin: 3300, goldMax: 3300, sprite: 'icons/sprites/formlessking.png',
+  key: 'formlessking', name: 'The Formless King', maxHp: 1100, atk: 66, def: 42, xp: 3300, goldMin: 3300, goldMax: 3300, sprite: 'icons/sprites/formlessking.svg',
 };
 
 // Zone 21: The Sunless Expanse — the Abyssal Depths now chains onward into
 // this one instead of being a dead end, same nextMap mechanism as every
 // regular level (see LEVEL_CHAIN's second walk below).
 export const SUNLESS_ENEMIES = {
-  duskcrawler: { key: 'duskcrawler', name: 'Duskcrawler', maxHp: 235, atk: 60, def: 32, xp: 185, goldMin: 168, goldMax: 178, weight: 4, sprite: 'icons/sprites/duskcrawler.png' },
-  hollowRevenant: { key: 'hollowRevenant', name: 'Hollow Revenant', maxHp: 245, atk: 62, def: 33, xp: 192, goldMin: 172, goldMax: 182, weight: 3, sprite: 'icons/sprites/hollowrevenant.png' },
+  duskcrawler: { key: 'duskcrawler', name: 'Duskcrawler', maxHp: 235, atk: 60, def: 32, xp: 185, goldMin: 168, goldMax: 178, weight: 4, sprite: 'icons/sprites/duskcrawler.svg' },
+  hollowRevenant: { key: 'hollowRevenant', name: 'Hollow Revenant', maxHp: 245, atk: 62, def: 33, xp: 192, goldMin: 172, goldMax: 182, weight: 3, sprite: 'icons/sprites/hollowrevenant.svg' },
 };
 export const DUSKBOUND_TYRANT = {
-  key: 'duskboundtyrant', name: 'The Duskbound Tyrant', maxHp: 1210, atk: 73, def: 46, xp: 3650, goldMin: 3650, goldMax: 3650, sprite: 'icons/sprites/duskboundtyrant.png',
+  key: 'duskboundtyrant', name: 'The Duskbound Tyrant', maxHp: 1210, atk: 73, def: 46, xp: 3650, goldMin: 3650, goldMax: 3650, sprite: 'icons/sprites/duskboundtyrant.svg',
 };
 
 // Zone 22: The First Flame — the very ember Emberfall is named for, and the
 // last stop of the chain (no nextMap of its own).
 export const FIRSTFLAME_ENEMIES = {
-  emberwraith: { key: 'emberwraith', name: 'Emberwraith', maxHp: 260, atk: 67, def: 36, xp: 205, goldMin: 188, goldMax: 198, weight: 4, sprite: 'icons/sprites/emberwraith.png' },
-  cinderfiend: { key: 'cinderfiend', name: 'Cinderfiend', maxHp: 272, atk: 69, def: 37, xp: 213, goldMin: 194, goldMax: 205, weight: 3, sprite: 'icons/sprites/cinderfiend.png' },
+  emberwraith: { key: 'emberwraith', name: 'Emberwraith', maxHp: 260, atk: 67, def: 36, xp: 205, goldMin: 188, goldMax: 198, weight: 4, sprite: 'icons/sprites/emberwraith.svg' },
+  cinderfiend: { key: 'cinderfiend', name: 'Cinderfiend', maxHp: 272, atk: 69, def: 37, xp: 213, goldMin: 194, goldMax: 205, weight: 3, sprite: 'icons/sprites/cinderfiend.svg' },
 };
 export const PROGENITOR_EMBER = {
-  key: 'progenitorember', name: 'The Progenitor Ember', maxHp: 1340, atk: 80, def: 51, xp: 4050, goldMin: 4050, goldMax: 4050, sprite: 'icons/sprites/progenitorember.png',
+  key: 'progenitorember', name: 'The Progenitor Ember', maxHp: 1340, atk: 80, def: 51, xp: 4050, goldMin: 4050, goldMax: 4050, sprite: 'icons/sprites/progenitorember.svg',
 };
 
 // Zone 23: The Cinder Expanse — the chain keeps extending past The First
 // Flame instead of dead-ending there now.
 export const CINDEREXPANSE_ENEMIES = {
-  smolderingWisp: { key: 'smolderingWisp', name: 'Smoldering Wisp', maxHp: 285, atk: 73, def: 39, xp: 225, goldMin: 205, goldMax: 215, weight: 4, sprite: 'icons/sprites/smolderingwisp.png' },
-  ashbornStalker: { key: 'ashbornStalker', name: 'Ashborn Stalker', maxHp: 300, atk: 75, def: 40, xp: 233, goldMin: 212, goldMax: 223, weight: 3, sprite: 'icons/sprites/ashbornstalker.png' },
+  smolderingWisp: { key: 'smolderingWisp', name: 'Smoldering Wisp', maxHp: 285, atk: 73, def: 39, xp: 225, goldMin: 205, goldMax: 215, weight: 4, sprite: 'icons/sprites/smolderingwisp.svg' },
+  ashbornStalker: { key: 'ashbornStalker', name: 'Ashborn Stalker', maxHp: 300, atk: 75, def: 40, xp: 233, goldMin: 212, goldMax: 223, weight: 3, sprite: 'icons/sprites/ashbornstalker.svg' },
 };
 export const CINDER_WARDEN = {
-  key: 'cinderwarden', name: 'The Cinder Warden', maxHp: 1480, atk: 88, def: 56, xp: 4450, goldMin: 4450, goldMax: 4450, sprite: 'icons/sprites/cinderwarden.png',
+  key: 'cinderwarden', name: 'The Cinder Warden', maxHp: 1480, atk: 88, def: 56, xp: 4450, goldMin: 4450, goldMax: 4450, sprite: 'icons/sprites/cinderwarden.svg',
 };
 
 // Zone 24: The Heart of Emberfall — the chain's new true end, for now.
 export const EMBERHEART_ENEMIES = {
-  flareling: { key: 'flareling', name: 'Flareling', maxHp: 310, atk: 79, def: 42, xp: 245, goldMin: 225, goldMax: 235, weight: 4, sprite: 'icons/sprites/flareling.png' },
-  emberkin: { key: 'emberkin', name: 'Emberkin', maxHp: 325, atk: 82, def: 43, xp: 255, goldMin: 232, goldMax: 244, weight: 3, sprite: 'icons/sprites/emberkin.png' },
+  flareling: { key: 'flareling', name: 'Flareling', maxHp: 310, atk: 79, def: 42, xp: 245, goldMin: 225, goldMax: 235, weight: 4, sprite: 'icons/sprites/flareling.svg' },
+  emberkin: { key: 'emberkin', name: 'Emberkin', maxHp: 325, atk: 82, def: 43, xp: 255, goldMin: 232, goldMax: 244, weight: 3, sprite: 'icons/sprites/emberkin.svg' },
 };
 export const UNDYING_EMBER = {
-  key: 'undyingember', name: 'The Undying Ember', maxHp: 1620, atk: 96, def: 61, xp: 4850, goldMin: 4850, goldMax: 4850, sprite: 'icons/sprites/undyingember.png',
+  key: 'undyingember', name: 'The Undying Ember', maxHp: 1620, atk: 96, def: 61, xp: 4850, goldMin: 4850, goldMax: 4850, sprite: 'icons/sprites/undyingember.svg',
 };
 
 // A true secret zone in the "Cow Level" tradition — not linked in via
@@ -1064,11 +1064,11 @@ export const UNDYING_EMBER = {
 // late-game power since only a player who's already found three of the
 // rarest chest drops in the game could realistically reach it.
 export const FERAL_PASTURES_ENEMIES = {
-  woollyGrazer: { key: 'woollyGrazer', name: 'Woolly Grazer', maxHp: 195, atk: 52, def: 28, xp: 160, goldMin: 145, goldMax: 155, weight: 4, sprite: 'icons/sprites/woollygrazer.png' },
-  strayRam: { key: 'strayRam', name: 'Stray Ram', maxHp: 205, atk: 54, def: 29, xp: 167, goldMin: 150, goldMax: 160, weight: 3, sprite: 'icons/sprites/strayram.png' },
+  woollyGrazer: { key: 'woollyGrazer', name: 'Woolly Grazer', maxHp: 195, atk: 52, def: 28, xp: 160, goldMin: 145, goldMax: 155, weight: 4, sprite: 'icons/sprites/woollygrazer.svg' },
+  strayRam: { key: 'strayRam', name: 'Stray Ram', maxHp: 205, atk: 54, def: 29, xp: 167, goldMin: 150, goldMax: 160, weight: 3, sprite: 'icons/sprites/strayram.svg' },
 };
 export const THE_SHEPHERD = {
-  key: 'theshepherd', name: 'The Shepherd', maxHp: 1050, atk: 63, def: 40, xp: 3150, goldMin: 3150, goldMax: 3150, sprite: 'icons/sprites/theshepherd.png',
+  key: 'theshepherd', name: 'The Shepherd', maxHp: 1050, atk: 63, def: 40, xp: 3150, goldMin: 3150, goldMax: 3150, sprite: 'icons/sprites/theshepherd.svg',
 };
 
 // Registry driving movement/rendering/encounters per zone (map.js, battle.js,

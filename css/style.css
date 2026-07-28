@@ -110,8 +110,7 @@ html, body {
   padding: 0;
   border: 2px solid var(--gold);
   border-radius: 8px;
-  background: var(--panel) url('../icons/sprites/hero.png') center/70% no-repeat;
-  image-rendering: pixelated;
+  background: var(--panel) url('../icons/sprites/hero.svg') center/70% no-repeat;
   cursor: pointer;
 }
 .hud-portrait:active { background-color: var(--bg-alt); }
@@ -150,8 +149,6 @@ html, body {
   width: 100%;
   max-width: 100%;
   height: auto;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   border: 2px solid var(--border);
   border-radius: 8px;
   background: #000;
@@ -219,8 +216,6 @@ html, body {
   background-repeat: no-repeat;
   background-position: center bottom;
   background-size: 76%;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 .enemy-sprite { background-color: rgba(122, 58, 58, 0.15); }
 .enemy-sprite.boss-sprite {
@@ -305,15 +300,13 @@ html, body {
   background-repeat: no-repeat;
   background-position: center bottom;
   background-size: 76%;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
   margin-top: 0;
 }
 .chest-card { align-items: center; text-align: center; }
 .chest-sprite {
   width: 96px;
   height: 96px;
-  background-image: url('../icons/sprites/chest.png');
+  background-image: url('../icons/sprites/chest.svg');
   background-color: transparent;
   margin: 0;
 }
@@ -405,7 +398,6 @@ html, body {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  image-rendering: pixelated;
 }
 .shop-item-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .shop-item-name { font-weight: 700; }
@@ -503,7 +495,6 @@ html, body {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  image-rendering: pixelated;
 }
 .inventory-tile-name { font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.15; }
 .inventory-tile-stat { font-size: 0.68rem; color: var(--text-dim); }
@@ -567,7 +558,7 @@ html, body {
   border: 2px solid var(--gold);
   border-radius: 10px;
 }
-.doll-portrait img { width: 44px; height: 44px; image-rendering: pixelated; }
+.doll-portrait img { width: 44px; height: 44px; }
 
 .doll-slot {
   width: 40px;
@@ -576,7 +567,6 @@ html, body {
   background-size: 65%;
   background-repeat: no-repeat;
   background-position: center;
-  image-rendering: pixelated;
 }
 .doll-slot.locked {
   border: 1px dashed var(--border);

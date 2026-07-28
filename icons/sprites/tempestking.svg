@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220"><defs><linearGradient id="g83" x1="18%" y1="12%" x2="82%" y2="88%">
+    <stop offset="0%" stop-color="rgba(131,163,203,1)"/>
+    <stop offset="100%" stop-color="rgba(65,91,124,1)"/>
+  </linearGradient><linearGradient id="g84" x1="50%" y1="0%" x2="50%" y2="100%">
+    <stop offset="0%" stop-color="rgba(98,123,166,1)"/>
+    <stop offset="100%" stop-color="rgba(49,70,105,1)"/>
+  </linearGradient></defs>
+    <ellipse cx="120" cy="214" rx="56" ry="9" fill="#000000" opacity="0.3"/>
+    <path d="M 60 70 L 30 96 L 40 200 L 70 190 Z" fill="url(#g84)" stroke="rgba(60,90,130,1)" stroke-width="2"/>
+    <path d="M 180 70 L 210 96 L 200 200 L 170 190 Z" fill="url(#g84)" stroke="rgba(60,90,130,1)" stroke-width="2"/>
+
+    <path d="M 90 128 L 76 168 L 84 202 L 106 202 L 106 168 Z" fill="url(#g83)" stroke="rgba(60,90,130,1)" stroke-width="2.5"/>
+    <path d="M 150 128 L 164 168 L 156 202 L 134 202 L 134 168 Z" fill="url(#g83)" stroke="rgba(60,90,130,1)" stroke-width="2.5"/>
+    <rect x="80" y="196" width="26" height="10" rx="3" fill="rgba(30,45,70,1)"/>
+    <rect x="114" y="196" width="26" height="10" rx="3" fill="rgba(30,45,70,1)"/>
+
+    <path d="M 66 84 L 54 130 L 70 170 L 82 130 Z" fill="url(#g83)" stroke="rgba(60,90,130,1)" stroke-width="2.5"/>
+    <path d="M 174 84 L 186 130 L 170 170 L 158 130 Z" fill="url(#g83)" stroke="rgba(60,90,130,1)" stroke-width="2.5"/>
+
+    <path d="M 190 30 L 202 4 L 208 158 L 194 150 Z" fill="rgba(230,240,250,1)" stroke="rgba(60,90,130,1)" stroke-width="1.5"/>
+    <path d="M 199 8 L 201 140" stroke="rgba(255,255,255,1)" stroke-width="2"/>
+    <rect x="176" y="150" width="40" height="12" rx="4" fill="rgba(180,190,210,1)" stroke="rgba(60,90,130,1)" stroke-width="1.5"/>
+    <rect x="192" y="160" width="14" height="24" rx="4" fill="rgba(180,190,210,1)" stroke="rgba(60,90,130,1)" stroke-width="1.5"/>
+
+    <path d="M 78 78 L 68 130 L 90 168 L 150 168 L 172 130 L 162 78 Z"
+          fill="url(#g83)" stroke="rgba(60,90,130,1)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M 92 96 L 148 96 L 144 118 L 96 118 Z" fill="rgba(161,197,233,1)" opacity="0.7"/>
+    <path d="M 120 108 L 132 122 L 120 136 L 108 122 Z" fill="rgba(220,240,255,1)" stroke="rgba(60,90,130,1)" stroke-width="1.5"/>
+
+    <path d="M 88 74 L 82 32 L 100 12 L 140 12 L 158 32 L 152 74 Z"
+          fill="url(#g83)" stroke="rgba(60,90,130,1)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M 116 8 L 120 -6 L 124 8 Z" fill="rgba(180,190,210,1)"/>
+    <path d="M 96 48 L 144 48 L 140 58 L 100 58 Z" fill="rgba(220,240,255,1)"/>
+    <path d="M 100 34 L 112 26 L 112 40 Z M 140 34 L 128 26 L 128 40 Z" fill="rgba(166,200,234,1)"/>
+  </svg>

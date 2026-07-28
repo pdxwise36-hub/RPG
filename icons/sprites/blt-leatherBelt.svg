@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g205" x1="50%" y1="0%" x2="50%" y2="100%">
+    <stop offset="0%" stop-color="rgba(205,208,214,1)"/>
+    <stop offset="100%" stop-color="rgba(138,141,147,1)"/>
+  </linearGradient></defs>
+    <rect x="8" y="36" width="84" height="28" rx="8" fill="url(#g205)" stroke="rgba(101,103,108,1)" stroke-width="3"/>
+    <rect x="36" y="28" width="28" height="44" rx="7" fill="rgba(138,138,146,1)" stroke="rgba(101,103,108,1)" stroke-width="2.5"/>
+  </svg>
