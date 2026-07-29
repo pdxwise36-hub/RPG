@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emberfall-v68';
+const CACHE_NAME = 'emberfall-v69';
 const ASSETS = [
   './',
   './index.html',

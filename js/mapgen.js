@@ -1,18 +1,20 @@
 // Procedural zone-layout generator for the 14 monster levels, plus a fixed
 // (never randomized) layout builder for Town. Every zone uses the same
-// 12x16 footprint and entry column so canvas sizing stays put, but a
-// level's path from entry to boss winds left and right at random instead of
-// running straight down a single column — each call produces a different
-// layout. Town is the one exception: it's hand-authored and identical every
-// time, since it's meant to be a memorized, always-safe home base.
+// 12x16 footprint and entry column so canvas sizing stays put — except the
+// Outskirts (the first level), which is generated 3 screens wide instead of
+// 1 (see `screensWide`) for extra roaming room; the camera in map.js's
+// drawMap scrolls to follow the player across it while every other zone
+// stays exactly 1 screen and renders exactly as before. A level's path from
+// entry to boss winds left and right at random instead of running straight
+// down a single column — each call produces a different layout. Town is the
+// one exception: it's hand-authored and identical every time, since it's
+// meant to be a memorized, always-safe home base.
 import { TILE, WALKABLE } from './data.js';
 
 export const MAP_COLS = 12;
 export const MAP_ROWS = 16;
 const ENTRY_COL = 5;
 const ENTRY_ROW = 3;
-const MIN_COL = 2;
-const MAX_COL = MAP_COLS - 3;
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -60,21 +62,32 @@ function sealUnreachablePockets(grid, start) {
   }
 }
 
-function buildOnce(obstacleChance, hasNextLevel) {
-  const grid = Array.from({ length: MAP_ROWS }, () => Array(MAP_COLS).fill(TILE.TREE));
+// `screensWide` widens the grid to that many MAP_COLS-wide screens (only the
+// Outskirts uses more than 1 — see generateZoneGrid) with the entry re-centered
+// in the middle of the full width instead of the fixed single-screen ENTRY_COL,
+// so the extra room is split evenly to both sides. Everything else (obstacle
+// scatter, the winding boss path, reachability sealing) already operates on
+// the grid's actual dimensions rather than the MAP_COLS/MAP_ROWS constants
+// directly, so it scales up for free.
+function buildOnce(obstacleChance, hasNextLevel, screensWide = 1) {
+  const cols = MAP_COLS * screensWide;
+  const entryCol = screensWide === 1 ? ENTRY_COL : Math.floor(cols / 2);
+  const minCol = 2;
+  const maxCol = cols - 3;
+  const grid = Array.from({ length: MAP_ROWS }, () => Array(cols).fill(TILE.TREE));
   for (let y = 1; y < MAP_ROWS - 1; y++) {
-    for (let x = 1; x < MAP_COLS - 1; x++) {
+    for (let x = 1; x < cols - 1; x++) {
       const roll = Math.random();
       grid[y][x] = roll < obstacleChance ? TILE.TREE : roll < obstacleChance * 1.6 ? TILE.WATER : TILE.GRASS;
     }
   }
 
-  grid[2][ENTRY_COL] = TILE.PORTAL;
-  grid[ENTRY_ROW][ENTRY_COL] = TILE.PATH;
-  const path = [{ x: ENTRY_COL, y: ENTRY_ROW }];
-  let col = ENTRY_COL;
+  grid[2][entryCol] = TILE.PORTAL;
+  grid[ENTRY_ROW][entryCol] = TILE.PATH;
+  const path = [{ x: entryCol, y: ENTRY_ROW }];
+  let col = entryCol;
   for (let y = ENTRY_ROW + 1; y <= MAP_ROWS - 2; y++) {
-    col = Math.min(MAX_COL, Math.max(MIN_COL, col + pick([-1, 0, 0, 0, 1])));
+    col = Math.min(maxCol, Math.max(minCol, col + pick([-1, 0, 0, 0, 1])));
     grid[y][col] = TILE.PATH;
     path.push({ x: col, y });
   }
@@ -90,30 +103,32 @@ function buildOnce(obstacleChance, hasNextLevel) {
       { x: bossPos.x - 1, y: bossPos.y },
       { x: bossPos.x, y: bossPos.y - 1 },
       { x: bossPos.x, y: bossPos.y + 1 },
-    ].filter((p) => p.x >= 1 && p.x <= MAP_COLS - 2 && p.y >= 1 && p.y <= MAP_ROWS - 2);
+    ].filter((p) => p.x >= 1 && p.x <= cols - 2 && p.y >= 1 && p.y <= MAP_ROWS - 2);
     if (sides.length > 0) {
       nextPortalPos = sides[0];
       grid[nextPortalPos.y][nextPortalPos.x] = TILE.NEXT_PORTAL;
     }
   }
 
-  return { grid, startPos: { x: ENTRY_COL, y: ENTRY_ROW }, bossPos, nextPortalPos };
+  return { grid, startPos: { x: entryCol, y: ENTRY_ROW }, bossPos, nextPortalPos };
 }
 
 // Builds a random layout for one of the monster levels. Retries a few times
 // if a rare bad roll walls off the boss, falling back to an obstacle-free
 // layout (always trivially reachable) if that keeps failing. hasNextLevel
 // controls whether a next-level portal is placed beside the boss at all —
-// the final level's boss has nowhere onward to send you.
-export function generateZoneGrid(hasNextLevel = true) {
+// the final level's boss has nowhere onward to send you. screensWide (see
+// buildOnce) is 1 for every zone except the Outskirts, which state.js passes
+// 3 for — 3 MAP_COLS-wide screens joined into one grid, entered dead center.
+export function generateZoneGrid(hasNextLevel = true, screensWide = 1) {
   for (let attempt = 0; attempt < 8; attempt++) {
-    const layout = buildOnce(0.15, hasNextLevel);
+    const layout = buildOnce(0.15, hasNextLevel, screensWide);
     if (isReachable(layout.grid, layout.startPos, layout.bossPos)) {
       sealUnreachablePockets(layout.grid, layout.startPos);
       return layout;
     }
   }
-  const layout = buildOnce(0, hasNextLevel);
+  const layout = buildOnce(0, hasNextLevel, screensWide);
   sealUnreachablePockets(layout.grid, layout.startPos);
   return layout;
 }

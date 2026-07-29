@@ -1,5 +1,6 @@
 import { TILE, MAPS, WALKABLE, ENCOUNTER_TILES, HERO_SPRITE } from './data.js';
-export { MAP_COLS, MAP_ROWS } from './mapgen.js';
+import { MAP_COLS, MAP_ROWS } from './mapgen.js';
+export { MAP_COLS, MAP_ROWS };
 
 export const TILE_SIZE = 32;
 
@@ -233,16 +234,24 @@ export function drawMap(ctx, state) {
   const grid = layout.grid;
   const palette = PALETTES[map.theme];
   const mood = THEME_MOOD[map.theme] || 'warm';
-  const rows = grid.length, cols = grid[0].length;
-  const w = cols * TILE_SIZE;
+  const rows = grid.length, gridCols = grid[0].length;
+  // Every zone but the (3-screens-wide) Outskirts has gridCols === viewCols,
+  // so camCol is always 0 and this is a no-op there. On the Outskirts the
+  // camera clamps to the player's column, horizontally centered whenever
+  // there's room on both sides, so it only stops scrolling at the grid's
+  // outer edges — vertical framing never changes since nothing scrolls
+  // top-to-bottom.
+  const viewCols = Math.min(MAP_COLS, gridCols);
+  const camCol = Math.max(0, Math.min(gridCols - viewCols, state.pos.x - Math.floor(viewCols / 2)));
+  const w = viewCols * TILE_SIZE;
   const h = rows * TILE_SIZE;
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, w, h);
 
   for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const tile = grid[y][x];
-      const px = x * TILE_SIZE;
+    for (let gx = camCol; gx < camCol + viewCols; gx++) {
+      const tile = grid[y][gx];
+      const px = (gx - camCol) * TILE_SIZE;
       const py = y * TILE_SIZE;
       ctx.fillStyle = tile === TILE.BOSS && state.flags[map.bossFlag] ? BOSS_CLEARED_COLOR
         : tile === TILE.NEXT_PORTAL && !state.flags[map.bossFlag] ? SEALED_PORTAL_COLOR
@@ -265,7 +274,7 @@ export function drawMap(ctx, state) {
           frost: 'rgba(255,255,255,0.5)',
           ember: 'rgba(255,140,70,0.25)',
         }[mood];
-        const gh = tileHash(x, y);
+        const gh = tileHash(gx, y);
         ctx.strokeStyle = bladeColor;
         ctx.lineWidth = 1.4;
         for (let i = 0; i < 4; i++) {
@@ -282,7 +291,7 @@ export function drawMap(ctx, state) {
         // Path had no decoration at all before — a few worn dirt/stone
         // flecks (position/size varied per-tile via tileHash) so a long
         // corridor doesn't read as one uniform color block.
-        const wh = tileHash(x, y);
+        const wh = tileHash(gx, y);
         ctx.fillStyle = 'rgba(0,0,0,0.10)';
         for (let i = 0; i < 3; i++) {
           const seed = (wh >> (i * 6)) & 0x3f;
@@ -303,7 +312,7 @@ export function drawMap(ctx, state) {
         grad.addColorStop(1, 'rgba(0,0,0,0.14)');
         ctx.fillStyle = grad;
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        const wh2 = tileHash(x, y);
+        const wh2 = tileHash(gx, y);
         const yOff = (wh2 % 7) - 3;
         if (mood === 'arcane') {
           ctx.strokeStyle = 'rgba(120,90,180,0.25)';
@@ -491,7 +500,7 @@ export function drawMap(ctx, state) {
   if (map.bossEnemy) {
     const bossImg = bossImages[map.id];
     if (bossImg && bossImg.complete && bossImg.naturalWidth > 0) {
-      const bpx = layout.bossPos.x * TILE_SIZE;
+      const bpx = (layout.bossPos.x - camCol) * TILE_SIZE;
       const bpy = layout.bossPos.y * TILE_SIZE;
       const size = TILE_SIZE * 1.5;
       ctx.drawImage(bossImg, bpx + (TILE_SIZE - size) / 2, bpy + TILE_SIZE - size, size, size);
@@ -499,7 +508,7 @@ export function drawMap(ctx, state) {
   }
 
   // player marker
-  const ppx = state.pos.x * TILE_SIZE;
+  const ppx = (state.pos.x - camCol) * TILE_SIZE;
   const ppy = state.pos.y * TILE_SIZE;
   if (heroImage.complete && heroImage.naturalWidth > 0) {
     const size = TILE_SIZE * 1.15;

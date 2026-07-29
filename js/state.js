@@ -13,7 +13,11 @@ export function ensureLayout(state, mapId, forceRegenerate = false) {
   }
   if (forceRegenerate || !state.layouts[mapId]) {
     const hasNextLevel = !!(MAPS[mapId] && MAPS[mapId].nextMap);
-    state.layouts[mapId] = generateZoneGrid(hasNextLevel);
+    // The Outskirts (the first level) is generated 3 screens wide instead of
+    // 1 for extra roaming room — see mapgen.js's screensWide and map.js's
+    // camera scroll. Every other zone is unchanged.
+    const screensWide = mapId === 'overworld' ? 3 : 1;
+    state.layouts[mapId] = generateZoneGrid(hasNextLevel, screensWide);
   }
   return state.layouts[mapId];
 }
