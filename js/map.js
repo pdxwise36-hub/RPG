@@ -156,6 +156,77 @@ function tileHash(x, y) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
+// Same lighten/darken-from-a-base-color trick the vector sprites use to
+// auto-derive gradient stops, ported to canvas hex strings so map icons can
+// get the same volumetric shading without hand-picking two colors each.
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgbToHex(r, g, b) {
+  const c = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+function lighten(hex, amt) {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r + (255 - r) * amt, g + (255 - g) * amt, b + (255 - b) * amt);
+}
+function darken(hex, amt) {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * (1 - amt), g * (1 - amt), b * (1 - amt));
+}
+
+// The canvas equivalent of a vector-sprite body: a soft contact shadow, a
+// radial gradient sphere (upper-left highlight, like bodyGradient), a rim
+// stroke, and a sheen highlight — every interactive map icon (town, vendors,
+// portals) is built on this so it reads at the same polish tier as the
+// pets/characters instead of a flat-color rectangle.
+function drawBadge(ctx, px, py, base, r = 12) {
+  const cx = px + 16, cy = py + 16;
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(cx, py + 27, r - 1, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.15, cx, cy, r);
+  grad.addColorStop(0, lighten(base, 0.35));
+  grad.addColorStop(1, darken(base, 0.15));
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = darken(base, 0.45);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.35, cy - r * 0.4, r * 0.5, r * 0.3, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  return { cx, cy };
+}
+
+function drawPortalGlow(ctx, px, py, open) {
+  const cx = px + 16, cy = py + 16;
+  if (open) {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 13);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.2)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, 13, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.stroke();
+  } else {
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(cx - 3, cy - 2, 6, 6);
+  }
+}
+
 export function drawMap(ctx, state) {
   const map = MAPS[state.mapId];
   const layout = state.layouts[state.mapId];
@@ -272,57 +343,62 @@ export function drawMap(ctx, state) {
           ctx.stroke();
         }
       } else if (tile === TILE.TREE) {
-        // A ground shadow first grounds the canopy instead of it looking
-        // like it's floating on the tile, and a light highlight sliver on
-        // top of each mood's existing shape adds a touch of dimensionality
-        // — both shared across every mood instead of duplicated per-branch.
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        // Ground shadow first grounds the canopy, then the canopy and trunk
+        // are lit with the same lighten/darken diagonal-gradient trick the
+        // vector sprites use (bodyGradient) instead of one flat fill, plus
+        // a crisp dark rim so the silhouette pops the way sprite outlines do.
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath();
         ctx.ellipse(px + 16, py + 28, 10, 3, 0, 0, Math.PI * 2);
         ctx.fill();
-        if (mood === 'arcane') {
-          ctx.fillStyle = '#4a4260';
-          ctx.beginPath();
-          ctx.moveTo(px + 16, py + 4); ctx.lineTo(px + 27, py + 26); ctx.lineTo(px + 5, py + 26);
-          ctx.closePath();
-          ctx.fill();
-        } else if (mood === 'frost') {
-          ctx.fillStyle = '#eaf7fd';
-          ctx.beginPath();
-          ctx.moveTo(px + 16, py + 3); ctx.lineTo(px + 24, py + 27); ctx.lineTo(px + 8, py + 27);
-          ctx.closePath();
-          ctx.fill();
-        } else if (mood === 'ember') {
-          ctx.fillStyle = '#1a0e0e';
-          ctx.beginPath();
-          ctx.moveTo(px + 16, py + 4); ctx.lineTo(px + 26, py + 27); ctx.lineTo(px + 6, py + 27);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = 'rgba(255,140,60,0.7)';
-          ctx.fillRect(px + 15, py + 18, 2, 2);
-        } else {
-          ctx.fillStyle = '#5a3a22';
+        const canopyBase = { arcane: '#4a4260', frost: '#cfe8f5', ember: '#241414', warm: '#2d6b34' }[mood];
+        const canopyGrad = ctx.createLinearGradient(px + 6, py + 4, px + 26, py + 27);
+        canopyGrad.addColorStop(0, lighten(canopyBase, 0.3));
+        canopyGrad.addColorStop(1, darken(canopyBase, 0.25));
+        if (mood === 'warm') {
+          const trunkGrad = ctx.createLinearGradient(px + 13, py + 20, px + 19, py + 30);
+          trunkGrad.addColorStop(0, lighten('#5a3a22', 0.15));
+          trunkGrad.addColorStop(1, darken('#5a3a22', 0.25));
+          ctx.fillStyle = trunkGrad;
           ctx.fillRect(px + 13, py + 20, 6, 10);
-          ctx.fillStyle = '#2d6b34';
+          ctx.fillStyle = canopyGrad;
           ctx.beginPath();
           ctx.arc(px + 16, py + 14, 12, 0, Math.PI * 2);
           ctx.fill();
+          ctx.strokeStyle = darken(canopyBase, 0.4);
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = canopyGrad;
+          ctx.beginPath();
+          const tipX = mood === 'arcane' ? [16, 27, 5] : mood === 'frost' ? [16, 24, 8] : [16, 26, 6];
+          ctx.moveTo(px + tipX[0], py + 4); ctx.lineTo(px + tipX[1], py + 26); ctx.lineTo(px + tipX[2], py + 26);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = darken(canopyBase, 0.4);
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          if (mood === 'ember') {
+            ctx.fillStyle = 'rgba(255,140,60,0.75)';
+            ctx.beginPath(); ctx.arc(px + 16, py + 19, 1.6, 0, Math.PI * 2); ctx.fill();
+          }
         }
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
         ctx.beginPath();
         ctx.moveTo(px + 16, py + 6); ctx.lineTo(px + 20, py + 19); ctx.lineTo(px + 12, py + 19);
         ctx.closePath();
         ctx.fill();
       } else if (tile === TILE.TOWN) {
-        ctx.fillStyle = '#e8d9a8';
-        ctx.fillRect(px + 8, py + 14, 16, 14);
+        const { cx, cy } = drawBadge(ctx, px, py, '#b08a3e');
+        ctx.fillStyle = '#fff6df';
+        ctx.fillRect(cx - 7, cy - 2, 14, 10);
         ctx.fillStyle = '#7a3b2e';
         ctx.beginPath();
-        ctx.moveTo(px + 6, py + 14);
-        ctx.lineTo(px + 16, py + 5);
-        ctx.lineTo(px + 26, py + 14);
+        ctx.moveTo(cx - 9, cy - 2); ctx.lineTo(cx, cy - 11); ctx.lineTo(cx + 9, cy - 2);
         ctx.closePath();
         ctx.fill();
+        ctx.fillStyle = darken('#7a3b2e', 0.3);
+        ctx.fillRect(cx - 2, cy + 2, 4, 6);
       } else if (tile === TILE.BOSS) {
         // Farmable — the boss stays on its tile forever, defeated or not.
         // Fallback marker in case the boss portrait hasn't loaded yet; the
@@ -330,110 +406,80 @@ export function drawMap(ctx, state) {
         // into neighboring tiles isn't painted over below.
         const bossImg = bossImages[map.id];
         if (!(bossImg && bossImg.complete && bossImg.naturalWidth > 0)) {
-          ctx.fillStyle = '#5a1f3a';
-          ctx.beginPath();
-          ctx.arc(px + 16, py + 16, 10, 0, Math.PI * 2);
-          ctx.fill();
+          drawBadge(ctx, px, py, '#5a1f3a', 10);
         }
       } else if (tile === TILE.PORTAL) {
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath();
-        ctx.arc(px + 16, py + 16, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
-        ctx.stroke();
+        drawPortalGlow(ctx, px, py, true);
       } else if (tile === TILE.NEXT_PORTAL) {
-        if (state.flags[map.bossFlag]) {
-          // open — same glow as any other portal
-          ctx.fillStyle = 'rgba(255,255,255,0.3)';
-          ctx.beginPath();
-          ctx.arc(px + 16, py + 16, 7, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2);
-          ctx.stroke();
-        } else {
-          // sealed — a dim ring with no glow, reads as "not yet"
-          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(px + 16, py + 16, 9, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.fillStyle = 'rgba(255,255,255,0.25)';
-          ctx.fillRect(px + 13, py + 14, 6, 6);
-        }
+        drawPortalGlow(ctx, px, py, !!state.flags[map.bossFlag]);
       } else if (tile === TILE.KNIGHT) {
-        ctx.fillStyle = '#8a8a92';
-        ctx.fillRect(px + 6, py + 10, 20, 18);
-        ctx.strokeStyle = '#d4a840';
+        const { cx, cy } = drawBadge(ctx, px, py, '#5a5a62');
+        ctx.strokeStyle = '#f4d878';
         ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(px + 16, py + 8); ctx.lineTo(px + 16, py + 25);
-        ctx.moveTo(px + 10, py + 14); ctx.lineTo(px + 22, py + 14);
+        ctx.moveTo(cx, cy - 8); ctx.lineTo(cx, cy + 8);
+        ctx.moveTo(cx - 6, cy - 2); ctx.lineTo(cx + 6, cy - 2);
         ctx.stroke();
+        ctx.lineCap = 'butt';
       } else if (tile === TILE.MAGE) {
-        ctx.fillStyle = '#3a2a5a';
-        ctx.fillRect(px + 6, py + 12, 20, 16);
-        ctx.fillStyle = '#7ad4f4';
-        ctx.beginPath();
-        ctx.arc(px + 16, py + 12, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(122,212,244,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px + 16, py + 12, 10, 0, Math.PI * 2);
-        ctx.stroke();
+        const { cx, cy } = drawBadge(ctx, px, py, '#3a2a5a');
+        const orbGrad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, 7);
+        orbGrad.addColorStop(0, '#e0f7ff');
+        orbGrad.addColorStop(1, '#7ad4f4');
+        ctx.fillStyle = orbGrad;
+        ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(122,212,244,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.stroke();
       } else if (tile === TILE.TAMER) {
-        ctx.fillStyle = '#6b4a2e';
-        ctx.fillRect(px + 6, py + 12, 20, 16);
-        ctx.fillStyle = '#e8c890';
-        ctx.beginPath(); ctx.arc(px + 16, py + 17, 4, 0, Math.PI * 2); ctx.fill(); // paw pad
-        ctx.beginPath(); ctx.arc(px + 12, py + 12, 2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(px + 16, py + 10, 2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(px + 20, py + 12, 2, 0, Math.PI * 2); ctx.fill();
+        const { cx, cy } = drawBadge(ctx, px, py, '#6b4a2e');
+        ctx.fillStyle = '#f4e2c0';
+        ctx.beginPath(); ctx.ellipse(cx, cy + 3, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); // paw pad
+        ctx.beginPath(); ctx.arc(cx - 4, cy - 3, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy - 5, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 4, cy - 3, 2.2, 0, Math.PI * 2); ctx.fill();
       } else if (tile === TILE.ARENA) {
-        ctx.fillStyle = '#7a3b2e';
-        ctx.beginPath(); ctx.arc(px + 16, py + 17, 10, 0, Math.PI * 2); ctx.fill(); // colosseum ring
-        ctx.fillStyle = '#e8d9a8';
-        ctx.beginPath(); ctx.arc(px + 16, py + 17, 6, 0, Math.PI * 2); ctx.fill();
+        const { cx, cy } = drawBadge(ctx, px, py, '#7a3b2e');
+        ctx.fillStyle = '#f4e2c0';
+        ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#c94040'; // crossed swords
         ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(px + 11, py + 12); ctx.lineTo(px + 21, py + 22);
-        ctx.moveTo(px + 21, py + 12); ctx.lineTo(px + 11, py + 22);
+        ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx + 5, cy + 5);
+        ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx - 5, cy + 5);
         ctx.stroke();
+        ctx.lineCap = 'butt';
       } else if (tile === TILE.BOSSRUSH) {
         // a row of small skull markers — "many bosses, one gate"
+        const { cx, cy } = drawBadge(ctx, px, py, '#3a1424');
+        ctx.fillStyle = '#f4e2c0';
+        ctx.beginPath(); ctx.arc(cx - 5, cy + 2, 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy - 2, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 5, cy + 2, 3.2, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#3a1424';
-        ctx.beginPath(); ctx.arc(px + 10, py + 18, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(px + 16, py + 14, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(px + 22, py + 18, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#e8d9a8';
-        ctx.fillRect(px + 14, py + 12, 1.5, 1.5);
-        ctx.fillRect(px + 17.5, py + 12, 1.5, 1.5);
+        ctx.beginPath(); ctx.arc(cx - 1.5, cy - 2, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 1.5, cy - 2, 1, 0, Math.PI * 2); ctx.fill();
       } else if (tile === TILE.IDENTIFIER) {
         // a magnifying glass — Deckard Cain identifies unidentified gear
+        const { cx, cy } = drawBadge(ctx, px, py, '#3a4a5a');
         ctx.strokeStyle = '#c8d4e0';
         ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.arc(px + 14, py + 13, 6, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(px + 18.5, py + 17.5);
-        ctx.lineTo(px + 23, py + 22);
-        ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(cx - 2, cy - 2, 5, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + 2, cy + 2); ctx.lineTo(cx + 6, cy + 6); ctx.stroke();
+        ctx.lineCap = 'butt';
       } else if (tile === TILE.RIVAL) {
         // a two-tone diamond split down the middle — "you vs the rival"
+        const { cx, cy } = drawBadge(ctx, px, py, '#4a3a5a');
         ctx.fillStyle = '#c94040';
         ctx.beginPath();
-        ctx.moveTo(px + 16, py + 8); ctx.lineTo(px + 16, py + 24); ctx.lineTo(px + 8, py + 16);
+        ctx.moveTo(cx, cy - 7); ctx.lineTo(cx, cy + 7); ctx.lineTo(cx - 7, cy);
         ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#4a5a8a';
         ctx.beginPath();
-        ctx.moveTo(px + 16, py + 8); ctx.lineTo(px + 16, py + 24); ctx.lineTo(px + 24, py + 16);
+        ctx.moveTo(cx, cy - 7); ctx.lineTo(cx, cy + 7); ctx.lineTo(cx + 7, cy);
         ctx.closePath(); ctx.fill();
       }
     }
